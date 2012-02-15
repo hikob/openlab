@@ -1,0 +1,40 @@
+#
+# This file is part of HiKoB Openlab. 
+# 
+# HiKoB Openlab is free software: you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public License
+# as published by the Free Software Foundation, version 3.
+# 
+# HiKoB Openlab is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with HiKoB Openlab. If not, see
+# <http://www.gnu.org/licenses/>.
+#
+# Copyright (C) 2011 HiKoB.
+#
+
+# Add the drivers directory
+add_subdirectory(drivers)
+
+# Add the printf directory
+add_subdirectory(printf)
+
+# Add the rtos directory
+add_subdirectory(os)
+
+# Add the l3g4200d directory
+add_subdirectory(l3g4200d)
+
+# Add the lsm303dlhc directory
+add_subdirectory(lsm303dlhc)
+
+# Add the rf2xx directory
+add_subdirectory(rf2xx)
+
+# Add the phy directory
+add_subdirectory(phy)
+

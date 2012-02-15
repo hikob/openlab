@@ -1,0 +1,11 @@
+This directory includes the FreeRTOS source code for version 7.0.1
+
+Original source code, information about the FreeRTOS project 
+and documentation can be found here:
+
+  FreeRTOS      : http://www.freertos.org/
+  Documentation : http://www.freertos.org/a00106.html
+  Source code   : http://www.freertos.org/a00104.html
+
+The FreeRTOS distribution license can be found in 
+    freertos/License/license.txt

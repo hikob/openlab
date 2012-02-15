@@ -4,7 +4,7 @@ HiKoB Openlab git repository
   open source community applications for HiKoB wireless sensor
   devices http://openlab.hikob.com/.
 
-  Software available in this repository are geared toward three
+  The software available in this repository is geared toward three
   main directions:
     - research and application prototyping
     - education and wireless embedded system
@@ -15,4 +15,4 @@ HiKoB Openlab git repository
   Git pull requests can be asked for by using the github interface
   available on https://github.com
 
-The HiKoB team 
+The HiKoB team (github@hikob.com)
