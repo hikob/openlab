@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -27,8 +27,21 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "rcc.h"
 #include "flash.h"
 #include "flash_registers.h"
+#include "printf.h"
+
+enum
+{
+    RDPRT = 0x00A5,
+    KEY1  = 0x45670123,
+    KEY2  = 0xCDEF89AB
+};
+
+/* Handy Functions */
+static void unlock_program_memory();
+static void lock_program_memory();
 
 void flash_set_wait_cycle(flash_wait_cycle_t cycles)
 {
@@ -41,8 +54,151 @@ void flash_set_wait_cycle(flash_wait_cycle_t cycles)
     *flash_get_ACR() = acr;
 
     // Wait for the prefetch buffer to be enabled
-    while(!((*flash_get_ACR()) & FLASH_ACR__PRFTBS))
+    while (!((*flash_get_ACR()) & FLASH_ACR__PRFTBS))
     {
         asm("nop");
     }
+}
+
+flash_status_t flash_erase_memory_page(uint32_t address)
+{
+    bool hsi_enabled = rcc_is_hsi_enabled();
+
+    // Check the address is a page border
+    if (address % FLASH_SIZE_PAGE)
+    {
+        return FLASH_ERR_INVALID_ADDRESS;
+    }
+
+    // Unlock program memory
+    unlock_program_memory();
+
+    // Set the PER bit in FLASH_CR
+    *flash_get_CR() = FLASH_CR__PER;
+
+    // Set FLASH_AR to the selected page address
+    *flash_get_AR() = address;
+
+    // According to PM0075 HSI must be enable when erasing
+    if (!hsi_enabled)
+    {
+        rcc_hsi_enable();
+    }
+
+    // Set the STRT bit in FLASH_CR
+    *flash_get_CR() = FLASH_CR__PER | FLASH_CR__STRT;
+
+    // Wait for BSY to be cleared
+    while (*flash_get_SR() & FLASH_SR__BSY)
+    {
+    }
+
+    // Disable HSI if it was not previously activated
+    if (!hsi_enabled)
+    {
+        rcc_hsi_disable();
+    }
+
+    // Lock program memory
+    lock_program_memory();
+
+    return FLASH_OK;
+}
+
+flash_status_t flash_write_memory_half_word(uint32_t address, uint16_t half_word)
+{
+    bool hsi_enabled = rcc_is_hsi_enabled();
+
+    // Unlock program memory
+    unlock_program_memory();
+
+    // Write FLASH_CR_PG to 1;
+    *flash_get_CR() = FLASH_CR__PG;
+
+    // According to PM0075 HSI must be enable when writing
+    if (!hsi_enabled)
+    {
+        rcc_hsi_enable();
+    }
+
+    // Write the word to the address
+    *mem_get_reg16(address) = half_word;
+
+    // Wait for end of operation
+    while (*flash_get_SR() & FLASH_SR__BSY)
+    {
+    }
+
+    // Disable HSI if it was not previously activated
+    if (!hsi_enabled)
+    {
+        rcc_hsi_disable();
+    }
+
+    // Lock program memory
+    lock_program_memory();
+
+    if (*mem_get_reg16(address) != half_word)
+    {
+        return FLASH_ERR_VALUE_NOT_COPIED;
+    }
+
+    return FLASH_OK;
+}
+
+void flash_copy_upper_to_lower()
+{
+    // TODO: implement this function :)
+    /*    // Disable interrupts
+        asm volatile ("cpsid i");
+
+        // Unlock program memory
+        unlock_program_memory();
+
+        // Clear PECR
+        *flash_get_PECR() = 0;
+
+        // Set the ERASE bit in PECR
+        *flash_get_PECR() |= FLASH_PECR__ERASE;
+
+        // Set the PROG bit in PECR
+        *flash_get_PECR() |= FLASH_PECR__PROG;
+
+        // Wait for BSY to be cleared
+        while (*flash_get_SR() & FLASH_SR__BSY)
+        {
+        }
+
+    #define RAM_CODE_LENGTH ((uint32_t) flash_do_copy_end - (uint32_t) flash_do_copy)
+        uint8_t ram_code[RAM_CODE_LENGTH + 3];
+
+        void (*ram_func)() = (void(*)()) (((uint32_t) ram_code + 3) & ~0x3);
+
+        uint32_t func_i, copy_i;
+        func_i = ((uint32_t) ram_func) & ~0x3;
+        copy_i = ((uint32_t) flash_do_copy) & ~0x3;
+
+        // Copy
+        memcpy((void*) func_i, (void*) copy_i, RAM_CODE_LENGTH);
+
+        // Set pointer
+        ram_func = (void(*)()) (func_i | 0x1);
+
+        // Call
+        ram_func();*/
+}
+
+static void unlock_program_memory()
+{
+    // Unlock FPEC
+    // Write the keys to KEYR
+    *flash_get_KEYR() = KEY1;
+    *flash_get_KEYR() = KEY2;
+}
+
+static void lock_program_memory()
+{
+    // Lock FPEC
+    // Set LOCK bit in FLASH_CR
+    *flash_get_CR() |= FLASH_CR__LOCK;
 }

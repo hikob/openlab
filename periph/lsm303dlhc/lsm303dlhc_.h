@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -27,18 +27,12 @@
 #ifndef LSM303DLHC__H_
 #define LSM303DLHC__H_
 
+#include "lsm303dlhc.h"
 #include "i2c.h"
-
-typedef struct
-{
-    // We need an I2C link
-    i2c_t i2c;
-} _lsm303dlhc_t;
+#include "exti.h"
 
 /* Configuration */
-static inline void lsm303dlhc_config(_lsm303dlhc_t *accmag, i2c_t i2c)
-{
-    accmag->i2c = i2c;
-}
+void lsm303dlhc_config(i2c_t i2c, exti_line_t mag_data_ready_line,
+                       exti_line_t acc_int1_line, exti_line_t acc_int2_line);
 
 #endif /* LSM303DLHC__H_ */

@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -28,7 +28,6 @@
 #define PHY_H_
 
 #include <stdint.h>
-#include "lib/net_timer.h"
 
 typedef void *phy_t;
 
@@ -39,6 +38,7 @@ typedef enum
     PHY_ERR_INVALID_STATE = 0x1,
     PHY_ERR_INVALID_LENGTH = 0x2,
     PHY_ERR_ALREADY_TAKEN = 0x3,
+    PHY_ERR_TOO_LATE = 0x4,
 
     PHY_RX_ERROR = 0x10,
     PHY_RX_LENGTH_ERROR = 0x11,
@@ -74,8 +74,9 @@ typedef enum
     PHY_MAP_CHANNEL_23 = (1 << 23),
     PHY_MAP_CHANNEL_24 = (1 << 24),
     PHY_MAP_CHANNEL_25 = (1 << 25),
+    PHY_MAP_CHANNEL_26 = (1 << 26),
 
-    PHY_MAP_CHANNEL_ALL = 0x3FFF800
+    PHY_MAP_CHANNEL_ALL = 0x7FFF800
 } phy_map_channel_t;
 
 enum

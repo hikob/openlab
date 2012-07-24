@@ -31,37 +31,23 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
 /* FreeRTOS include */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 #include "timers.h"
+#endif
 
 /* Drivers Includes */
 #include "gpio.h"
 #include "uart.h"
+#include "adc.h"
+#include "platform_leds.h"
 
 /* Phy include */
 #include "phy.h"
-
-#if defined(AZURE_LION)
-#include "azure-lion/azurelion.h"
-#elif defined(AZURE_LION_0_2)
-#include "azure-lion-0.2/azurelion.h"
-#elif defined(AGILE_FOX)
-#include "agile-fox/agilefox.h"
-#elif defined(INEMO)
-#include "inemo/inemo.h"
-#elif defined(NATIVE)
-#include "native/native.h"
-#elif defined(WISECOW)
-#include "wise-cow/wisecow.h"
-#elif defined(WISECOW_0_3)
-#include "wise-cow-0.3/wisecow.h"
-#else
-#error "Platform not defined"
-#endif
 
 extern uart_t uart_print;
 extern phy_t phy;
@@ -80,32 +66,6 @@ void platform_init();
  * This method doesn't return
  */
 void platform_run();
-
-enum
-{
-    LED_0 = 0x1,
-    LED_1 = 0x2,
-    LED_2 = 0x4,
-};
-
-/**
- * Turn on some LEDs.
- *
- * \param leds a bitmap selecting the LEDs
- */
-void leds_on(uint8_t leds);
-/**
- * Turn off some LEDs.
- *
- * \param leds a bitmap selecting the LEDs
- */
-void leds_off(uint8_t leds);
-/**
- * Toggle on some LEDs.
- *
- * \param leds a bitmap selecting the LEDs
- */
-void leds_toggle(uint8_t leds);
 
 /**
  * Get the button state.
@@ -127,10 +87,21 @@ void button_set_handler(handler_t handler, handler_arg_t handler_arg);
 void platform_start_freertos_tick(uint16_t frequency, handler_t handler,
                                   handler_arg_t arg);
 
+/** Handler for IDLE listener, should return 1 if CPU should not be halted */
+typedef int32_t (*platform_idle_handler_t)(handler_arg_t arg);
+
+/** Set a handler to be called on each FreeRTOS idle hook */
+void platform_set_idle_handler(platform_idle_handler_t, handler_arg_t);
+
 /**
  * Disable the platform UART, used when in release mode.
  */
 void platform_disable_uart();
+
+/**
+ * Enable the platform USB.
+ */
+void platform_usb_enable();
 
 /**
  * Notify the platform that an underground activity is ongoing, to prevent
@@ -143,5 +114,18 @@ void platform_prevent_low_power();
  * and the platform may enter real low power modes.
  */
 void platform_release_low_power();
+
+typedef enum
+{
+    PLATFORM_RESET_UNKNOWN = 0,
+    PLATFORM_RESET_POR = 1,
+    PLATFORM_RESET_LP = 2,
+    PLATFORM_RESET_WWD = 3,
+    PLATFORM_RESET_IWD = 4,
+    PLATFORM_RESET_SOFT = 5,
+    PLATFORM_RESET_PIN = 6,
+    PLATFORM_RESET_OBL = 7,
+} platform_reset_cause_t;
+extern platform_reset_cause_t platform_reset_cause;
 
 #endif /* PLATFORM_H_ */

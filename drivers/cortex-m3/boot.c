@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -59,7 +59,7 @@ void __attribute__((naked)) reset()
     src = &_etext;
     dst = &_sdata;
 
-    while(dst < &_edata)
+    while (dst < &_edata)
     {
         *dst++ = *src++;
     }
@@ -67,7 +67,7 @@ void __attribute__((naked)) reset()
     // loop over the bss and clear
     dst = &_sbss;
 
-    while(dst < &_ebss)
+    while (dst < &_ebss)
     {
         *dst++ = 0;
     }
@@ -127,17 +127,17 @@ void hardfault_debug(uint32_t *hardfault_args)
     log_printf("*****************************\n");
     log_printf("Looking for Memory Management fault...\n");
 
-    if(cfsr & CM3_SCB_CFSR__IACCVIOL)
+    if (cfsr & CM3_SCB_CFSR__IACCVIOL)
     {
         log_printf("\tInstruction Access Violation\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__DACCVIOL)
+    if (cfsr & CM3_SCB_CFSR__DACCVIOL)
     {
         log_printf("\tData Access Violation\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__MMFARVALID)
+    if (cfsr & CM3_SCB_CFSR__MMFARVALID)
     {
         log_printf("\tFaulty Address: %x\n", *cm3_scb_get_MMFAR());
     }
@@ -147,22 +147,22 @@ void hardfault_debug(uint32_t *hardfault_args)
     log_printf("*****************************\n");
     log_printf("Looking for Bus fault...\n");
 
-    if(cfsr & CM3_SCB_CFSR__IBUSERR)
+    if (cfsr & CM3_SCB_CFSR__IBUSERR)
     {
         log_printf("\tInstruction Bus Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__PRECISERR)
+    if (cfsr & CM3_SCB_CFSR__PRECISERR)
     {
         log_printf("\tPrecise Data Bus Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__IMPRECISERR)
+    if (cfsr & CM3_SCB_CFSR__IMPRECISERR)
     {
         log_printf("\tImprecise Data Bus Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__BFARVALID)
+    if (cfsr & CM3_SCB_CFSR__BFARVALID)
     {
         log_printf("\tFaulty Address: %x\n", *cm3_scb_get_BFAR());
     }
@@ -172,27 +172,27 @@ void hardfault_debug(uint32_t *hardfault_args)
     log_printf("*****************************\n");
     log_printf("Looking for Usage fault...\n");
 
-    if(cfsr & CM3_SCB_CFSR__UNDEFINSTR)
+    if (cfsr & CM3_SCB_CFSR__UNDEFINSTR)
     {
         log_printf("\tUndefined Instruction Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__INVSTATE)
+    if (cfsr & CM3_SCB_CFSR__INVSTATE)
     {
         log_printf("\tInvalid State Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__INVPC)
+    if (cfsr & CM3_SCB_CFSR__INVPC)
     {
         log_printf("\tInvalid PC load Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__UNALIGNED)
+    if (cfsr & CM3_SCB_CFSR__UNALIGNED)
     {
         log_printf("\tUnaligned access Error\n");
     }
 
-    if(cfsr & CM3_SCB_CFSR__DIVBYZERO)
+    if (cfsr & CM3_SCB_CFSR__DIVBYZERO)
     {
         log_printf("\tDivide by Zero Error\n");
     }
@@ -266,8 +266,10 @@ void _exit(int status)
 {
     (void) status;
 
-    while(1)
+    while (1)
+    {
         ;
+    }
 }
 
 int _getpid(void)
@@ -280,7 +282,7 @@ caddr_t _sbrk(int incr)
     static unsigned char *heap;
     unsigned char *prev_heap;
 
-    if(heap == 0)
+    if (heap == 0)
     {
         heap = (unsigned char *) &_end;
     }
@@ -336,7 +338,7 @@ int _write(int file, char *ptr, int len)
     (void) file;
     int i;
 
-    for(i = 0; i < len; i++)
+    for (i = 0; i < len; i++)
     {
         xputc(*ptr++);
     }

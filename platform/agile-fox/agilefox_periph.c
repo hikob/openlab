@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -26,14 +26,18 @@
 
 #include "platform.h"
 #include "agilefox.h"
+
 #include "nvic.h"
 #include "rcc.h"
 #include "afio.h"
 #include "gpio_.h"
 #include "nvic_.h"
+#include "usb_.h"
 #include "rf2xx/rf2xx_.h"
 #include "l3g4200d/l3g4200d_.h"
 #include "lsm303dlhc/lsm303dlhc_.h"
+#include "lps331/lps331_.h"
+
 
 /** Radio initialization procedure */
 static void radio_setup();
@@ -46,28 +50,18 @@ rf2xx_t rf231 = &_rf231;
 /** Gyro initialization procedure */
 static void gyro_setup();
 
-/* Gyro instantiation */
-static _l3g4200d_t _l3g4200d;
-/* Gyro declaration */
-l3g4200d_t l3g4200d = &_l3g4200d;
-
 /** Accelero/magneto initialization procedure */
 static void accmag_setup();
 
-/* Accelero/magneto instantiation */
-static _lsm303dlhc_t _lsm303dlhc;
-/* Accelero/magneto declaration */
-lsm303dlhc_t lsm303dlhc = &_lsm303dlhc;
-
 /** Pressure sensor initialization procedure */
 static void pres_setup();
-
 
 void platform_periph_setup()
 {
     radio_setup();
     gyro_setup();
     accmag_setup();
+    pres_setup();
 }
 
 static void radio_setup()
@@ -102,12 +96,35 @@ static void radio_setup()
 
 static void gyro_setup()
 {
-    l3g4200d_config(l3g4200d, i2c1);
+//    afio_select_exti_pin(EXTI_LINE_Px8, AFIO_PORT_B);
+//    nvic_enable_interrupt_line(NVIC_IRQ_LINE_EXTI9_5);
+    l3g4200d_config(i2c1);
+//    l3g4200d_enable_drdy(EXTI_LINE_Px8);
 }
 
 static void accmag_setup()
 {
-    lsm303dlhc_config(lsm303dlhc, i2c1);
+    afio_select_exti_pin(EXTI_LINE_Px9, AFIO_PORT_A);
+    nvic_enable_interrupt_line(NVIC_IRQ_LINE_EXTI9_5);
+    lsm303dlhc_config(i2c1,
+                      /* Mag DRDY INT*/EXTI_LINE_Px9,
+                      /* Acc INT1 & INT2 (unused now) */
+                      EXTI_LINE_Px9, EXTI_LINE_Px5);
+}
+
+static void pres_setup()
+{
+    lps331_config(i2c1, 0);
+}
+
+void platform_usb_enable()
+{
+    nvic_enable_interrupt_line(NVIC_IRQ_LINE_USB);
+    // agile-fox specific USB Enable code
+    gpio_enable(gpioC);
+    gpio_set_output(gpioC, GPIO_PIN_7);
+    gpio_config_output_type(gpioC, GPIO_PIN_7, GPIO_TYPE_PUSH_PULL);
+    gpio_pin_set(gpioC, GPIO_PIN_7);
 }
 
 

@@ -14,14 +14,14 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
  * exti.c
  *
  *  Created on: Jul 18, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ *      Author:Christophe Braillon <christophe.braillon.at.hikob.com>
  */
 
 #include <stdint.h>
@@ -48,7 +48,7 @@ void exti_set_handler(exti_line_t line, handler_t handler, handler_arg_t arg)
 void exti_enable_interrupt_line(exti_line_t line, exti_trigger_t trigger)
 {
     // Set the trigger(s)
-    if(trigger & EXTI_TRIGGER_RISING)
+    if (trigger & EXTI_TRIGGER_RISING)
     {
         *exti_get_RTSR() |= BV(line);
     }
@@ -57,7 +57,7 @@ void exti_enable_interrupt_line(exti_line_t line, exti_trigger_t trigger)
         *exti_get_RTSR() &= ~BV(line);
     }
 
-    if(trigger & EXTI_TRIGGER_FALLING)
+    if (trigger & EXTI_TRIGGER_FALLING)
     {
         *exti_get_FTSR() |= BV(line);
     }
@@ -89,7 +89,7 @@ inline static void handle_interrupt(exti_line_t line)
     *exti_get_PR() |= BV(line);
 
     // Check Handler
-    if(line_handlers[line])
+    if (line_handlers[line])
     {
         line_handlers[line](line_handler_args[line]);
     }
@@ -128,27 +128,27 @@ void exti4_isr()
 void exti9_5_isr()
 {
     // check if EXTI lines 5 to 9 triggered the interrupt
-    if(*exti_get_PR() & BV(EXTI_LINE_Px5))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px5))
     {
         handle_interrupt(EXTI_LINE_Px5);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px6))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px6))
     {
         handle_interrupt(EXTI_LINE_Px6);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px7))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px7))
     {
         handle_interrupt(EXTI_LINE_Px7);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px8))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px8))
     {
         handle_interrupt(EXTI_LINE_Px8);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px9))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px9))
     {
         handle_interrupt(EXTI_LINE_Px9);
     }
@@ -157,32 +157,32 @@ void exti9_5_isr()
 void exti15_10_isr()
 {
     // check if EXTI lines 10 to 15 triggered the interrupt
-    if(*exti_get_PR() & BV(EXTI_LINE_Px10))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px10))
     {
         handle_interrupt(EXTI_LINE_Px10);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px11))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px11))
     {
         handle_interrupt(EXTI_LINE_Px11);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px12))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px12))
     {
         handle_interrupt(EXTI_LINE_Px12);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px13))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px13))
     {
         handle_interrupt(EXTI_LINE_Px13);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px14))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px14))
     {
         handle_interrupt(EXTI_LINE_Px14);
     }
 
-    if(*exti_get_PR() & BV(EXTI_LINE_Px15))
+    if (*exti_get_PR() & BV(EXTI_LINE_Px15))
     {
         handle_interrupt(EXTI_LINE_Px15);
     }

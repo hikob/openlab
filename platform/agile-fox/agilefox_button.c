@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -26,6 +26,8 @@
  */
 
 #include "platform.h"
+#include "agilefox.h"
+
 #include "gpio_.h"
 #include "afio.h"
 #include "exti.h"
@@ -54,7 +56,7 @@ uint32_t button_state()
 
 void button_set_handler(handler_t handler, handler_arg_t handler_arg)
 {
-    if(handler)
+    if (handler)
     {
         exti_set_handler(BUTTON_EXTI_LINE, handler, handler_arg);
         exti_enable_interrupt_line(BUTTON_EXTI_LINE, EXTI_TRIGGER_FALLING);

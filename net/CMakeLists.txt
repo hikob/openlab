@@ -17,8 +17,6 @@
 # Copyright (C) 2011 HiKoB.
 #
 
-# Add the lib directory
-add_subdirectory(lib)
 
 # Add the Phy directory
 add_subdirectory(phy_rf2xx)

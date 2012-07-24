@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -48,23 +48,32 @@ void uart_enable(uart_t uart, uint32_t baudrate)
     // Enable the Clock for this peripheral
     rcc_apb_enable(_uart->apb_bus, _uart->apb_bit);
 
+    // Clear all registers
+    *uart_get_CR1(_uart) = 0;
+    *uart_get_CR2(_uart) = 0;
+    *uart_get_CR3(_uart) = 0;
+
+    // Read SR and DR to clear the flags
+    (void) *uart_get_SR(_uart);
+    (void) *uart_get_DR(_uart);
+
     /**
      *  If L1 family, use 8 samples, if F1 use 16 samples
      *
      *  To test this, try to write the OVER8 bit, and check if it is written.
      */
-    *uart_get_CR1(_uart) = 0;
     *uart_get_CR1(_uart) = UART_CR1__OVER8;
     uint16_t over8 = (*uart_get_CR1(_uart) & UART_CR1__OVER8);
 
     // Set Baudrate, depending on the PCLKx speed, we're using OVER8=1
     // Hence depending on the bus
     uint16_t baud;
-    baud = (over8 ? 2 : 1) * rcc_sysclk_get_clock_frequency(_uart->apb_bus == 1
-            ? RCC_SYSCLK_CLOCK_PCLK1 : RCC_SYSCLK_CLOCK_PCLK2) / baudrate;
+    baud = (over8 ? 2 : 1) * rcc_sysclk_get_clock_frequency(
+               _uart->apb_bus == 1 ? RCC_SYSCLK_CLOCK_PCLK1
+               : RCC_SYSCLK_CLOCK_PCLK2) / baudrate;
 
     // If OVER8 is set, shift the last 4 bits to the right, clearing new bit3
-    if(over8)
+    if (over8)
     {
         baud = (baud & 0xFFF0) | ((baud >> 1) & 0x7);
     }
@@ -78,11 +87,17 @@ void uart_enable(uart_t uart, uint32_t baudrate)
     // Set 1 stop bit, no CLOCK
     *uart_get_CR2(_uart) = 0;
 
-    // Clear the flags
-    *uart_get_SR(_uart) = 0;
+    // Set no interrupt by default
+    *uart_get_CR2(_uart) = 0;
 
     // Enable the uart interrupt line in the NVIC
     nvic_enable_interrupt_line(_uart->irq_line);
+
+    // Enable the DMA if set
+    if (_uart->dma_channel_tx)
+    {
+        dma_enable(_uart->dma_channel_tx);
+    }
 }
 
 void uart_disable(uart_t uart)
@@ -107,31 +122,48 @@ void uart_set_rx_handler(uart_t uart, uart_handler_t handler, handler_arg_t arg)
     _uart->rx_handler_arg = arg;
 
     // Enable RX interrupt if required
-    if(handler)
+    if (handler)
     {
         *uart_get_CR1(_uart) |= UART_CR1__RXNEIE;
+        *uart_get_CR1(_uart) |= UART_CR3__EIE;
     }
     else
     {
         *uart_get_CR1(_uart) &= ~UART_CR1__RXNEIE;
     }
+
+    // Read SR and DR to clear all the flags
+    (void) *uart_get_SR(_uart);
+    (void) *uart_get_DR(_uart);
 }
 
+void uart_set_irq_priority(uart_t uart, uint8_t priority)
+{
+    _uart_t *_uart = uart;
+
+    // Set the priority in the NVIC
+    nvic_set_priority(_uart->irq_line, priority);
+}
 void uart_transfer(uart_t uart, const uint8_t *tx_buffer, uint16_t length)
 {
     _uart_t *_uart = uart;
 
     uint32_t i;
 
-    for(i = 0; i < length; i++)
+    for (i = 0; i < length; i++)
     {
-        // Write data to the DR register
-        *uart_get_DR(_uart) = tx_buffer[i];
-
-        // Wait for TX to end
-        while(!(*uart_get_SR(_uart) & UART_SR__TXE))
+        // Wait for TX data register to be ready
+        while (!(*uart_get_SR(_uart) & UART_SR__TXE))
         {
         }
+
+        // Write data to the DR register
+        *uart_get_DR(_uart) = tx_buffer[i];
+    }
+
+    // Wait for transmission to complete
+    while (!(*uart_get_SR(_uart) & UART_SR__TC))
+    {
     }
 
 }
@@ -145,8 +177,16 @@ void uart_transfer_async(uart_t uart, const uint8_t *tx_buffer,
     _uart->tx_handler = handler;
     _uart->tx_handler_arg = handler_arg;
 
+    // Notify of ongoing underground transfer
+    platform_prevent_low_power();
+
+    // Wait for TX data register to be ready
+    while (!(*uart_get_SR(_uart) & UART_SR__TXE))
+    {
+    }
+
     // Check if DMA is enabled
-    if(_uart->dma_channel_tx)
+    if (_uart->dma_channel_tx)
     {
         // Yes, Send with DMA
         tx_dma(_uart, tx_buffer, length);
@@ -157,8 +197,6 @@ void uart_transfer_async(uart_t uart, const uint8_t *tx_buffer,
         tx_interrupt(_uart, tx_buffer, length);
     }
 
-    // Notify of ongoing underground transfer
-    platform_prevent_low_power();
 }
 
 static inline void tx_dma(_uart_t *_uart, const uint8_t *tx_buffer,
@@ -204,7 +242,7 @@ static void tx_done(_uart_t *_uart)
     platform_release_low_power();
 
     // Call handler if any
-    if(_uart->tx_handler)
+    if (_uart->tx_handler)
     {
         _uart->tx_handler(_uart->tx_handler_arg);
     }
@@ -214,40 +252,49 @@ void uart_handle_interrupt(_uart_t *_uart)
     uint32_t sr = *uart_get_SR(_uart);
 
     // Check if RX interrupt happened and was enabled
-    if((sr & UART_SR__RXNE) && (*uart_get_CR1(_uart) & UART_CR1__RXNEIE))
+    if (sr & UART_SR__RXNE)
     {
         // Read the received char
         uint8_t c = *uart_get_DR(_uart);
 
         // Check if handler
-        if(_uart->rx_handler)
+        if (_uart->rx_handler)
         {
             // Call the handler
             _uart->rx_handler(_uart->rx_handler_arg, c);
         }
     }
+    else
 
-    // Check if TX interrupt happened and was enabled
-    if((sr & UART_SR__TXE) && (*uart_get_CR1(_uart) & UART_CR1__TXEIE))
-    {
-        // Check if there are some more bytes to send
-        if(_uart->isr_count)
+        // Check for error
+        if (sr & (UART_SR__ORE | UART_SR__NF | UART_SR__FE | UART_SR__PE))
         {
-            // Yes, send next byte
-            *uart_get_DR(_uart) = *_uart->isr_tx;
-            // Increment pointer
-            _uart->isr_tx++;
-            // Decrement count
-            _uart->isr_count--;
+            // Make sure to read DR to clear the flags
+            (void) *uart_get_DR(_uart);
         }
         else
-        {
-            // No everything is sent, disable interrupt.
-            *uart_get_CR1(_uart) &= ~(UART_CR1__TXEIE);
 
-            // Call handler
-            tx_done(_uart);
-        }
+            // Check if TX interrupt happened and was enabled
+            if ((sr & UART_SR__TXE) && (*uart_get_CR1(_uart) & UART_CR1__TXEIE))
+            {
+                // Check if there are some more bytes to send
+                if (_uart->isr_count)
+                {
+                    // Yes, send next byte
+                    *uart_get_DR(_uart) = *_uart->isr_tx;
 
-    }
+                    // Increment pointer
+                    _uart->isr_tx++;
+                    // Decrement count
+                    _uart->isr_count--;
+                }
+                else
+                {
+                    // No everything is sent, disable interrupt.
+                    *uart_get_CR1(_uart) &= ~(UART_CR1__TXEIE);
+
+                    // Call handler
+                    tx_done(_uart);
+                }
+            }
 }

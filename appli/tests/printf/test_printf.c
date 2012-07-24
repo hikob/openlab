@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -49,7 +49,7 @@ int main()
         -1254.14,
         0.25,
         3.14159265358979,
-        2.0 *(1 << 30),
+        2.0 * (1 << 30),
         1.0 / (1 << 20),
         1.23456789e-10,
         9.9999e37,
@@ -98,7 +98,7 @@ int main()
 
     printf("sizeof(float) = %d    sizeof(double) = %d\r\n", (int)sizeof(float), (int)sizeof(double));
 
-    for(mi = 0; mi < sizeof(f) / sizeof(f[0]); mi++)
+    for (mi = 0; mi < sizeof(f) / sizeof(f[0]); mi++)
     {
         printf("(uint32_t)0x%08X = (float)%f\r\n", *((uint32_t *)(&f[mi])), f[mi]);
     }

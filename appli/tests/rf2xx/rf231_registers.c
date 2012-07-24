@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -31,6 +31,8 @@
 
 #include "rf2xx.h"
 #include "rf2xx/rf2xx_regs.h"
+
+extern rf2xx_t rf231;
 
 int main()
 {
@@ -59,11 +61,11 @@ int main()
     version_num = rf2xx_reg_read(rf231, RF2XX_REG__VERSION_NUM);
     printf("%x\n", version_num);
 
-    while(1)
+    while (1)
     {
         int i;
 
-        for(i = 0; i < 0x10000; i++)
+        for (i = 0; i < 0x10000; i++)
         {
             __asm__("nop");
         }

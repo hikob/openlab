@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -46,11 +46,11 @@ int main()
     // Enable the SysTick, 100Hz
     nvic_enable_systick(100, alarm, 0);
 
-    while(1)
+    while (1)
     {
         int i;
 
-        for(i = 0; i < 0x80000; i++)
+        for (i = 0; i < 0x80000; i++)
         {
             __asm__("nop");
         }
@@ -67,7 +67,7 @@ void alarm(handler_arg_t arg)
     // arg is not used
     (void) arg;
 
-    if(cpt++ == 100)
+    if (cpt++ == 100)
     {
         cpt = 0;
         leds_toggle(LED_0);

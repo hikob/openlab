@@ -21,13 +21,8 @@
 add_executable(test_leds leds)
 target_link_libraries(test_leds platform)
 
-if("${DRIVERS}" STREQUAL "stm32l1xx" OR "${DRIVERS}" STREQUAL "stm32f1xx")
 add_executable(test_uart uart)
 target_link_libraries(test_uart platform)
-
-add_executable(test_timer timer)
-target_link_libraries(test_timer platform)
-endif("${DRIVERS}" STREQUAL "stm32l1xx" OR "${DRIVERS}" STREQUAL "stm32f1xx")
 
 if(${PLATFORM_HAS_BUTTON})
     add_executable(test_buttons buttons)
@@ -37,15 +32,11 @@ endif(${PLATFORM_HAS_BUTTON})
 if(${PLATFORM_HAS_SYSTICK})
 	add_executable(test_systick systick)
 	target_link_libraries(test_systick platform)
-
-	add_executable(test_usb_cdc_acm usb_cdc_acm)
-	target_link_libraries(test_usb_cdc_acm platform)
-	
-	add_executable(test_usb_hid usb_hid)
-	target_link_libraries(test_usb_hid platform)
 endif(${PLATFORM_HAS_SYSTICK})
 
 if(${PLATFORM_HAS_SD})
 	add_executable(test_sdio sdio)
 	target_link_libraries(test_sdio platform)
 endif(${PLATFORM_HAS_SD})
+
+

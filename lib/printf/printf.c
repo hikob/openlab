@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -52,15 +52,15 @@ static void prints(char_writer_t out, const char *string, uint16_t width, bool p
     const char *ptr;
 
     // Substract string length to width
-    if(width > 0)
+    if (width > 0)
     {
         ptr = string;
 
-        while(*ptr)
+        while (*ptr)
         {
             ptr++;
 
-            if(width > 0)
+            if (width > 0)
             {
                 width--;
             }
@@ -68,14 +68,14 @@ static void prints(char_writer_t out, const char *string, uint16_t width, bool p
     }
 
     // Pad if necessary
-    while(width > 0)
+    while (width > 0)
     {
         out(pad_zero ? '0' : ' ');
         width--;
     }
 
     // Write the string
-    while(*string)
+    while (*string)
     {
         out(*string);
         string++;
@@ -89,13 +89,13 @@ static void printi(char_writer_t out, uint32_t i, uint8_t b, bool sg, uint16_t w
     char *s;
     int t;
 
-    if(i == 0)
+    if (i == 0)
     {
         prints(out, "0", width, pad_zero);
     }
     else
     {
-        if(sg && ((int32_t)i) < 0)
+        if (sg && ((int32_t)i) < 0)
         {
             i = -i;
         }
@@ -108,7 +108,7 @@ static void printi(char_writer_t out, uint32_t i, uint8_t b, bool sg, uint16_t w
         *s = '\0';
 
         // Do a conversion and start filling the print buffer by the end
-        while(i)
+        while (i)
         {
             t = i % b;
             i /= b;
@@ -118,9 +118,9 @@ static void printi(char_writer_t out, uint32_t i, uint8_t b, bool sg, uint16_t w
         }
 
         // Print the sign if needed
-        if(sg)
+        if (sg)
         {
-            if(width && pad_zero)
+            if (width && pad_zero)
             {
                 out('-');
                 width--;
@@ -148,25 +148,25 @@ typedef uint32_t uint160_t[5];
  */
 static void shift(uint32_t n, uint16_t i, uint160_t r)
 {
-    if(i < 32)
+    if (i < 32)
     {
         r[0] = n << i;
         r[1] = n >> (32 - i);
         r[2] = r[3] = r[4] = 0;
     }
-    else if(i < 64)
+    else if (i < 64)
     {
         r[0] = r[3] = r[4] = 0;
         r[1] = n << (i - 32);
         r[2] = n >> (64 - i);
     }
-    else if(i < 96)
+    else if (i < 96)
     {
         r[0] = r[1] = r[4] = 0;
         r[2] = n << (i - 64);
         r[3] = n >> (96 - i);
     }
-    else if(i < 128)
+    else if (i < 128)
     {
         r[0] = r[1] = r[2] = 0;
         r[3] = n << (i - 96);
@@ -188,7 +188,7 @@ static inline void mul2(uint160_t r)
 {
     int16_t i, c = 0, t;
 
-    for(i = 0; i < 5; i++)
+    for (i = 0; i < 5; i++)
     {
         /* See if the last bit of the i-th cluster if bits is 1
          * If it is one, there is a carry to save for the next cluster
@@ -210,9 +210,9 @@ static inline void mul10(uint160_t r)
 {
     int16_t i, c = 0, t;
 
-    for(i = 0; i < 5; i++)
+    for (i = 0; i < 5; i++)
     {
-        if(r[i] > 0xFFFFFFFF / 10)
+        if (r[i] > 0xFFFFFFFF / 10)
         {
             t = ((r[i] >> 4) * 10) >> 28;
         }
@@ -235,13 +235,13 @@ static inline int16_t cmp(uint160_t r, uint160_t s)
 {
     int16_t i;
 
-    for(i = 4; i >= 0; i--)
+    for (i = 4; i >= 0; i--)
     {
-        if(r[i] > s[i])
+        if (r[i] > s[i])
         {
             return 1;
         }
-        else if(r[i] < s[i])
+        else if (r[i] < s[i])
         {
             return -1;
         }
@@ -254,9 +254,9 @@ static inline void sub(uint160_t r, uint160_t s)
 {
     int16_t i, c = 0;
 
-    for(i = 0; i < 5; i++)
+    for (i = 0; i < 5; i++)
     {
-        if((r[i] >= c) && ((r[i] - c) >= s[i]))
+        if ((r[i] >= c) && ((r[i] - c) >= s[i]))
         {
             r[i] -= s[i] + c;
             c = 0;
@@ -271,9 +271,9 @@ static inline void sub(uint160_t r, uint160_t s)
 
 static inline void euclid10(uint160_t r, uint160_t s, char *u)
 {
-    for(*u = 0; *u < 10; (*u)++)
+    for (*u = 0; *u < 10; (*u)++)
     {
-        if(cmp(r, s) >= 0)
+        if (cmp(r, s) >= 0)
         {
             sub(r, s);
         }
@@ -296,7 +296,7 @@ static inline void copy(uint160_t src, uint160_t dst)
 {
     uint32_t i;
 
-    for(i = 0; i < 5; i++)
+    for (i = 0; i < 5; i++)
     {
         dst[i] = src[i];
     }
@@ -319,7 +319,7 @@ static inline int16_t cond2(uint160_t r, uint160_t s, uint160_t mp)
     // 2 * r + mp >= 2 * s
     uint160_t t;
 
-    if(cmp(r, s) >= 0)
+    if (cmp(r, s) >= 0)
     {
         // r >= s => 2 * r + mp >= 2 * s as mp >= 0
         return 1;
@@ -394,7 +394,7 @@ int16_t dragon4(uint32_t f, int16_t e, char *buf)
     int16_t expt = 0; /* The exponent to be returned */
     bool low = false, high = false;
 
-    if(e > 0)
+    if (e > 0)
     {
         shift(f, e, r);  // r = f * 2 ^ e
         from32(1, s);    // s = 1
@@ -410,7 +410,7 @@ int16_t dragon4(uint32_t f, int16_t e, char *buf)
     copy(mm, mp);
 
     /*** Compute exponent ***/
-    while(cond1(r, s)) // r < s / 10
+    while (cond1(r, s)) // r < s / 10
     {
         expt--;
         mul10(r);
@@ -418,7 +418,7 @@ int16_t dragon4(uint32_t f, int16_t e, char *buf)
         mul10(mp);
     }
 
-    while(cond2(r, s, mp) >= 0) // 2 * r + mp >= 2 * s
+    while (cond2(r, s, mp) >= 0) // 2 * r + mp >= 2 * s
     {
         mul10(s);
         expt++;
@@ -428,7 +428,7 @@ int16_t dragon4(uint32_t f, int16_t e, char *buf)
     /*** End of exponent computation ***/
 
     // Do a traditional decomposition by successive euclidian divisions
-    while(!low && !high)
+    while (!low && !high)
     {
         mul10(r);
         mul10(mm);
@@ -442,13 +442,13 @@ int16_t dragon4(uint32_t f, int16_t e, char *buf)
     }
 
     // Adjust the last decimal to round more accurately
-    if(high && !low)
+    if (high && !low)
     {
         buf[-1]++;
     }
-    else if((low && high) || (!low && !high))
+    else if ((low && high) || (!low && !high))
     {
-        if(cond4(r, s)) // 2 * r > s
+        if (cond4(r, s)) // 2 * r > s
         {
             buf[-1]++;
         }
@@ -477,11 +477,11 @@ void free_format_exponential(char_writer_t out, uint32_t f, int16_t e)
 
     out(buf[0]);
 
-    if(buf[k] != 0)
+    if (buf[k] != 0)
     {
         out('.');
 
-        while(buf[k] != 0)
+        while (buf[k] != 0)
         {
             out(buf[k]);
             k++;
@@ -489,21 +489,24 @@ void free_format_exponential(char_writer_t out, uint32_t f, int16_t e)
     }
 
     // Print out the exponent if it is not null
-    if(expt != 0)
+    if (expt != 0)
     {
         out('E');
 
         // Print out the exponent sign
-        if(expt < 0)
+        if (expt < 0)
         {
             out('-');
             expt = -expt;
         }
 
         // Print out the exponent absolute value
-        for(k = 10; k <= expt; k *= 10);
+        for (k = 10; k <= expt; k *= 10)
+        {
+            ;
+        }
 
-        while(k > 1)
+        while (k > 1)
         {
             k /= 10;
             out('0' + expt / k);
@@ -519,16 +522,16 @@ static void printfloat(char_writer_t out, float f)
     uint16_t e = (*fi >> 23) & 0xFF;
     uint32_t m = *fi & 0x007FFFFF;
 
-    if(e == 0)
+    if (e == 0)
     {
         // Zero of denormalized numbers
         // Do not handle particular case of denormalized numbers (m != 0)
         out('0');
     }
-    else if(e == 0xFF)
+    else if (e == 0xFF)
     {
         // Infinities or "Not a Number"
-        if(m == 0)
+        if (m == 0)
         {
             prints(out, s ? "-inf" : "inf", 0, 0);
         }
@@ -540,7 +543,7 @@ static void printfloat(char_writer_t out, float f)
     else
     {
         // Print out the sign
-        if(s)
+        if (s)
         {
             out('-');
         }
@@ -557,32 +560,32 @@ static void print(char_writer_t out, const char *format, va_list args)
     char *s;
     char scr[2];
 
-    for(; *format != 0; format++)
+    for (; *format != 0; format++)
     {
-        if(*format == '%')
+        if (*format == '%')
         {
             format++;
             width = 0;
             pad_zero = false;
 
-            if(*format == '\0')
+            if (*format == '\0')
             {
                 break;
             }
 
-            while(*format == '0')
+            while (*format == '0')
             {
                 format++;
                 pad_zero = true;
             }
 
-            while(*format >= '0' && *format <= '9')
+            while (*format >= '0' && *format <= '9')
             {
                 width = 10 * width + *format - '0';
                 format++;
             }
 
-            switch(*format)
+            switch (*format)
             {
                 case 's':
                     s = va_arg(args, char *);
@@ -607,7 +610,7 @@ static void print(char_writer_t out, const char *format, va_list args)
                     printfloat(out, va_arg(args, double));
 #else
                     va_arg(args, double); // ignore this parameter as floats are not handled
-                    prints("(float)", width, pad_zero);
+                    prints(out, "(float)", width, pad_zero);
 #endif
                     continue;
 
@@ -623,7 +626,7 @@ static void print(char_writer_t out, const char *format, va_list args)
         out(*format);
     }
 
-    if(str)
+    if (str)
     {
         out('\0');
     }

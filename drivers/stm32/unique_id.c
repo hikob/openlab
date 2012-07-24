@@ -14,14 +14,14 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
  * unique_id.c
  *
  *  Created on: Sept 20, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>, Antoine Fraboulet <antoine.fraboulet.at.hikob.com>
  */
 
 #include "unique_id.h"

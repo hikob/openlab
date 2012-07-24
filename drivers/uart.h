@@ -14,19 +14,13 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
- */
-
-/*
- * uart.h
- *
- *  Created on: Jul 8, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /**
  * UART driver header file.
  *
+ *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef UART_H_
@@ -72,6 +66,11 @@ void uart_disable(uart_t uart);
  */
 void
 uart_set_rx_handler(uart_t uart, uart_handler_t handler, handler_arg_t arg);
+
+/**
+ * Set the IRQ priority for this UART
+ */
+void uart_set_irq_priority(uart_t uart, uint8_t priority);
 
 /**
  * Transfer a given amount of bytes with a UART driver.

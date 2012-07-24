@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -94,5 +94,12 @@ static inline void timer_init_general(_timer_t *timer, uint32_t base_address,
 }
 
 void timer_handle_interrupt(_timer_t *timer);
+
+#include "timer_registers.h"
+static inline void timer_restart(_timer_t *_timer)
+{
+    // Set the UG bit to generate an update event (reset)
+    *timer_get_EGR(_timer) = TIMER_EGR__UG;
+};
 
 #endif /* TIMER__H_ */

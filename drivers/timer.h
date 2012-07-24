@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -101,7 +101,6 @@ void timer_select_external_clock(timer_t timer, uint16_t prescaler);
  */
 void timer_start(timer_t timer, uint16_t update_value,
                  timer_handler_t update_handler, handler_arg_t update_arg);
-void timer_restart(timer_t timer);
 /**
  * Stop the timer.
  *
@@ -116,6 +115,14 @@ void timer_stop(timer_t timer);
  * \return the timer counter value.
  */
 uint16_t timer_time(timer_t timer);
+
+/**
+ * Adjust the current tick count value;
+ *
+ * \param timer the timer to get the value from;
+ * \param dt the number of ticks to add (may be negative);
+ */
+void timer_tick_update(timer_t timer, int16_t dt);
 
 /**
  * Get the timer frequency, in Hz.
@@ -210,5 +217,13 @@ typedef enum
 void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
                                timer_capture_edge_t signal_edge, timer_handler_t handler,
                                handler_arg_t arg);
+
+/**
+ * Get the update flag of a timer.
+ *
+ * \param timer the timer to try
+ * \return 1 if the update flag is set, 0 if it is not
+ */
+uint32_t timer_get_update_flag(timer_t timer);
 
 #endif /* TIMER_H_ */

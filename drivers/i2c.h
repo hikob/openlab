@@ -14,10 +14,10 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
+/**
  * i2c.h
  *
  *  Created on: Aug 3, 2011

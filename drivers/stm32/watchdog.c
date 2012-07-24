@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -33,18 +33,22 @@ void watchdog_enable(watchdog_divider_t div, uint16_t reload)
     *iwdg_get_KR() = IWDG_KR__ACCESS;
 
     // Wait until PVU bit is cleared to set new prescaler
-    while(*iwdg_get_SR() & IWDG_SR__PVU)
+    while (*iwdg_get_SR() & IWDG_SR__PVU)
+    {
         ;
+    }
 
     // Set new value
     *iwdg_get_PR() = div;
 
     // Wait until RVU bit is cleared to set new reload value
-    while(*iwdg_get_SR() & IWDG_SR__RVU)
+    while (*iwdg_get_SR() & IWDG_SR__RVU)
+    {
         ;
+    }
 
     // Set new value
-    *iwdg_get_RLR() = reload;
+    *iwdg_get_RLR() = (reload > 0xFFF) ? 0xFFF : reload;
 
     // Write protect and start
     *iwdg_get_KR() = IWDG_KR__START;

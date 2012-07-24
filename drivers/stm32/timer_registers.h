@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -54,35 +54,45 @@ static inline volatile uint16_t *timer_get_EGR(_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_EGR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CCMR1(_timer_t *timer)
+static inline volatile uint16_t *timer_get_CCMRx(_timer_t *timer, uint32_t ccmr)
 {
-    return mem_get_reg16(timer->base_address + TIMx_CCMR1_OFFSET);
-}
-static inline volatile uint16_t *timer_get_CCMR2(_timer_t *timer)
-{
-    return mem_get_reg16(timer->base_address + TIMx_CCMR2_OFFSET);
+    if (ccmr == 1)
+    {
+        return mem_get_reg16(timer->base_address + TIMx_CCMR1_OFFSET);
+    }
+    else
+    {
+        return mem_get_reg16(timer->base_address + TIMx_CCMR2_OFFSET);
+    }
 }
 static inline volatile uint16_t *timer_get_CCER(_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CCER_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CNT(_timer_t *timer)
+static inline volatile uint32_t *timer_get_CNT(_timer_t *timer)
 {
-    return mem_get_reg16(timer->base_address + TIMx_CNT_OFFSET);
+    return mem_get_reg32(timer->base_address + TIMx_CNT_OFFSET);
 }
 static inline volatile uint16_t *timer_get_PSC(_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_PSC_OFFSET);
 }
-static inline volatile uint16_t *timer_get_ARR(_timer_t *timer)
+static inline volatile uint32_t *timer_get_ARR(_timer_t *timer)
 {
-    return mem_get_reg16(timer->base_address + TIMx_ARR_OFFSET);
+    return mem_get_reg32(timer->base_address + TIMx_ARR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CCRx(_timer_t *timer,
-        uint8_t channel)
+static inline volatile uint32_t *timer_get_CCRx(_timer_t *timer,
+        uint32_t channel)
 {
-    return mem_get_reg16(timer->base_address + TIMx_CCR1_OFFSET + (4 * channel));
+    return mem_get_reg32(timer->base_address + TIMx_CCR1_OFFSET + (4 * channel));
 }
+#if defined(TIMx_BDTR_OFFSET)
+static inline volatile uint32_t *timer_get_BDTR(_timer_t *timer)
+{
+    return mem_get_reg32(timer->base_address + TIMx_BDTR_OFFSET);
+}
+#endif
+
 // Bit descriptions
 enum
 {
@@ -187,6 +197,11 @@ enum
     TIMER_EGR__CC3G = 0x08,
     TIMER_EGR__CC4G = 0x10,
     TIMER_EGR__TG = 0x40,
+};
+
+enum
+{
+    TIMER_BDTR__MOE = 0x8000
 };
 
 #endif /* TIMER_REGISTERS_H_ */

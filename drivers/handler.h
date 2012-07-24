@@ -14,19 +14,15 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * handler.h
+/**
+ * A header class defining the handler function type and handler function
+ * argument type;
  *
  *  Created on: Jul 8, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
- */
-
-/*
- * A header class defining the handler function type and handler function
- * argument type;
  */
 
 #ifndef HANDLER_H_
@@ -34,12 +30,12 @@
 
 #include <stddef.h>
 
-/*
+/**
  * A handler argument is in fact an abstract pointer.
  */
 typedef void *handler_arg_t;
 
-/*
+/**
  * A handler function is a function taking a handler argument in
  * parameter and returning void.
  */

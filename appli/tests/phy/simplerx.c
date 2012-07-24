@@ -14,13 +14,13 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
- * blink.c
+ * simplerx.c
  *
- *  Created on: Jul 15, 2011
+ *  Created on: Jul 5, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
@@ -29,6 +29,7 @@
 #include "printf.h"
 
 #include "phy.h"
+#include "soft_timer.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -48,7 +49,7 @@ int main()
 
     // Create a test task
     xTaskCreate(test_task, (const signed char * const)"test",
-                4 * configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 
     // Create a semaphore and take it
     vSemaphoreCreateBinary(rx_sem);
@@ -74,7 +75,7 @@ void test_task(void *arg)
     // Go to sleep
     phy_sleep(phy);
 
-    while(1)
+    while (1)
     {
         // Enter RX now
         pkt.data = pkt.raw_data;
@@ -82,7 +83,7 @@ void test_task(void *arg)
         phy_rx(phy, 0, 0, &pkt, rx_done);
 
         // Take the semaphore, to wait until taken
-        while(xSemaphoreTake(rx_sem, configTICK_RATE_HZ) != pdTRUE)
+        while (xSemaphoreTake(rx_sem, configTICK_RATE_HZ) != pdTRUE)
         {
             leds_toggle(LED_0);
         }
@@ -90,7 +91,7 @@ void test_task(void *arg)
         // Go to sleep
         phy_sleep(phy);
 
-        if(pkt.length > 0)
+        if (pkt.length > 0)
         {
             leds_toggle(LED_1);
             printf("Packet Received !!\n");
@@ -112,7 +113,7 @@ void test_task(void *arg)
 static void rx_done(phy_status_t status)
 {
     // Check status
-    switch(status)
+    switch (status)
     {
         case PHY_RX_TIMEOUT_ERROR:
             printf("PHY RX timeout\n");

@@ -14,7 +14,7 @@
 # License along with HiKoB Openlab. If not, see
 # <http://www.gnu.org/licenses/>.
 #
-# Copyright (C) 2011 HiKoB.
+# Copyright (C) 2011,2012 HiKoB.
 #
 
 # Add the drivers directory
@@ -37,4 +37,27 @@ add_subdirectory(rf2xx)
 
 # Add the phy directory
 add_subdirectory(phy)
+
+# Add the softtim directory
+add_subdirectory(softtim)
+
+# Add the usb directory
+add_subdirectory(usb)
+
+# Add the lps331 directory
+add_subdirectory(lps331)
+
+# Add the batfb directory
+add_subdirectory(batfb)
+
+# Add the triled directory
+add_subdirectory(triled)
+
+# Add the PCA9685 directory
+add_subdirectory(pca9685)
+
+# Add the pga308 directory
+add_subdirectory(pga308)
+
+
 

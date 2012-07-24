@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -61,6 +61,9 @@ typedef struct
     gpio_t gpio[6];
     gpio_pin_t pin[6];
 
+    gpio_t regu_gpio;
+    gpio_pin_t regu_pin;
+
     // DMA transfer
     dma_t dma_channel;
     handler_t transfer_handler;
@@ -73,15 +76,19 @@ typedef struct
     bool sd_card_locked, sd_app_cmd;
 } _sdio_t;
 
-static inline void sdio_init(_sdio_t *_sdio, gpio_t *gpio, gpio_pin_t *pin, dma_t dma_channel)
+static inline void sdio_init(_sdio_t *_sdio, gpio_t *gpio, gpio_pin_t *pin, gpio_t regu_gpio,
+                             gpio_pin_t regu_pin, dma_t dma_channel)
 {
     uint8_t i;
 
-    for(i = 0; i < 6; i++)
+    for (i = 0; i < 6; i++)
     {
         _sdio->gpio[i] = gpio[i];
         _sdio->pin[i] = pin[i];
     }
+
+    _sdio->regu_gpio = regu_gpio;
+    _sdio->regu_pin = regu_pin;
 
     _sdio->dma_channel = dma_channel;
     _sdio->transfer_handler = NULL;

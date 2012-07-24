@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -29,7 +29,165 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "usb_descriptors.h"
+
+enum
+{
+    USB_DESC_DEVICE                    = 0x01,
+    USB_DESC_CONFIGURATION             = 0x02,
+    USB_DESC_STRING                    = 0x03,
+    USB_DESC_INTERFACE                 = 0x04,
+    USB_DESC_ENDPOINT                  = 0x05,
+    USB_DESC_DEVICE_QUALIFIER          = 0x06,
+    USB_DESC_OTHER_SPEED_CONFIGURATION = 0x07,
+    USB_DESC_INTERFACE_POWER           = 0x08
+};
+
+enum
+{
+    USB_CLASS_CDC                      = 0x02,
+    USB_CLASS_HID                      = 0x03,
+    USB_CLASS_MSC                      = 0x08,
+    USB_CLASS_APP_SPEC                 = 0xfe,
+    USB_CLASS_VENDOR_SPEC              = 0xff
+};
+
+enum
+{
+    USB_SUB_CLASS_CDC_ACM              = 0x02
+};
+
+enum
+{
+    USB_DEV_DESC_SIZE                  = 18,
+    USB_CONF_DESC_SIZE                 = 9,
+    USB_IFACE_DESC_SIZE                = 9,
+    USB_ENDP_DESC_SIZE                 = 7,
+    USB_DEV_QUAL_DESC_SIZE             = 10
+};
+
+enum
+{
+    USB_ENDPOINT0_OUT                  = 0x00,
+    USB_ENDPOINT1_OUT                  = 0x01,
+    USB_ENDPOINT2_OUT                  = 0x02,
+    USB_ENDPOINT3_OUT                  = 0x03,
+    USB_ENDPOINT4_OUT                  = 0x04,
+    USB_ENDPOINT5_OUT                  = 0x05,
+    USB_ENDPOINT6_OUT                  = 0x06,
+    USB_ENDPOINT7_OUT                  = 0x07,
+    USB_ENDPOINT0_IN                   = 0x80,
+    USB_ENDPOINT1_IN                   = 0x81,
+    USB_ENDPOINT2_IN                   = 0x82,
+    USB_ENDPOINT3_IN                   = 0x83,
+    USB_ENDPOINT4_IN                   = 0x84,
+    USB_ENDPOINT5_IN                   = 0x85,
+    USB_ENDPOINT6_IN                   = 0x86,
+    USB_ENDPOINT7_IN                   = 0x87
+};
+
+typedef void (*usb_endpoint_callback_t)(uint8_t, bool, bool);
+
+typedef struct
+{
+    uint8_t  bLength;
+    uint8_t  bDescriptorType;
+    uint8_t  bEndpointAddress;
+    uint8_t  bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t  bInterval;
+
+    // Class specific descriptor
+    const uint8_t  *class_specific;
+    uint8_t  class_specific_len;
+
+    // Endpoint callback
+    usb_endpoint_callback_t endpoint_callback;
+} __attribute__((packed)) usb_endp_desc_t;
+
+typedef struct
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bInterfaceNumber;
+    uint8_t bAlternateSetting;
+    uint8_t bNumEndpoints;
+    uint8_t bInterfaceClass;
+    uint8_t bInterfaceSubClass;
+    uint8_t bInterfaceProtocol;
+    uint8_t iInterface;
+
+    // Class specific descriptor
+    const uint8_t  *class_specific;
+    uint8_t  class_specific_len;
+
+    // Table of endpoint for the given interface
+    const usb_endp_desc_t *endpoint_descriptors;
+} __attribute__((packed)) usb_iface_desc_t;
+
+typedef struct
+{
+    uint8_t  bLength;
+    uint8_t  bDescriptorType;
+    uint16_t wTotalLength;
+    uint8_t  bNumInterfaces;
+    uint8_t  bConfigurationValue;
+    uint8_t  iConfiguration;
+    uint8_t  bmAttributes;
+    uint8_t  bMaxPower;
+
+    // Class specific descriptor
+    const uint8_t *class_specific;
+    uint8_t  class_specific_len;
+
+    // Table of interfaces for the given interface
+    const usb_iface_desc_t *interface_descriptors;
+} __attribute__((packed)) usb_conf_desc_t;
+
+typedef struct
+{
+    uint8_t  bLength;
+    uint8_t  bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t  bDeviceClass;
+    uint8_t  bDeviceSubClass;
+    uint8_t  bDeviceProtocol;
+    uint8_t  bMaxPacketSize0;
+    uint16_t idVendor;
+    uint16_t idProduct;
+    uint16_t bcdDevice;
+    uint8_t  iManufacturer;
+    uint8_t  iProduct;
+    uint8_t  iSerialNumber;
+    uint8_t  bNumConfigurations;
+
+    // Class specific descriptor
+    const uint8_t *class_specific;
+    uint8_t  class_specific_len;
+
+    // Table of configurations for the given device
+    const usb_conf_desc_t *configuration_descriptors;
+} __attribute__((packed)) usb_dev_desc_t;
+
+typedef struct
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    const uint16_t *wData;
+} __attribute__((packed)) usb_string_desc_t;
+
+typedef struct
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize0;
+    uint8_t bNumConfigurations;
+    uint8_t bReserved;
+} __attribute__((packed)) usb_dev_qual_desc_t;
+
 
 typedef enum
 {
@@ -53,10 +211,10 @@ typedef bool (*usb_data_callback_t)(uint8_t endp);
 
 typedef struct
 {
-    const usb_dev_desc_t *device_descriptor;
+    const usb_dev_desc_t      *device_descriptor;
     const usb_dev_qual_desc_t *device_qualifier_descriptor;
-    uint8_t number_of_string_descriptors;
-    const usb_string_desc_t *string_descriptors;
+    const uint8_t             *number_of_string_descriptors;
+    const usb_string_desc_t   *string_descriptors;
 
     usb_device_request_callback_t standard_interface;
     usb_device_request_callback_t standard_endpoint;
@@ -87,23 +245,49 @@ typedef enum
     NO_CHANGE
 } usb_data_token_t;
 
-void usb_init(const usb_profile_t *profile);
 
-void usb_send(uint8_t endp, bool first_time, usb_data_token_t first_token, const uint8_t *buf, uint16_t len);
+/**
+ * USB Driver init 
+ */
 
-void usb_set_next_data_callback(uint8_t endp, usb_data_callback_t cb);
+void     usb_driver_init( const usb_profile_t * );
 
-void usb_read_pma(uint8_t endp, uint8_t *buf, uint16_t len);
+extern const uint8_t           usb_string_desc_size;
+extern const usb_string_desc_t usb_string_desc[];
+
+/**
+ * USB Send and Receive 
+ */
 
 uint16_t usb_get_max_packet_size(uint8_t endp);
 
-void usb_start_stage(uint8_t endp, bool in);
-void usb_send_status(uint8_t endp, bool in);
+void     usb_send(uint8_t endp, bool first_time, usb_data_token_t first_token, const uint8_t *buf, uint16_t len);
+void     usb_send_set_status(uint8_t endp, stat_bits_t stat);
 
-void usb_get_interface(uint16_t *interface, uint16_t *alternate);
-void usb_set_interface(uint16_t  interface, uint16_t  alternate);
+uint16_t usb_recv_get_len(uint8_t endp);
+void     usb_recv(uint8_t endp, uint8_t *buf, uint16_t len);
+void     usb_recv_set_status(uint8_t endp, stat_bits_t stat);
 
-void usb_default_process_class_endpoint(usb_device_request_t *req);
-void usb_default_process_standard_interface(usb_device_request_t *req);
+/**
+ * Internal USB active function and interface
+ */ 
+
+void     usb_set_interface(uint16_t  interface, uint16_t  alternate);
+void     usb_get_interface(uint16_t *interface, uint16_t *alternate);
+
+/**
+ * Default handlers
+ */
+
+void     usb_default_process_class_endpoint(usb_device_request_t *req);
+void     usb_default_process_standard_interface(usb_device_request_t *req);
+
+/**
+ *
+ */
+
+void     usb_set_next_data_callback(uint8_t endp, usb_data_callback_t cb);
+void     usb_start_stage(uint8_t endp, bool in);
+void     usb_send_status(uint8_t endp, bool in);
 
 #endif

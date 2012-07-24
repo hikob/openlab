@@ -20,4 +20,4 @@
 # Create the phy_rf2xx library
 add_library(phy_rf2xx STATIC 
 	phy_rf2xx)
-target_link_libraries(phy_rf2xx net_lib event)
+target_link_libraries(phy_rf2xx softtimer event)

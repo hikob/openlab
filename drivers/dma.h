@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -108,6 +108,21 @@ void dma_config(dma_t dma, uint32_t peripheral_address,
                 dma_size_t transfer_size, dma_direction_t direction,
                 dma_increment_t memory_increment);
 
+/**
+ * Start a DMA transfer, which must have been configured.
+ *
+ * \param dma the DMA to start;
+ * \param done_handler the function to be called when transfer is completed;
+ * \param handler_arg optional argument for the handler;
+ **/
 void dma_start(dma_t dma, handler_t done_handler, handler_arg_t handler_arg);
+
+/**
+ * Cancel a DMA transfer.
+ *
+ * \param dma the DMA to cancel.
+ * \return 1 if the DMA transfer was aborted, 0 if it was already finished.
+ */
+int32_t dma_cancel(dma_t dma);
 
 #endif /* DMA_H_ */

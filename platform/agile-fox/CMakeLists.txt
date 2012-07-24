@@ -31,18 +31,26 @@ add_library(platform STATIC
 	agilefox_drivers
 	agilefox_periph
 	agilefox_lib
-	agilefox_net)
+	agilefox_net
+	agilefox_usb
+	agilefox_freertos
+	)
+
+# Allow for some more cyclic deps in libraries
+set_property(TARGET platform APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
 
 # Link the library to the drivers and peripherals
 target_link_libraries(platform
 	phy_rf2xx
 	rf2xx
 	drivers_stm32f1xx
-	delay
 	freertos
 	random
 	printf
 	lsm303dlhc
 	l3g4200d
-    )
+	softtimer
+	usb
+	lps331
+	)
 

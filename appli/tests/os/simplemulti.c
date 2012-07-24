@@ -14,11 +14,11 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
- * blink.c
+ * simplemulti.c
  *
  *  Created on: Jul 5, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
@@ -50,14 +50,17 @@ int main()
 
     // Create a task to blink
     ret = xTaskCreate(blink_task, (const signed char * const) "blink",
-                      4 * configMINIMAL_STACK_SIZE, NULL, 1, &blink_handle);
+                      configMINIMAL_STACK_SIZE, NULL, 1, &blink_handle);
 
-    switch(ret)
+    switch (ret)
     {
         case errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY:
             printf("Error: Could not allocate required memory\n");
 
-            while(1);
+            while (1)
+            {
+                ;
+            }
 
             return 0;
 
@@ -67,14 +70,17 @@ int main()
 
     // Create a task to print hello world
     xTaskCreate(hello_task, (const signed char * const) "hello",
-                4 * configMINIMAL_STACK_SIZE, NULL, 1, &hello_handle);
+                configMINIMAL_STACK_SIZE, NULL, 1, &hello_handle);
 
-    switch(ret)
+    switch (ret)
     {
         case errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY:
             printf("Error: Could not allocate required memory\n");
 
-            while(1);
+            while (1)
+            {
+                ;
+            }
 
             return 0;
 
@@ -95,16 +101,16 @@ void blink_task(void *arg)
     // arg is not used
     (void) arg;
 
-    while(1)
+    while (1)
     {
         count++;
 
-        if(count % 2 == 0)
+        if (count % 2 == 0)
         {
             leds_toggle(LED_0);
         }
 
-        if(count % 4 == 0)
+        if (count % 4 == 0)
         {
             leds_toggle(LED_1);
         }
@@ -120,7 +126,7 @@ void hello_task(void *arg)
     // arg is not used
     (void) arg;
 
-    while(1)
+    while (1)
     {
         count ++;
         printf("Hello World %u\n", count);

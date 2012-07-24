@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -25,6 +25,7 @@
  */
 
 #include "platform.h"
+#include "agilefox.h"
 
 #include "memmap.h"
 #include "nvic.h"
@@ -38,58 +39,49 @@
 #include "i2c_.h"
 #include "sdio_.h"
 #include "dma_.h"
+#include "usb_.h"
 
 #include "printf.h"
 
 /* GPIO instantiations */
-static _gpio_t _gpioA, _gpioB, _gpioC, _gpioD, _gpioE, _gpioF, _gpioG;
-/* GPIO declarations */
-gpio_t gpioA = &_gpioA, gpioB = &_gpioB, gpioC = &_gpioC, gpioD = &_gpioD,
-       gpioE = &_gpioE, gpioF = &_gpioF, gpioG = &_gpioG;
+_gpio_t _gpioA, _gpioB, _gpioC, _gpioD, _gpioE, _gpioF, _gpioG;
 
-/* Timers instantiations */
-static _timer_t _tim2, _tim3, _tim4;
-static _timer_t _tim6, _tim7;
+_timer_t _tim2, _tim3, _tim4, _tim6, _tim7;
 
 /* Timer channels instantiation */
 static timer_handler_t tim2_handlers[4], tim3_handlers[4], tim4_handlers[4];
 static handler_arg_t tim2_args[4], tim3_args[4], tim4_args[4];
 
-/* Timers declarations */
-timer_t tim2 = &_tim2, tim3 = &_tim3, tim4 = &_tim4;
-timer_t tim6 = &_tim6, tim7 = &_tim7;
-
 /* UART instantiation */
-static _uart_t _uart2;
+_uart_t _uart2;
 /* UART declaration */
 uart_t uart_print = &_uart2;
 
 /* SPI instantiation */
-static _spi_t _spi2;
-/* SPI declaration */
-spi_t spi2 = &_spi2;
+_spi_t _spi2;
 
 /* I2C instantiation */
-static _i2c_t _i2c1;
-/* I2C declaration */
-i2c_t i2c1 = &_i2c1;
+_i2c_t _i2c1;
 
 /* SDIO instantiation */
-static _sdio_t _sdio;
+_sdio_t _sdio;
 /* SDIO declaration */
 sdio_t sdio = &_sdio;
 
 /* DMA instantiation */
 static _dma_t _dma1_ch4, _dma1_ch5;
 static _dma_t _dma2_ch4;
-/* DMA declarations */
-dma_t dma1_ch4 = &_dma1_ch4, dma1_ch5 = &_dma1_ch5;
-dma_t dma2_ch4 = &_dma2_ch4;
 
 void platform_drivers_setup()
 {
-    gpio_t sdio_gpio[6] = {gpioC, gpioC, gpioC, gpioC, gpioC, gpioD};
-    gpio_pin_t sdio_pin[6] = {GPIO_PIN_8, GPIO_PIN_9, GPIO_PIN_10, GPIO_PIN_11, GPIO_PIN_12, GPIO_PIN_2};
+    gpio_t sdio_gpio[6] =
+    { gpioC, gpioC, gpioC, gpioC, gpioC, gpioD };
+    gpio_pin_t
+    sdio_pin[6] =
+    {
+        GPIO_PIN_8, GPIO_PIN_9, GPIO_PIN_10, GPIO_PIN_11, GPIO_PIN_12,
+        GPIO_PIN_2
+    };
 
     // Set base address and AHB bit for all GPIO ports
     gpio_init(gpioA, GPIO_BASE_ADDRESS + GPIOA_OFFSET, RCC_APB_BIT_GPIOA);
@@ -106,6 +98,10 @@ void platform_drivers_setup()
     gpio_enable(gpioE);
     gpio_enable(gpioF);
     gpio_enable(gpioG);
+
+
+    // Enable the AFIO
+    rcc_apb_enable(RCC_APB2, RCC_APB_BIT_AFIO);
 
     // Configure the General Purpose Timers
     timer_init_general(tim2, TIM2_BASE_ADDRESS, RCC_APB_BUS_TIM2,
@@ -139,18 +135,18 @@ void platform_drivers_setup()
     uart_enable(uart_print, 500000);
 
     // Configure DMA1 Channel 4 (SPI2 RX)
-    dma_init(dma1_ch4, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_4,
+    dma_init(&_dma1_ch4, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_4,
              NVIC_IRQ_LINE_DMA1_CH4);
     // Configure DMA1 Channel 5 (SPI2 TX)
-    dma_init(dma1_ch5, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_5,
+    dma_init(&_dma1_ch5, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_5,
              NVIC_IRQ_LINE_DMA1_CH5);
-    dma_enable(dma1_ch4);
-    dma_enable(dma1_ch5);
+    dma_enable(&_dma1_ch4);
+    dma_enable(&_dma1_ch5);
 
-    // Configure the SPI 2 (no DMA)
+    // Configure the SPI 2 with DMA
     spi_init(spi2, SPI2_BASE_ADDRESS, RCC_APB_BUS_SPI2, RCC_APB_BIT_SPI2,
              NVIC_IRQ_LINE_SPI2, gpioB, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14,
-             dma1_ch4, dma1_ch5);
+             &_dma1_ch4, &_dma1_ch5);
     spi_enable(spi2, 4000000, SPI_CLOCK_MODE_IDLE_LOW_RISING);
 
     // Configure the I2C 1
@@ -160,21 +156,28 @@ void platform_drivers_setup()
     i2c_enable(i2c1, I2C_CLOCK_MODE_STANDARD);
 
     // Configure DMA2 Channel 4 (for SDIO)
-    dma_init(dma2_ch4, DMA2_BASE_ADDRESS, RCC_AHB_BIT_DMA2, DMA_CHANNEL_4,
+    dma_init(&_dma2_ch4, DMA2_BASE_ADDRESS, RCC_AHB_BIT_DMA2, DMA_CHANNEL_4,
              NVIC_IRQ_LINE_DMA2_CH4_5);
 
     // Configure SDIO
-    sdio_init(sdio, sdio_gpio, sdio_pin, dma2_ch4);
+    sdio_init(sdio, sdio_gpio, sdio_pin, gpioC, GPIO_PIN_6, &_dma2_ch4);
 
-    // Enable it TODO: place it in enhanced driver
+    // Enable SD card TODO: place it in enhanced driver
     gpio_set_output(gpioB, GPIO_PIN_2);
     gpio_pin_clear(gpioB, GPIO_PIN_2);
-
-    // Enable the USB TODO: place it in enhanced driver
-    gpio_set_output(gpioC, GPIO_PIN_7);
-    gpio_pin_set(gpioC, GPIO_PIN_7);
 }
+void platform_drivers_restart_timers()
+{
+    timer_restart(tim3);
+}
+void platform_disable_uart()
+{
+    // Set pins analog and disable the print UART
+    gpio_set_analog(gpioA, GPIO_PIN_2);
+    gpio_set_analog(gpioA, GPIO_PIN_3);
+    uart_disable(uart_print);
 
+}
 void platform_start_freertos_tick(uint16_t frequency, handler_t handler,
                                   handler_arg_t arg)
 {
@@ -240,10 +243,15 @@ void dma1_channel5_isr()
 
 void dma2_ch4_5_isr()
 {
-    dma_handle_interrupt(dma2_ch4);
+    dma_handle_interrupt(&_dma2_ch4);
 }
 
 void sdio_isr()
 {
     sdio_handle_interrupt(sdio);
+}
+
+void usb_lp_can1_rx0_isr()
+{
+    usb_handle_interrupt();
 }

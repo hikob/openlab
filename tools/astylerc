@@ -16,9 +16,13 @@
 # Padding options
 --break-blocks
 --pad-oper
+--pad-header
 --unpad-paren
 --convert-tabs
 
 # Style
 --align-pointer=name
 --lineend=linux
+
+# Don't keep originals 
+--suffix=none

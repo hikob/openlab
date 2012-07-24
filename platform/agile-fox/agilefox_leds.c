@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -25,6 +25,8 @@
  */
 
 #include "platform.h"
+#include "agilefox.h"
+
 #include "gpio_.h"
 #include "afio.h"
 #include "exti.h"
@@ -47,24 +49,24 @@ void platform_leds_setup()
 
 void leds_off(uint8_t leds)
 {
-    if(leds & LED_0)
+    if (leds & LED_0)
     {
         gpio_pin_set(gpioB, GPIO_PIN_10);
     }
 
-    if(leds & LED_1)
+    if (leds & LED_1)
     {
         gpio_pin_set(gpioB, GPIO_PIN_12);
     }
 }
 void leds_on(uint8_t leds)
 {
-    if(leds & LED_0)
+    if (leds & LED_0)
     {
         gpio_pin_clear(gpioB, GPIO_PIN_10);
     }
 
-    if(leds & LED_1)
+    if (leds & LED_1)
     {
         gpio_pin_clear(gpioB, GPIO_PIN_12);
     }
@@ -72,12 +74,12 @@ void leds_on(uint8_t leds)
 
 void leds_toggle(uint8_t leds)
 {
-    if(leds & LED_0)
+    if (leds & LED_0)
     {
         gpio_pin_toggle(gpioB, GPIO_PIN_10);
     }
 
-    if(leds & LED_1)
+    if (leds & LED_1)
     {
         gpio_pin_toggle(gpioB, GPIO_PIN_12);
     }

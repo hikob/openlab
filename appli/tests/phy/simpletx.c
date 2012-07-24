@@ -14,13 +14,13 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
  * simpletx.c
  *
- *  Created on: Jul 15, 2011
+ *  Created on: Jul 5, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
@@ -30,6 +30,7 @@
 #include "printf.h"
 
 #include "phy.h"
+#include "soft_timer.h"
 
 // Task function
 static void test_task(void *);
@@ -46,7 +47,7 @@ int main()
 
     // Create a test task
     xTaskCreate(test_task, (const signed char * const)"test",
-                4 * configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 
     // Create a semaphore and take it
     vSemaphoreCreateBinary(tx_sem);
@@ -69,7 +70,7 @@ void test_task(void *arg)
 
     uint8_t count = 0;
 
-    while(1)
+    while (1)
     {
         // Prepare packet
         pkt.data = pkt.raw_data;
@@ -85,11 +86,11 @@ void test_task(void *arg)
         // Send in 10ms, no handler
         printf("Sending a Radio Packet, length: %u, data: %s\n", pkt.length,
                pkt.data);
-        uint32_t t = net_timer_time() + NET_TIMER_MS_TO_TICKS(10);
+        uint32_t t = soft_timer_time() + soft_timer_ms_to_ticks(10);
         phy_tx(phy, t, &pkt, tx_done);
 
         // Take the semaphore, to wait until taken
-        while(xSemaphoreTake(tx_sem, configTICK_RATE_HZ) != pdTRUE)
+        while (xSemaphoreTake(tx_sem, configTICK_RATE_HZ) != pdTRUE)
         {
             leds_toggle(LED_1);
         }
@@ -108,7 +109,7 @@ void test_task(void *arg)
 
 static void tx_done(phy_status_t status)
 {
-    if(status == PHY_SUCCESS)
+    if (status == PHY_SUCCESS)
     {
         log_debug("Frame sent at %u, length: %u", pkt.timestamp, pkt.length);
     }

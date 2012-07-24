@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -25,50 +25,61 @@
  */
 
 #include <stdint.h>
+#include <math.h>
 #include "platform.h"
 #include "printf.h"
 
 #include "lsm303dlhc.h"
 
+#include "soft_timer.h"
+
+static void app_task(void *);
+
 int main()
 {
-    int i;
-
     // Initialize the platform
     platform_init();
 
+    // Create a task for the application
+    xTaskCreate(app_task, (const signed char * const) "app",
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+
+    // Run
+    platform_run();
+    return 0;
+}
+
+static void app_task(void *param)
+{
     printf("# Testing LSM303DLHC\n");
 
     printf("# Initializing LSM303DLHC...\n");
-    lsm303dlhc_powerdown(lsm303dlhc);
+    lsm303dlhc_powerdown();
 
-    printf("# Setting LSM303DLHC accelerometer datarate...\n");
-    lsm303dlhc_set_acc_datarate(lsm303dlhc, LSM303DLHC_ACC_400HZ);
+    printf("# Setting LSM303DLHC accelerometer\n");
+    lsm303dlhc_acc_config(LSM303DLHC_ACC_RATE_400HZ, LSM303DLHC_ACC_SCALE_16G);
 
-    printf("# Setting LSM303DLHC accelerometer scale...\n");
-    lsm303dlhc_set_acc_scale(lsm303dlhc, LSM303DLHC_ACC_16G);
+    printf("# Setting LSM303DLHC magnetometer\n");
+    lsm303dlhc_mag_config(LSM303DLHC_MAG_RATE_220HZ,
+                          LSM303DLHC_MAG_SCALE_2_5GAUSS, LSM303DLHC_MAG_MODE_CONTINUOUS,
+                          LSM303DLHC_TEMP_MODE_ON);
 
-    printf("# Setting LSM303DLHC magnetometer datarate...\n");
-    lsm303dlhc_set_mag_datarate(lsm303dlhc, LSM303DLHC_MAG_220HZ);
-
-    printf("# Setting LSM303DLHC magnetometer scale...\n");
-    lsm303dlhc_set_mag_scale(lsm303dlhc, LSM303DLHC_MAG_1_3GAUSS);
-
-    while(1)
+    while (1)
     {
         int16_t a[3], m[3], t;
+        double tilt, tilt_x, tilt_y;
 
-        lsm303dlhc_read_acc(lsm303dlhc, a);
-        lsm303dlhc_read_mag(lsm303dlhc, m);
-        lsm303dlhc_read_temp(lsm303dlhc, &t);
+        lsm303dlhc_read_acc(a);
+        lsm303dlhc_read_mag(m);
+        lsm303dlhc_read_temp(&t);
 
-        printf("%5d\t%5d\t%5d\t%5d\t%5d\t%5d\t%5d\n", a[0], a[1], a[2], m[0], m[1], m[2], t);
+        tilt = 180 * acos(a[2] / sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])) / M_PI;
+        tilt_x = 180 * atan2(a[1], a[2]) / M_PI;
+        tilt_y = 180 * atan2(-a[0], hypot(a[1], a[2])) / M_PI;
 
-        for(i = 0; i < 0x8000; i++)
-        {
-            __asm__("nop");
-        }
+        printf("%5d\t%5d\t%5d\t%5d\t%5d\t%5d\t%5d\t%5d\t%5d\t%5d\n", a[0], a[1], a[2], m[0],
+               m[1], m[2], t, (int16_t)tilt, (int16_t)tilt_x, (int16_t)tilt_y);
+
+        soft_timer_delay_ms(100);
     }
-
-    return 0;
 }

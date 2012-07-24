@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -30,10 +30,7 @@
 #include "phy.h"
 #include "timer.h"
 #include "rf2xx.h"
-#include "lib/net_timer.h"
-
-#include "FreeRTOS.h"
-#include "semphr.h"
+#include "soft_timer.h"
 
 typedef enum
 {
@@ -45,10 +42,7 @@ typedef enum
     PHY_STATE_TX = 5,
 } phy_rf2xx_state_t;
 
-enum
-{
-    PHY_TIMING__TX_OFFSET = NET_TIMER_US_TO_TICKS(16 + 192 + 9)
-};
+#define PHY_TIMING__TX_OFFSET soft_timer_us_to_ticks(16 + 192 + 9)
 
 typedef struct
 {

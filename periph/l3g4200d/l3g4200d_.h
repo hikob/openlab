@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -27,18 +27,12 @@
 #ifndef L3G4200D__H_
 #define L3G4200D__H_
 
+#include "l3g4200d.h"
 #include "i2c.h"
-
-typedef struct
-{
-    // We need an I2C link
-    i2c_t i2c;
-} _l3g4200d_t;
+#include "exti.h"
 
 /* Configuration */
-static inline void l3g4200d_config(_l3g4200d_t *gyro, i2c_t i2c)
-{
-    gyro->i2c = i2c;
-}
+void l3g4200d_config(i2c_t i2c);
+void l3g4200d_enable_drdy(exti_line_t data_ready_line);
 
 #endif /* L3G4200D__H_ */

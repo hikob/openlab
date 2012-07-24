@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -27,30 +27,50 @@
 #ifndef AGILEFOX_H_
 #define AGILEFOX_H_
 
-#include "gpio.h"
-#include "timer.h"
-#include "spi.h"
-#include "i2c.h"
-#include "dma.h"
+#include "gpio_.h"
+#include "timer_.h"
+#include "uart_.h"
+#include "spi_.h"
+#include "uart_.h"
+#include "i2c_.h"
 #include "sdio.h"
 #include "rf2xx.h"
 #include "l3g4200d.h"
 #include "lsm303dlhc.h"
+#include "lps331.h"
 
 /* Drivers */
-extern gpio_t gpioA, gpioB, gpioC, gpioD, gpioE, gpioF, gpioG;
-extern timer_t tim2, tim3, tim4, tim6, tim7;
-extern spi_t spi2;
-extern i2c_t i2c1;
+extern _gpio_t _gpioA, _gpioB, _gpioC, _gpioD, _gpioE, _gpioF, _gpioG;
+extern _timer_t _tim2, _tim3, _tim4, _tim6, _tim7;
+extern _uart_t _uart2;
+extern _spi_t _spi2;
+extern _i2c_t _i2c1;
 extern sdio_t sdio;
-extern dma_t dma2_ch4;
+
+#define gpioA (&_gpioA)
+#define gpioB (&_gpioB)
+#define gpioC (&_gpioC)
+#define gpioD (&_gpioD)
+#define gpioE (&_gpioE)
+#define gpioF (&_gpioF)
+#define gpioG (&_gpioG)
+#define gpioH (&_gpioH)
+
+#define tim2 (&_tim2)
+#define tim3 (&_tim3)
+#define tim4 (&_tim4)
+#define tim6 (&_tim6)
+#define tim7 (&_tim7)
+
+#define uart2 (&_uart2)
+#define spi2 (&_spi2)
+#define i2c1 (&_i2c1)
 
 /* Peripherals */
 extern rf2xx_t rf231;
-extern l3g4200d_t l3g4200d;
-extern lsm303dlhc_t lsm303dlhc;
 
 void platform_drivers_setup();
+void platform_drivers_restart_timers();
 void platform_leds_setup();
 void platform_button_setup();
 void platform_periph_setup();

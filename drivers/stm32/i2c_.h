@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -41,9 +41,6 @@ typedef struct
     rcc_apb_bit_t apb_bit;
     nvic_irq_line_t irq_line_ev, irq_line_er;
 
-    gpio_t gpio;
-    gpio_pin_t pin_sda, pin_scl;
-
     handler_t transfer_handler;
     handler_arg_t transfer_handler_arg;
 } _i2c_t;
@@ -57,9 +54,11 @@ static inline void i2c_init(_i2c_t *_i2c, uint32_t base_address,
     _i2c->apb_bit = apb_bit;
     _i2c->irq_line_ev = irq_line_ev;
     _i2c->irq_line_er = irq_line_er;
-    _i2c->gpio = gpio;
-    _i2c->pin_sda = pin_sda;
-    _i2c->pin_scl = pin_scl;
+
+    // Configure SDA pin
+    gpio_set_i2c_sda(gpio, pin_sda);
+    // Configure SCL pin
+    gpio_set_i2c_scl(gpio, pin_scl);
 }
 
 void i2c_handle_ev_interrupt(_i2c_t *_i2c);

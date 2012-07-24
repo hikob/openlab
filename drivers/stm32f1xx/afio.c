@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -34,7 +34,7 @@ void afio_select_exti_pin(exti_line_t line, afio_port_t port)
     uint32_t reg_offset, bit_offset;
 
     // Check line
-    if(line > EXTI_LINE_Px15)
+    if (line > EXTI_LINE_Px15)
     {
         // Invalid, return
         return;

@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -30,6 +30,7 @@
 #include "i2c_.h"
 #include "i2c_registers.h"
 
+#define LOG_LEVEL LOG_LEVEL_ERROR
 #include "printf.h"
 
 typedef enum
@@ -39,7 +40,8 @@ typedef enum
     I2C_SENDING_ADDRESS = 2,
     I2C_SENDING_DATA = 3,
     I2C_RECEIVING_DATA = 4,
-    I2C_SENDING_RESTART = 5
+    I2C_SENDING_RESTART = 5,
+    I2C_ERROR = 6
 } i2c_state_t;
 
 static void test_ready(_i2c_t *_i2c);
@@ -68,15 +70,6 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode)
     // Enable the clock for this peripheral
     rcc_apb_enable(_i2c->apb_bus, _i2c->apb_bit);
 
-    // Enable the GPIO port
-    gpio_enable(_i2c->gpio);
-
-    // Configure SDA pin
-    gpio_set_i2c_sda(_i2c->gpio, _i2c->pin_sda);
-
-    // Configure SCL pin
-    gpio_set_i2c_scl(_i2c->gpio, _i2c->pin_scl);
-
     // Reset the peripheral
     *i2c_get_CR1(_i2c) = I2C_CR1__SWRST;
 
@@ -91,15 +84,16 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode)
     /* Step 1: program the peripheral input clock in CR2 */
 
     // Compute clock frequency
-    pclk = rcc_sysclk_get_clock_frequency(_i2c->apb_bus == 1
-                                          ? RCC_SYSCLK_CLOCK_PCLK1 : RCC_SYSCLK_CLOCK_PCLK2);
+    pclk = rcc_sysclk_get_clock_frequency(
+               _i2c->apb_bus == 1 ? RCC_SYSCLK_CLOCK_PCLK1
+               : RCC_SYSCLK_CLOCK_PCLK2);
     freq = pclk / 1000000;
 
     *i2c_get_CR2(_i2c) = freq & I2C_CR2__FREQ_MASK;
 
     /* Step 2: configure the clock control registers */
 
-    if(mode == I2C_CLOCK_MODE_FAST)
+    if (mode == I2C_CLOCK_MODE_FAST)
     {
         // Set Fast Speed mode and bitrate: 400kHz with duty t_low/t_high = 16/9
         *i2c_get_CCR(_i2c) = I2C_CCR__FS | I2C_CCR__DUTY | (freq / 10 * 25);
@@ -112,7 +106,7 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode)
 
     /* Step 3: configure the rise time registers */
 
-    if(mode == I2C_CLOCK_MODE_FAST)
+    if (mode == I2C_CLOCK_MODE_FAST)
     {
         // Configure maximum rise time
         *i2c_get_TRISE(_i2c) = (freq * 3 / 10 + 1) & I2C_TRISE__TRISE_MASK;
@@ -144,7 +138,7 @@ void i2c_disable(i2c_t i2c)
 {
     _i2c_t *_i2c = i2c;
 
-    // Diable the clock for this peripheral
+    // Disable the clock for this peripheral
     rcc_apb_disable(_i2c->apb_bus, _i2c->apb_bit);
 
     // Disable the I2C
@@ -179,16 +173,16 @@ uint32_t i2c_tx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
     // Generate START condition to initiate the transfer
     *i2c_get_CR1(_i2c) |= I2C_CR1__START;
 
-    while(state != I2C_IDLE)
-        ;
-
-    // Wait until busy is cleared
-    while(*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    while ((state != I2C_IDLE) && (state != I2C_ERROR))
     {
     }
 
-    // TODO: return a real error code
-    return 0;
+    // Wait until busy is cleared
+    while (*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    {
+    }
+
+    return (state != I2C_IDLE);
 }
 
 uint32_t i2c_rx(i2c_t i2c, uint8_t addr, uint8_t *rx_buffer, uint16_t length)
@@ -215,16 +209,16 @@ uint32_t i2c_rx(i2c_t i2c, uint8_t addr, uint8_t *rx_buffer, uint16_t length)
     // Generate START condition to initiate the transfer
     *i2c_get_CR1(_i2c) |= I2C_CR1__START;
 
-    while(state != I2C_IDLE)
-        ;
-
-    // Wait until busy is cleared
-    while(*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    while ((state != I2C_IDLE) && (state != I2C_ERROR))
     {
     }
 
-    // TODO: return a real error code
-    return 0;
+    // Wait until busy is cleared
+    while (*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    {
+    }
+
+    return (state != I2C_IDLE);
 }
 
 uint32_t i2c_tx_rx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
@@ -255,24 +249,25 @@ uint32_t i2c_tx_rx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
     // Generate START condition to initiate the transfer
     *i2c_get_CR1(_i2c) |= I2C_CR1__START;
 
-    while(state != I2C_IDLE)
-        ;
-
-    // Wait until busy is cleared
-    while(*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    while ((state != I2C_IDLE) && (state != I2C_ERROR))
     {
     }
 
-    // TODO: return a real error code
-    return 0;
+    // Wait until busy is cleared
+    while (*i2c_get_SR2(_i2c) & I2C_SR2__BUSY)
+    {
+    }
+
+    return (state != I2C_IDLE);
 }
 
 void i2c_handle_ev_interrupt(_i2c_t *_i2c)
 {
     uint32_t sr1 = *i2c_get_SR1(_i2c);
-    uint32_t sr2;
+    uint32_t sr2 = 0;
+    (void)sr2; // clear defined but not used warning warning 
 
-    if(sr1 & I2C_SR1__SB)
+    if (sr1 & I2C_SR1__SB)
     {
         // Start bit has been issued.
         // The flag is cleared after reading SR1 (already done at the
@@ -280,13 +275,13 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
 
         // If there there is nothing to send, set the lower bit
         // of address to 1 as we are in receiving mode
-        if(len_send == 0)
+        if (len_send == 0)
         {
             // Send address in order to receive data
             *i2c_get_DR(_i2c) = address | 1;
 
             // In the case of a 2-byte reception we need to set POS bit
-            if(len_recv == 2)
+            if (len_recv == 2)
             {
                 *i2c_get_CR1(_i2c) |= I2C_CR1__POS;
             }
@@ -302,27 +297,27 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
         state = I2C_SENDING_ADDRESS;
     }
 
-    if(sr1 & I2C_SR1__ADDR)
+    if (sr1 & I2C_SR1__ADDR)
     {
         // Address byte has been sent.
         // The flag is cleared after reading both SR1 and SR2
 
         // Send the first byte if any
-        if(len_send > 0)
+        if (len_send > 0)
         {
-            // Clear the flag by reading SR2. This must be done before sendin data
+            // Clear the flag by reading SR2. This must be done before sending data
             sr2 = *i2c_get_SR2(_i2c);
 
             // Send data
             *i2c_get_DR(_i2c) = buf_send[cpt_send];
             cpt_send++;
 
-            if(cpt_send == len_send)
+            if (cpt_send == len_send)
             {
                 // The only byte to send has already been sent so we need to issue
                 // a STOP condition if there is nothing to receive or
                 // a RESTART condition otherwise
-                if(len_recv == 0)
+                if (len_recv == 0)
                 {
                     // There is nothing to receive
                     *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
@@ -352,7 +347,7 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
         }
         else
         {
-            switch(len_recv)
+            switch (len_recv)
             {
                 case 1:
                     // In this case we need to clear ACK bit right now
@@ -384,11 +379,11 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
         }
     }
 
-    if(sr1 & I2C_SR1__BTF)
+    if (sr1 & I2C_SR1__BTF)
     {
         // This is the only case where we need BTF flag
-        // We have waited until the last to bytes to read are available
-        if((state == I2C_RECEIVING_DATA) && (len_recv == 2))
+        // We have waited until the last two bytes to read are available
+        if ((state == I2C_RECEIVING_DATA) && (len_recv == 2))
         {
             // Program a STOP condition before reading the second last data
             *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
@@ -409,13 +404,13 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
         }
     }
 
-    if(sr1 & I2C_SR1__ADD10)
+    if (sr1 & I2C_SR1__ADD10)
     {
         // This should not happen as we do not handle 10-bits addresses
         log_error("ADD10 interrupt!");
     }
 
-    if(sr1 & I2C_SR1__STOPF)
+    if (sr1 & I2C_SR1__STOPF)
     {
         // This should not happen as we are in master mode
         log_error("STOPF interrupt!");
@@ -423,12 +418,12 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
 
     // The following two cases should not happen as ITBUFEN is not set
 
-    if(sr1 & I2C_SR1__RXNE)
+    if (sr1 & I2C_SR1__RXNE)
     {
-        if(state == I2C_RECEIVING_DATA)
+        if (state == I2C_RECEIVING_DATA)
         {
             // We are receiving data
-            if(len_recv == 1)
+            if (len_recv == 1)
             {
                 // This is the only byte to read
                 buf_recv[cpt_recv] = *i2c_get_DR(_i2c);
@@ -440,7 +435,7 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
                 // The transfer is complete
                 state = I2C_IDLE;
             }
-            else if(len_recv == 2)
+            else if (len_recv == 2)
             {
                 // Do not read yet, wait for BTF to be issued
 
@@ -452,7 +447,7 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
                 buf_recv[cpt_recv] = *i2c_get_DR(_i2c);
                 cpt_recv++;
 
-                if(len_recv - cpt_recv == 1)
+                if (len_recv - cpt_recv == 1)
                 {
                     // We need to clear ACK bit to be sure NACK is sent when the last data is received
                     *i2c_get_CR1(_i2c) &= ~I2C_CR1__ACK;
@@ -461,7 +456,7 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
                     *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
                 }
 
-                if(len_recv == cpt_recv)
+                if (len_recv == cpt_recv)
                 {
                     state = I2C_IDLE;
                 }
@@ -471,21 +466,24 @@ void i2c_handle_ev_interrupt(_i2c_t *_i2c)
 
             // In other cases there is nothing to do
         }
-
-        // This flag should not be set when we are not in receiving mode
+        else
+        {
+            // This flag should not be set when we are not in receiving mode
+            (void)(*i2c_get_DR(_i2c));
+        }
     }
 
-    if(sr1 & I2C_SR1__TXE)
+    if (sr1 & I2C_SR1__TXE)
     {
         // The flag is cleared after reading SR1 (already done) and reading or writing DR
-        if(state == I2C_SENDING_DATA)
+        if (state == I2C_SENDING_DATA)
         {
-            if(len_send == cpt_send)
+            if (len_send == cpt_send)
             {
                 // The last byte has been sent so we need to issue
                 // a STOP condition if there is nothing to receive or
                 // a RESTART condition otherwise
-                if(len_recv == 0)
+                if (len_recv == 0)
                 {
                     // There is nothing to receive
                     *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
@@ -524,44 +522,55 @@ void i2c_handle_er_interrupt(_i2c_t *_i2c)
     uint16_t sr1 = *i2c_get_SR1(_i2c);
     uint16_t sr2 = *i2c_get_SR2(_i2c);
 
-    log_error("I2C ERROR, SR1: %x, SR2: %x, state: %x", sr1, sr2, state);
+    log_error("I2C ERROR, CR1: %x, CR2: %x, SR1: %x, SR2: %x, state: %x", *i2c_get_CR1(_i2c), *i2c_get_CR2(_i2c), sr1, sr2, state);
 
-    if(sr1 & I2C_SR1__BERR)
+    if (sr1 & I2C_SR1__BERR)
     {
         log_error("Bus Error");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__BERR;
     }
 
-    if(sr1 & I2C_SR1__ARLO)
+    if (sr1 & I2C_SR1__ARLO)
     {
         log_error("Arbitration Lost");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__ARLO;
     }
 
-    if(sr1 & I2C_SR1__AF)
+    if (sr1 & I2C_SR1__AF)
     {
         log_error("Acknowledge Failure");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__AF;
     }
 
-    if(sr1 & I2C_SR1__OVR)
+    if (sr1 & I2C_SR1__OVR)
     {
         log_error("Overrun");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__OVR;
     }
 
-    if(sr1 & I2C_SR1__PECERR)
+    if (sr1 & I2C_SR1__PECERR)
     {
         log_error("PEC error");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__PECERR;
     }
 
-    if(sr1 & I2C_SR1__TIMEOUT)
+    if (sr1 & I2C_SR1__TIMEOUT)
     {
         log_error("Timeout");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__TIMEOUT;
     }
 
-    if(sr1 & I2C_SR1__SMBALERT)
+    if (sr1 & I2C_SR1__SMBALERT)
     {
         log_error("SMBAlert");
+        *i2c_get_SR1(_i2c) &= ~I2C_SR1__SMBALERT;
     }
 
-    HALT();
+    // Set stop bit to stop transfer
+    *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
+
+    // Update State
+    state = I2C_ERROR;
 }
 
 static void test_ready(_i2c_t *_i2c)
@@ -569,22 +578,22 @@ static void test_ready(_i2c_t *_i2c)
     uint16_t reg;
 
     // Check State
-    if(state != I2C_IDLE)
+    if (state != I2C_IDLE)
     {
         log_error("I2C State not Idle");
     }
-    else if(((reg = *i2c_get_CR1(_i2c)) & I2C_CR1__PE) == 0)
+    else if (((reg = *i2c_get_CR1(_i2c)) & I2C_CR1__PE) == 0)
     {
         log_error("I2C CR1 not PE: %x", reg);
     }
-    else if((reg = (*i2c_get_CR2(_i2c) & (I2C_CR2__ITERREN | I2C_CR2__ITEVTEN
-                                          | I2C_CR2__ITEVTEN))) != (I2C_CR2__ITERREN | I2C_CR2__ITEVTEN
-                                                  | I2C_CR2__ITEVTEN))
+    else if ((reg = (*i2c_get_CR2(_i2c) & (I2C_CR2__ITERREN | I2C_CR2__ITEVTEN
+                                           | I2C_CR2__ITEVTEN))) != (I2C_CR2__ITERREN | I2C_CR2__ITEVTEN
+                                                   | I2C_CR2__ITEVTEN))
     {
         log_error("I2C CR2 interrupts not enabled: %x", reg);
     }
 
-    while((reg = *i2c_get_SR2(_i2c)) & I2C_SR2__BUSY)
+    while ((reg = *i2c_get_SR2(_i2c)) & I2C_SR2__BUSY)
     {
         log_error("I2C SR2 Busy not cleared: %x", reg);
     }

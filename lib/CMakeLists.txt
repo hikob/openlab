@@ -17,22 +17,25 @@
 # Copyright (C) 2011 HiKoB.
 #
 
-# Add the include directories
-include_directories(delay printf event packet random)
-
 # Create the printf library
 add_library(printf STATIC printf/printf)
-
-# Create the delay library
-add_library(delay STATIC delay/delay)
-
-# Create the random library
-add_library(random STATIC random/random)
 
 # Create the event library
 add_library(event STATIC event/event)
 target_link_libraries(event freertos)
 
-# Create the packet library
-#add_library(packet STATIC packet/packet)
-#target_link_libraries(packet freertos)
+# Create the software timer library
+add_library(softtimer STATIC softtimer/soft_timer_core softtimer/soft_timer_delay)
+
+# Create the random library
+add_library(random STATIC random/random)
+
+# Create the USB library
+if (${PLATFORM_HAS_USB})
+  set (LIBUSB_SRC usb/usb_core usb/cdc_acm usb/hid usb/msc usb/scsi )
+  if (${PLATFORM_HAS_SD})
+    set(LIBUSB_SRC ${LIBUSB_SRC} usb/scsi_sd)
+  endif (${PLATFORM_HAS_SD})
+  add_library(usb STATIC  ${LIBUSB_SRC})
+endif (${PLATFORM_HAS_USB})
+

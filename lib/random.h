@@ -14,14 +14,14 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
  * random.h
  *
  *  Created on: Sept 2011
- *      Author: Antoine Fraboulet <firstname.lastname@hikob.com>
+ *      Author: Antoine Fraboulet <antoine.fraboulet.at.hikob.com>
  */
 
 #ifndef RANDOM_H_

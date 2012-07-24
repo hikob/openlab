@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2012 HiKoB.
  */
 
 /*
@@ -29,7 +29,11 @@
 #include "platform.h"
 #include "printf.h"
 
+#include "soft_timer.h"
 #include "phy.h"
+#include "rf2xx.h"
+
+extern rf2xx_t rf231;
 
 static void test_task(void *);
 
@@ -48,7 +52,7 @@ int main()
 
     // Create a test task
     xTaskCreate(test_task, (const signed char * const)"test",
-                4 * configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 
     platform_run();
     return 0;
@@ -79,7 +83,7 @@ void test_task(void *arg)
 
     count = 0;
 
-    while(1)
+    while (1)
     {
         uint16_t t_a, t_b;
 
@@ -89,9 +93,9 @@ void test_task(void *arg)
         vTaskDelay(configTICK_RATE_HZ / 25);
 
         // SLEEP
-        t_a = net_timer_time();
+        t_a = soft_timer_time();
         phy_sleep(phy);
-        t_b = net_timer_time();
+        t_b = soft_timer_time();
 
         // Compute sleep time
         t_sleep = t_b - t_a;
@@ -99,9 +103,9 @@ void test_task(void *arg)
 
         vTaskDelay(configTICK_RATE_HZ / 25);
         // WAKEUP
-        t_a = net_timer_time();
+        t_a = soft_timer_time();
         phy_idle(phy);
-        t_b = net_timer_time();
+        t_b = soft_timer_time();
 
         // Compute wakeup time
         t_wakeup = t_b - t_a;
@@ -109,9 +113,9 @@ void test_task(void *arg)
 
         vTaskDelay(configTICK_RATE_HZ / 25);
         // CCA
-        t_a = net_timer_time();
+        t_a = soft_timer_time();
         phy_cca(phy);
-        t_b = net_timer_time();
+        t_b = soft_timer_time();
 
         // Compute cca time
         t_cca = t_b - t_a;
@@ -120,9 +124,9 @@ void test_task(void *arg)
 
         vTaskDelay(configTICK_RATE_HZ / 25);
         // RX
-        t_a = net_timer_time();
+        t_a = soft_timer_time();
         phy_rx(phy, 0, 0, &my_pkt, NULL);
-        t_b = net_timer_time();
+        t_b = soft_timer_time();
 
         // Compute RX time
         t_rx = t_b - t_a;
@@ -136,7 +140,7 @@ void test_task(void *arg)
                / count, t_cca, t_rx_total / count, t_rx);
     }
 
-    while(1)
+    while (1)
     {
         asm volatile("nop");
     }

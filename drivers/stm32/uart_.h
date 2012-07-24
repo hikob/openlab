@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -72,7 +72,11 @@ static inline void uart_init(_uart_t *_uart, uint32_t base_address,
     gpio_set_uart_rx(gpio, pin_rx);
     gpio_set_uart_tx(gpio, pin_tx);
 
+
     _uart->dma_channel_tx = dma_channel_tx;
+
+    _uart->rx_handler = NULL;
+    _uart->tx_handler = NULL;
 }
 
 void uart_handle_interrupt(_uart_t *_uart);

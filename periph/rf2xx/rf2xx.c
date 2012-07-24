@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -29,10 +29,13 @@
 #include "spi.h"
 #include "gpio.h"
 #include "timer.h"
-#include "delay.h"
+#include "soft_timer.h"
 #include "exti.h"
 
+#include "soft_timer.h"
 #include "printf.h"
+
+#define RF_MAX_WAIT soft_timer_ms_to_ticks(1)
 
 /* Handy functions */
 inline static void csn_set(_rf2xx_t *_radio)
@@ -85,7 +88,7 @@ void rf2xx_init(rf2xx_t radio)
     slp_tr_clear(_radio);
 
     // Wait a few micro-seconds
-    delay_us(RF2XX_TIMING__VCC_TO_P_ON);
+    soft_timer_delay_us(RF2XX_TIMING__VCC_TO_P_ON);
 
     // Perform a reset
     rf2xx_reset(_radio);
@@ -105,28 +108,36 @@ void rf2xx_reset(rf2xx_t radio)
     slp_tr_clear(_radio);
 
     // Wait for the required time
-    delay_us(RF2XX_TIMING__RESET);
+    soft_timer_delay_us(RF2XX_TIMING__RESET);
 
     // Release reset pin
     rstn_set(_radio);
 
     // Wait until TRX_OFF is entered
-    delay_us(RF2XX_TIMING__RESET_TO_TRX_OFF);
+    soft_timer_delay_us(RF2XX_TIMING__RESET_TO_TRX_OFF);
 
     // Send a FORCE TRX OFF command
     rf2xx_reg_write(radio, RF2XX_REG__TRX_STATE, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
     // Wait until TRX_OFF state is entered from P_ON
-    delay_us(RF2XX_TIMING__SLEEP_TO_TRX_OFF);
+    soft_timer_delay_us(RF2XX_TIMING__SLEEP_TO_TRX_OFF);
 
     // Loop while not TRX_OFF
     uint8_t status;
+    uint32_t t_end = soft_timer_time() + RF_MAX_WAIT;
 
     do
     {
         status = rf2xx_get_status(radio);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("Reset not ready");
+            break;
+        }
     }
-    while((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
+    while ((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
             != RF2XX_TRX_STATUS__TRX_OFF);
 }
 
@@ -175,7 +186,7 @@ void rf2xx_reg_write(rf2xx_t radio, uint8_t addr, uint8_t value)
 void rf2xx_fifo_read(rf2xx_t radio, uint8_t *buffer, uint16_t length)
 {
     // If nothing to read, read nothing
-    if(!length)
+    if (!length)
     {
         return;
     }
@@ -191,7 +202,7 @@ void rf2xx_fifo_read_async(rf2xx_t radio, uint8_t *buffer, uint16_t length,
                            handler_t handler, handler_arg_t arg)
 {
     // If nothing to read, read nothing
-    if(!length)
+    if (!length)
     {
         return;
     }
@@ -234,7 +245,7 @@ void rf2xx_fifo_read_remaining_async(rf2xx_t radio, uint8_t *buffer,
     // SPI transfer already started
 
     // If length not null, start the transfer
-    if(length)
+    if (length)
     {
         // Receive the remaining of the data asynchronously
         spi_transfer_async(_radio->spi, 0x0, buffer, length, transfer_done,
@@ -262,7 +273,7 @@ void rf2xx_fifo_read_remaining(rf2xx_t radio, uint8_t *buffer, uint16_t length)
 
 void rf2xx_fifo_write(rf2xx_t radio, const uint8_t *buffer, uint16_t length)
 {
-    if(!length)
+    if (!length)
     {
         // If nothing to send, send nothing
         return;
@@ -278,7 +289,7 @@ void rf2xx_fifo_write(rf2xx_t radio, const uint8_t *buffer, uint16_t length)
 void rf2xx_fifo_write_async(rf2xx_t radio, const uint8_t *buffer,
                             uint16_t length, handler_t handler, handler_arg_t arg)
 {
-    if(!length)
+    if (!length)
     {
         // If nothing to send, send nothing, but call handlers
         handler(arg);
@@ -338,6 +349,23 @@ void rf2xx_fifo_write_remaining_async(rf2xx_t radio, const uint8_t *buffer,
     spi_transfer_async(_radio->spi, buffer, 0x0, length, transfer_done, radio);
 
 }
+
+void rf2xx_fifo_access_cancel(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+
+    // Cancer any asynchronous transfer
+    spi_async_cancel(_radio->spi);
+
+    // End the SPI transfer
+    csn_set(_radio);
+
+    // Clear the handler
+    _radio->transfer_handler = NULL;
+    _radio->transfer_arg = NULL;
+}
+
 void rf2xx_sram_read(rf2xx_t radio, uint8_t addr, uint8_t *buffer,
                      uint16_t length)
 {
@@ -392,13 +420,21 @@ void rf2xx_sleep(rf2xx_t radio)
 
     // Force a TRX OFF state
     uint8_t status;
+    uint32_t t_end = soft_timer_time() + RF_MAX_WAIT;
 
     do
     {
         rf2xx_set_state(radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
         status = rf2xx_get_status(radio);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("Sleep IDLE not ready");
+            break;
+        }
     }
-    while((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
+    while ((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
             != RF2XX_TRX_STATUS__TRX_OFF);
 
     // Set SLP_TR to enter SLEEP
@@ -413,16 +449,13 @@ void rf2xx_wakeup(rf2xx_t radio)
     // Set SLP_TR to enter TRX_OFF
     rf2xx_slp_tr_clear(_radio);
 
-    // Wait a few micro-seconds
-    //    delay_us(RF2XX_TIMING__SLEEP_TO_TRX_OFF);
-
     // Wait until TRX OFF state is reached
     do
     {
         rf2xx_set_state(radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
         status = rf2xx_get_status(radio) & RF2XX_TRX_STATUS_MASK__TRX_STATUS;
     }
-    while(status != RF2XX_TRX_STATUS__TRX_OFF);
+    while (status != RF2XX_TRX_STATUS__TRX_OFF);
 }
 
 /* IRQ/DIG2 configuration */
@@ -508,7 +541,7 @@ static void transfer_done(handler_arg_t caller)
     csn_set(_radio);
 
     // Call the handler if any
-    if(_radio->transfer_handler)
+    if (_radio->transfer_handler)
     {
         _radio->transfer_handler(_radio->transfer_arg);
     }

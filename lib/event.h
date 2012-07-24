@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -33,7 +33,6 @@ typedef enum
 {
     EVENT_QUEUE_APPLI = 0,
     EVENT_QUEUE_NETWORK = 1,
-    EVENT_QUEUE_NETWORK_HIGH = 2,
 } event_queue_t;
 
 typedef enum
@@ -69,5 +68,8 @@ event_status_t event_post(event_queue_t queue, handler_t event,
  */
 event_status_t event_post_from_isr(event_queue_t queue, handler_t event,
                                    handler_arg_t arg);
+
+/** Debug the events */
+void event_debug();
 
 #endif /* EVENT_H_ */

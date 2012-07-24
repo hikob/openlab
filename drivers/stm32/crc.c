@@ -29,6 +29,19 @@
 
 #include "rcc.h"
 
+static inline uint32_t bit_reverse(uint32_t d)
+{
+    // Reverse bits
+    __asm__
+    (
+        " rbit %0, %0"
+        : "=r"(d)
+        : "0"(d)
+        : "cc"
+    );
+    return d;
+}
+
 void crc_enable()
 {
     // Enable the CRC module in the RCC
@@ -47,14 +60,25 @@ void crc_reset()
     *crc_get_CR() = CRC_CR__RESET;
 }
 
-uint32_t crc_compute(const uint32_t *addr, uint32_t length)
+void crc_compute(const uint32_t *addr, uint32_t length)
 {
-    // Place all the words in the CRC modlue
-    while(length--)
+    // Place all the words in the CRC module, after bit reverse
+    while (length--)
     {
-        *crc_get_DR() = *addr++;
+        *crc_get_DR() = bit_reverse(*addr++);
     }
+}
+uint32_t crc_terminate()
+{
+    // Get CRC value
+    uint32_t d = *crc_get_DR();
 
-    // Return its value
-    return *crc_get_DR();
+    // Reverse
+    d = bit_reverse(d);
+
+    // XOR with 0xFFFFFFFF
+    d ^= 0xFFFFFFFF;
+
+    // Done!
+    return d;
 }

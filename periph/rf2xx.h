@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -65,6 +65,9 @@ void rf2xx_fifo_write_remaining(rf2xx_t radio, const uint8_t *buffer,
                                 uint16_t length);
 void rf2xx_fifo_write_remaining_async(rf2xx_t radio, const uint8_t *buffer,
                                       uint16_t length, handler_t handler, handler_arg_t arg);
+
+/** Cancel any asynchronous access */
+void rf2xx_fifo_access_cancel(rf2xx_t radio);
 
 void rf2xx_sram_read(rf2xx_t radio, uint8_t addr, uint8_t *buffer,
                      uint16_t length);

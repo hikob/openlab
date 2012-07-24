@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -50,7 +50,7 @@ inline static void gpio_set_mode(gpio_t gpio, gpio_pin_t pin, uint32_t mode)
 {
     uint32_t res;
 
-    if(pin < 8)
+    if (pin < 8)
     {
         res = *gpio_get_CRL(gpio);
         res &= ~(0xF << (pin << 2));
@@ -89,7 +89,7 @@ void gpio_set_alternate_function(_gpio_t *_gpio, gpio_pin_t pin)
     // Make sure to enable AFIO in the RCC
     rcc_apb_enable(RCC_APB2, RCC_APB_BIT_AFIO);
 
-    if(pin < 8)
+    if (pin < 8)
     {
         res = *gpio_get_CRL(_gpio);
         res |= (0x8 << (pin << 2));
@@ -107,11 +107,11 @@ void gpio_config_output_type(gpio_t gpio, gpio_pin_t pin, gpio_type_t type)
 {
     uint32_t res;
 
-    if(pin < 8)
+    if (pin < 8)
     {
         res = *gpio_get_CRL(gpio);
 
-        if(type)
+        if (type)
         {
             res |= (0x4 << (pin << 2));
         }
@@ -126,7 +126,7 @@ void gpio_config_output_type(gpio_t gpio, gpio_pin_t pin, gpio_type_t type)
     {
         res = *gpio_get_CRH(gpio);
 
-        if(type)
+        if (type)
         {
             res |= (0x4 << ((pin - 8) << 2));
         }
@@ -141,7 +141,7 @@ void gpio_config_output_type(gpio_t gpio, gpio_pin_t pin, gpio_type_t type)
 
 void gpio_config_pull_up_down(gpio_t gpio, gpio_pin_t pin, gpio_pull_up_down_t mode)
 {
-    switch(mode)
+    switch (mode)
     {
         case GPIO_PULL_DISABLED:
             gpio_set_mode(gpio, pin, 0x4);
@@ -208,6 +208,10 @@ void gpio_set_uart_rx(gpio_t gpio, gpio_pin_t pin)
 {
     // Just set input
     gpio_set_input(gpio, pin);
+
+    // Set pull up
+    gpio_set_mode(gpio, pin, 0x8);
+    *gpio_get_ODR(gpio) |= 1 << pin;
 }
 void gpio_set_uart_tx(gpio_t gpio, gpio_pin_t pin)
 {

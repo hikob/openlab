@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -91,14 +91,38 @@ void dma_start(dma_t dma, handler_t handler, handler_arg_t handler_arg)
     _dma->handler = handler;
     _dma->handler_arg = handler_arg;
 
-    // Enable the transfer complete interrupt only if the handler is not NULL
-    if(handler)
+    // Enable the transfer complete interrupt
+    *dma_get_CCRx(_dma) |= DMA_CCR__TCIE;
+
+    // Set the EN bit to start the channel
+    *dma_get_CCRx(_dma) |= DMA_CCR__EN;
+}
+
+int32_t dma_cancel(dma_t dma)
+{
+    _dma_t *_dma = dma;
+
+    int32_t canceled = 0;
+
+    // Disable interrupts
+    asm volatile("cpsid i");
+
+    // Check if the transfer is finished (still enabled)
+    if (*dma_get_CCRx(_dma) & DMA_CCR__EN)
     {
-        *dma_get_CCRx(_dma) |= DMA_CCR__TCIE;
+        canceled = 1;
     }
 
-    // Set the EN bit to start channel
-    *dma_get_CCRx(_dma) |= DMA_CCR__EN;
+    // Clear the CCR to stop the channel
+    *dma_get_CCRx(_dma) = 0;
+    // Clear the interrupt flags
+    *dma_get_IFCR(_dma) = (DMA_IFCR__CGIFx | DMA_IFCR__CHTIFx
+                           | DMA_IFCR__CTCIFx | DMA_IFCR__CTEIFx) << (_dma->channel
+                                   * DMA_IFCR__CHANNEL_OFFSET);
+
+    asm volatile("cpsie i");
+
+    return canceled;
 }
 
 void dma_handle_interrupt(dma_t dma)
@@ -109,9 +133,9 @@ void dma_handle_interrupt(dma_t dma)
     isr = *dma_get_ISR(_dma);
 
     // Check if the transfer complete interrupt flag is set for this channel
-    if(isr & (DMA_ISR__TCIFx << (_dma->channel * DMA_ISR__CHANNEL_OFFSET)))
+    if (isr & (DMA_ISR__TCIFx << (_dma->channel * DMA_ISR__CHANNEL_OFFSET)))
     {
-        // Clear the interrupt flag
+        // Clear the interrupt flags
         *dma_get_IFCR(_dma) = (DMA_IFCR__CGIFx | DMA_IFCR__CHTIFx
                                | DMA_IFCR__CTCIFx | DMA_IFCR__CTEIFx) << (_dma->channel
                                        * DMA_IFCR__CHANNEL_OFFSET);
@@ -120,7 +144,7 @@ void dma_handle_interrupt(dma_t dma)
         *dma_get_CCRx(_dma) &= ~DMA_CCR__EN;
 
         // Call the handler if any
-        if(_dma->handler)
+        if (_dma->handler)
         {
             _dma->handler(_dma->handler_arg);
         }

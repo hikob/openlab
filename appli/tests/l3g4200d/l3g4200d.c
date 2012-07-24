@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2012 HiKoB.
  */
 
 /*
@@ -40,29 +40,29 @@ int main()
     printf("# Testing L3G4200D\n");
 
     printf("# Setting L3G4200D datarate...\n");
-    l3g4200d_set_datarate(l3g4200d, L3G4200D_800HZ);
+    l3g4200d_set_datarate(L3G4200D_800HZ);
 
     printf("# Setting L3G4200D scale...\n");
-    l3g4200d_set_scale(l3g4200d, L3G4200D_2000DPS);
+    l3g4200d_set_scale(L3G4200D_2000DPS, true);
 
-    printf("# Reading L3G4200D WHOAMI register: 0xD3 == 0x%02X\n", l3g4200d_read_whoami(l3g4200d));
+    printf("# Reading L3G4200D WHOAMI register: 0xD3 == 0x%02X\n", l3g4200d_read_whoami());
 
-    for(i = 1; i <= 5; i++)
+    for (i = 1; i <= 5; i++)
     {
-        printf("# CTRL_REG%d = 0x%02X\n", i, l3g4200d_read_crtl_reg(l3g4200d, i));
+        printf("# CTRL_REG%d = 0x%02X\n", i, l3g4200d_read_crtl_reg(i));
     }
 
-    while(1)
+    while (1)
     {
         int16_t g[3];
         uint8_t t;
 
-        l3g4200d_read_rot_speed(l3g4200d, g);
-        l3g4200d_read_temp(l3g4200d, &t);
+        l3g4200d_read_rot_speed(g);
+        l3g4200d_read_temp(&t);
 
         printf("%d %d %d %d\n", g[0], g[1], g[2], t);
 
-        for(i = 0; i < 0x800; i++)
+        for (i = 0; i < 0x800; i++)
         {
             __asm__("nop");
         }

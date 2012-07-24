@@ -14,19 +14,12 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
- */
-
-/*
- * spi.h
- *
- *  Created on: Jul 8, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /**
  * SPI driver header file.
- *
+ *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef SPI_H_
@@ -116,5 +109,12 @@ void spi_transfer(spi_t spi, const uint8_t *tx_buffer, uint8_t *rx_buffer,
 void spi_transfer_async(spi_t spi, const uint8_t *tx_buffer,
                         uint8_t *rx_buffer, uint16_t length, handler_t handler,
                         handler_arg_t handler_arg);
+
+/**
+ * Cancel an asynchronous transfer
+ *
+ * \param spi the SPI driver to use
+ */
+void spi_async_cancel(spi_t spi);
 
 #endif /* SPI_H_ */

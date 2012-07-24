@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -23,6 +23,7 @@
  *  Created on: Aug 30, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
  */
+
 
 #include <stdbool.h>
 #include "platform.h"
@@ -75,63 +76,63 @@ static sd_error_t parse_card_status(_sdio_t *_sdio, uint32_t resp)
     _sdio->sd_card_locked = (resp >> 25) & 0x1;
     _sdio->sd_app_cmd = (resp >> 5) & 0x1;
 
-    if(resp & (1 << 3))
+    if (resp & (1 << 3))
     {
         return SD_AUTH_SEQ_ERROR;
     }
-    else if(resp & (1 << 15))
+    else if (resp & (1 << 15))
     {
         return SD_WP_ERASE_SKIP;
     }
-    else if(resp & (1 << 16))
+    else if (resp & (1 << 16))
     {
         return SD_CSD_OVERWRITE;
     }
-    else if(resp & (1 << 19))
+    else if (resp & (1 << 19))
     {
         return SD_GENERAL_ERROR;
     }
-    else if(resp & (1 << 20))
+    else if (resp & (1 << 20))
     {
         return SD_CC_ERROR;
     }
-    else if(resp & (1 << 21))
+    else if (resp & (1 << 21))
     {
         return SD_CARD_ECC_FAILED;
     }
-    else if(resp & (1 << 22))
+    else if (resp & (1 << 22))
     {
         return SD_ILLEGAL_COMMAND;
     }
-    else if(resp & (1 << 23))
+    else if (resp & (1 << 23))
     {
         return SD_COM_CRC_ERROR;
     }
-    else if(resp & (1 << 24))
+    else if (resp & (1 << 24))
     {
         return SD_LOCK_UNLOCK_FAILED;
     }
-    else if(resp & (1 << 26))
+    else if (resp & (1 << 26))
     {
         return SD_WP_VIOLATION;
     }
-    else if(resp & (1 << 27))
+    else if (resp & (1 << 27))
     {
         return SD_ERASE_PARAM;
     }
-    else if(resp & (1 << 28))
+    else if (resp & (1 << 28))
     {
         return SD_ERASE_SEQ_ERROR;
     }
-    else if(resp & (1 << 29))
+    else if (resp & (1 << 29))
     {
         return SD_BLOCK_LEN_ERROR;
     }
-    else if(resp & (1 << 30))
+    else if (resp & (1 << 30))
     {
         return SD_ADDRESS_ERROR;
     }
-    else if(resp & (1 << 31))
+    else if (resp & (1 << 31))
     {
         return SD_OUT_OF_RANGE;
     }
@@ -177,7 +178,7 @@ static inline sd_error_t sd_get_R7(uint8_t pattern, uint8_t *voltage)
 {
     uint32_t resp = *sdio_get_RESP1();
 
-    if((resp & 0xFF) != pattern)
+    if ((resp & 0xFF) != pattern)
     {
         return SD_WRONG_PATTERN;
     }
@@ -196,23 +197,23 @@ static sd_error_t sd_send_command(_sdio_t *_sdio, sd_command_t cmd, uint32_t dat
     printf("---\r\nCommand: %s%u\tData: 0x%X\r\n", cmd > 100 ? "ACMD" : "CMD", cmd % 100, data);
 #endif
 
-    for(i = 0; i < MAX_CMD_TRY; i++)
+    for (i = 0; i < MAX_CMD_TRY; i++)
     {
 #ifdef DEBUG
         printf("Try #%u\r\n", i);
 #endif
 
         // If the command is a ACMD, we need to send APP_CMD (CMD55) before sending it
-        if(cmd > 100)
+        if (cmd > 100)
         {
             err = sd_send_command(_sdio, SD_APP_CMD, _sdio->rca, SHORT_RESPONSE);
 
-            if(err != SD_NO_ERROR)
+            if (err != SD_NO_ERROR)
             {
                 return err;
             }
 
-            if((err = sd_get_R1(_sdio)) != SD_NO_ERROR)
+            if ((err = sd_get_R1(_sdio)) != SD_NO_ERROR)
             {
                 return err;
             }
@@ -221,12 +222,12 @@ static sd_error_t sd_send_command(_sdio_t *_sdio, sd_command_t cmd, uint32_t dat
         *sdio_get_ARG() = data;
         tmp = (cmd % 100) | SDIO_CMD__CPSMEN;
 
-        if(resp != NO_RESPONSE)
+        if (resp != NO_RESPONSE)
         {
             tmp |= 1 << 6;    // TODO: name these two bits
         }
 
-        if(resp == LONG_RESPONSE)
+        if (resp == LONG_RESPONSE)
         {
             tmp |= 1 << 7;
         }
@@ -235,10 +236,10 @@ static sd_error_t sd_send_command(_sdio_t *_sdio, sd_command_t cmd, uint32_t dat
 
         tmp = 0;
 
-        if(resp == NO_RESPONSE)
+        if (resp == NO_RESPONSE)
         {
             // Wait command to be sent (CMDSENT bit)
-            while(!(tmp & SDIO_STA__CMDSENT))
+            while (!(tmp & SDIO_STA__CMDSENT))
             {
                 tmp = *sdio_get_STA();
             }
@@ -249,18 +250,18 @@ static sd_error_t sd_send_command(_sdio_t *_sdio, sd_command_t cmd, uint32_t dat
         {
             // Wait for the response to be received
             // Check if there is neither CRC error nor timeout
-            while(!(tmp & (SDIO_STA__CCRCFAIL | SDIO_STA__CTIMEOUT | SDIO_STA__CMDREND)))
+            while (!(tmp & (SDIO_STA__CCRCFAIL | SDIO_STA__CTIMEOUT | SDIO_STA__CMDREND)))
             {
                 tmp = *sdio_get_STA();
             }
 
             // Return CRC error only if command was not expecting R3 response
             // Otherwise, CCRCFAIL is set as R3 response has no CRC, in that case it means that the response has been received
-            if((tmp & SDIO_STA__CCRCFAIL) && (cmd != SD_SEND_OP_COND))
+            if ((tmp & SDIO_STA__CCRCFAIL) && (cmd != SD_SEND_OP_COND))
             {
                 err = SD_WRONG_CRC;
             }
-            else if(tmp & SDIO_STA__CTIMEOUT)
+            else if (tmp & SDIO_STA__CTIMEOUT)
             {
                 err = SD_TIMEOUT;
             }
@@ -300,7 +301,7 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
     *sdio_get_POWER() = SDIO_POWER__PWRCTRL_MASK;
 
     // Wait for at least 74 clock cycles to be sure the card has boot.
-    for(cpt = 0; cpt < 0x1000000; cpt++)
+    for (cpt = 0; cpt < 0x1000000; cpt++)
     {
         asm("nop");    // FIXME: do a real cycle count
     }
@@ -310,7 +311,7 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
     /***** CMD0 (GO_IDLE_STATE) *****/
     ret = sd_send_command(_sdio, SD_GO_IDLE_STATE, 0, NO_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
@@ -324,17 +325,17 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
 #define PATTERN (0xAA)
     ret = sd_send_command(_sdio, SD_SEND_IF_COND, 0x100 | PATTERN, SHORT_RESPONSE);
 
-    if(ret == SD_NO_ERROR)
+    if (ret == SD_NO_ERROR)
     {
         // Card follows the v2.0 specification
         _sdio->sd_type = SDSC_2_0;
 
-        if((ret = sd_get_R7(PATTERN, &voltage)) != SD_NO_ERROR)
+        if ((ret = sd_get_R7(PATTERN, &voltage)) != SD_NO_ERROR)
         {
             return ret;
         }
     }
-    else if(ret == SD_TIMEOUT)
+    else if (ret == SD_TIMEOUT)
     {
         // Card follows the v1.1 specification at best
         _sdio->sd_type = SDSC_1_1;
@@ -349,24 +350,24 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
     // Send a dummy CMD55 to flush the "illegal command" flag in case of a v1.01 card
     ret = sd_send_command(_sdio, SD_APP_CMD, _sdio->rca, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
     ret = sd_get_R1(_sdio);
 
-    if((ret != SD_NO_ERROR) && (ret != SD_ILLEGAL_COMMAND))
+    if ((ret != SD_NO_ERROR) && (ret != SD_ILLEGAL_COMMAND))
     {
         return ret;
     }
 
-    while((!initialized) && (cpt < MAX_VOLT_TRY))
+    while ((!initialized) && (cpt < MAX_VOLT_TRY))
     {
         /***** ACMD41 (SEND_OP_COND) *****/
         // Set HCS = 1 to tell v2.0 cards that we support SDHC cards
         // Otherwise HCS = 0 as the card is at best v1.1
-        if(_sdio->sd_type == SDSC_2_0)
+        if (_sdio->sd_type == SDSC_2_0)
         {
             param = 0x40000000;
         }
@@ -374,7 +375,7 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
         param |= 0x80100000;
         ret = sd_send_command(_sdio, SD_SEND_OP_COND, param, SHORT_RESPONSE);
 
-        if(ret != SD_NO_ERROR)
+        if (ret != SD_NO_ERROR)
         {
             return ret;
         }
@@ -386,17 +387,17 @@ static sd_error_t sd_powerup(_sdio_t *_sdio)
 
         cpt++;
 
-        if(initialized)
+        if (initialized)
         {
             // If the card is initialized, the Card Capacity Status (CCS) is valid
-            if(resp & (1 << 30))
+            if (resp & (1 << 30))
             {
                 _sdio->sd_type = SDHC;
             }
         }
     }
 
-    if(!initialized)
+    if (!initialized)
     {
         return SD_NOT_POWEREDUP;
     }
@@ -411,7 +412,7 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
     /***** CMD2 (ALL_SEND_CID) *****/
     ret = sd_send_command(_sdio, SD_ALL_SEND_CID, 0, LONG_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
@@ -421,12 +422,12 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
     /***** CMD3 (SET_REL_ADDR) *****/
     ret = sd_send_command(_sdio, SD_SET_REL_ADDR, 0, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R6(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R6(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -434,7 +435,7 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
     /***** CMD9 (SEND_CSD) *****/
     ret = sd_send_command(_sdio, SD_SEND_CSD, _sdio->rca, LONG_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
@@ -442,12 +443,12 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
     sd_get_R2(_sdio->CSD);
 
     // Parse CSD fields
-    switch(_sdio->CSD[0] & 0xC0000000)
+    switch (_sdio->CSD[0] & 0xC0000000)
     {
         case 0x00000000:
 
             // This is CSD version 1.0
-            if(_sdio->sd_type == SDHC)
+            if (_sdio->sd_type == SDHC)
             {
                 return SD_WRONG_CSD_STRUCTURE;
             }
@@ -463,7 +464,7 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
         case 0x40000000:
 
             // This is CSD version 2.0
-            if(_sdio->sd_type != SDHC)
+            if (_sdio->sd_type != SDHC)
             {
                 return SD_WRONG_CSD_STRUCTURE;
             }
@@ -483,12 +484,12 @@ static sd_error_t sd_identification(_sdio_t *_sdio)
     /***** CMD7 (SELECT_DESELECT_CARD) *****/
     ret = sd_send_command(_sdio, SD_SELECT_DESELECT_CARD, _sdio->rca, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -507,13 +508,13 @@ static int32_t sd_get_divider(int32_t freq)
     div = hclk / freq - 2;
 
     // If the is a rounding problem, increment the divider
-    if(hclk % freq)
+    if (hclk % freq)
     {
         div++;
     }
 
     // In case HCLK is too low
-    if(div < 0)
+    if (div < 0)
     {
         div = 0;
     }
@@ -539,16 +540,19 @@ sd_error_t sd_init(sdio_t sdio_)
     dma_enable(_sdio->dma_channel);
 
     // Configure GPIO pin alternate functions
-    for(i = 0; i < 6; i++)
+    for (i = 0; i < 6; i++)
     {
         gpio_enable(_sdio->gpio[i]);
         gpio_set_output(_sdio->gpio[i], _sdio->pin[i]);
         gpio_set_alternate_function(_sdio->gpio[i], _sdio->pin[i]);
     }
 
-    // Set regulator to 500mA
-    gpio_set_output(gpioC, GPIO_PIN_6);
-    gpio_pin_set(gpioC, GPIO_PIN_6);
+    if (_sdio->regu_gpio)
+    {
+        // Set regulator to 500mA
+        gpio_set_output(_sdio->regu_gpio, _sdio->regu_pin);
+        gpio_pin_set(_sdio->regu_gpio, _sdio->regu_pin);
+    }
 
     // Disable SDIO interrupt line
     nvic_disable_interrupt_line(NVIC_IRQ_LINE_SDIO);
@@ -561,12 +565,12 @@ sd_error_t sd_init(sdio_t sdio_)
     *sdio_get_CLKCR() = SDIO_CLKCR__CLKEN | (div & SDIO_CLKCR__CLKDIV_MASK);
 
     // Initialize SDIO peripheral
-    if((ret = sd_powerup(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_powerup(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_identification(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_identification(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -582,12 +586,12 @@ sd_error_t sd_init(sdio_t sdio_)
     /***** ACMD6 (SET_BUS_WIDTH) *****/
     ret = sd_send_command(_sdio, SD_SET_BUS_WIDTH, 0x2, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -598,12 +602,12 @@ sd_error_t sd_init(sdio_t sdio_)
     /***** CMD16 (SET_BLOCKLEN) *****/
     ret = sd_send_command(_sdio, SD_SET_BLOCKLEN, 512, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -625,6 +629,21 @@ void sd_set_transfer_handler(sdio_t sdio_, handler_t handler)
     _sdio->transfer_handler = handler;
 }
 
+sd_error_t sd_get_status(sdio_t sdio_)
+{
+    sd_error_t ret;
+    _sdio_t *_sdio = sdio_;
+
+    ret = sd_send_command(_sdio, SD_SEND_STATUS, _sdio->rca, SHORT_RESPONSE);
+    
+    if (ret != SD_NO_ERROR)
+    {
+	return ret;
+    }
+
+    return sd_get_R1(_sdio);
+}
+
 sd_error_t sd_read_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
 {
     sd_error_t ret;
@@ -638,22 +657,22 @@ sd_error_t sd_read_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     *sdio_get_DLEN() = 512;
 
     // Wait for card to be transfer state
-    while(true)
+    while (true)
     {
         /***** CMD13 (SEND_STATUS) *****/
         ret = sd_send_command(_sdio, SD_SEND_STATUS, _sdio->rca, SHORT_RESPONSE);
 
-        if(ret != SD_NO_ERROR)
+        if (ret != SD_NO_ERROR)
         {
             return ret;
         }
 
-        if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+        if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
         {
             return ret;
         }
 
-        if(_sdio->sd_state == SD_STATE_TRAN)
+        if (_sdio->sd_state == SD_STATE_TRAN)
         {
             break;
         }
@@ -666,12 +685,12 @@ sd_error_t sd_read_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     /***** CMD17 (READ_SINGLE_BLOCK) *****/
     ret = sd_send_command(_sdio, SD_READ_SINGLE_BLOCK, addr, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -718,22 +737,22 @@ sd_error_t sd_write_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     *sdio_get_DLEN() = 512;
 
     // Wait for card to be transfer state
-    while(true)
+    while (true)
     {
         /***** CMD13 (SEND_STATUS) *****/
         ret = sd_send_command(_sdio, SD_SEND_STATUS, _sdio->rca, SHORT_RESPONSE);
 
-        if(ret != SD_NO_ERROR)
+        if (ret != SD_NO_ERROR)
         {
             return ret;
         }
 
-        if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+        if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
         {
             return ret;
         }
 
-        if(_sdio->sd_state == SD_STATE_TRAN)
+        if (_sdio->sd_state == SD_STATE_TRAN)
         {
             break;
         }
@@ -746,12 +765,12 @@ sd_error_t sd_write_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     /***** CMD24 (WRITE_SINGLE_BLOCK) *****/
     ret = sd_send_command(_sdio, SD_WRITE_SINGLE_BLOCK, addr, SHORT_RESPONSE);
 
-    if(ret != SD_NO_ERROR)
+    if (ret != SD_NO_ERROR)
     {
         return ret;
     }
 
-    if((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
+    if ((ret = sd_get_R1(_sdio)) != SD_NO_ERROR)
     {
         return ret;
     }
@@ -788,29 +807,29 @@ sd_error_t sd_write_multiple_blocks(sdio_t sdio_, uint32_t addr, uint8_t **buf, 
 void sdio_handle_interrupt(sdio_t sdio_)
 {
     sd_error_t transfer_error = SD_NO_ERROR;
-    _sdio_t *_sdio = sdio;
+    _sdio_t *_sdio = sdio_;
 
-    if(*sdio_get_STA() & SDIO_STA__DCRCFAIL)
+    if (*sdio_get_STA() & SDIO_STA__DCRCFAIL)
     {
         transfer_error = SD_DATA_WRONG_CRC;
     }
 
-    if(*sdio_get_STA() & SDIO_STA__DTIMEOUT)
+    if (*sdio_get_STA() & SDIO_STA__DTIMEOUT)
     {
         transfer_error = SD_DATA_TIMEOUT;
     }
 
-    if(*sdio_get_STA() & SDIO_STA__RXOVERR)
+    if (*sdio_get_STA() & SDIO_STA__RXOVERR)
     {
         transfer_error = SD_RX_OVERRUN;
     }
 
-    if(*sdio_get_STA() & SDIO_STA__TXUNDERR)
+    if (*sdio_get_STA() & SDIO_STA__TXUNDERR)
     {
         transfer_error = SD_TX_UNDERRUN;
     }
 
-    if(*sdio_get_STA() & SDIO_STA__STBITERR)
+    if (*sdio_get_STA() & SDIO_STA__STBITERR)
     {
         transfer_error = SD_UNKNOWN_ERROR;
     }
@@ -819,7 +838,7 @@ void sdio_handle_interrupt(sdio_t sdio_)
     *sdio_get_ICR() = SDIO_ICR__ALL;
     nvic_disable_interrupt_line(NVIC_IRQ_LINE_SDIO);
 
-    if(_sdio->transfer_handler)
+    if (_sdio->transfer_handler)
     {
         _sdio->transfer_handler((handler_arg_t)transfer_error);
     }
@@ -829,7 +848,7 @@ uint32_t sd_get_size(sdio_t sdio_)
 {
     _sdio_t *_sdio = sdio_;
 
-    if((_sdio->sd_type == SDSC_1_1) || (_sdio->sd_type == SDSC_2_0))
+    if ((_sdio->sd_type == SDSC_1_1) || (_sdio->sd_type == SDSC_2_0))
     {
         return (_sdio->sd_desc.c_size + 1) * (1 << (_sdio->sd_desc.c_size_mult + 2));
     }

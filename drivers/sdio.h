@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -89,6 +89,11 @@ sd_error_t sd_init(sdio_t sdio);
  * This method must be called before reading or writing to the SD card in order to determine the meaning of the addr parameter
  */
 sd_card_type_t sd_get_type(sdio_t sdio);
+
+/**
+ * Get last SDIO status
+ */
+sd_error_t sd_get_status(sdio_t sdio);
 
 /**
  * Get the card size in 512-byte blocks

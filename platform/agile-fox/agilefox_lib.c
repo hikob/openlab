@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -23,16 +23,17 @@
  *  Created on: Jul 13, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
  */
-
+#include "platform.h"
 #include "agilefox.h"
 
-#include "delay.h"
+#include "softtimer/soft_timer_.h"
 #include "event.h"
 
 void platform_lib_setup()
 {
-    // Setup the delay library
-    delay_init(tim3);
+    // Setup the software timer
+    soft_timer_config(tim3, TIMER_CHANNEL_1);
+    timer_start(tim3, 0xFFFF, soft_timer_update, NULL);
 
     // Setup the event system
     event_init();

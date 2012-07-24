@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -81,59 +81,143 @@
 
 #define READ_MULTIPLE_BYTE       0x80
 
-void lsm303dlhc_powerdown(lsm303dlhc_t accmag)
+static struct
 {
-    uint8_t buf0[] = {CTRL_REG1_A, 0x00};
-    uint8_t buf1[] = {MR_REG_M,    0x03};
-    uint8_t buf2[] = {CRA_REG_M,   0x00};
-    _lsm303dlhc_t *_accmag = accmag;
+    i2c_t i2c;
+    exti_line_t mag_data_ready_line;
+    exti_line_t acc_int1_line;
+    exti_line_t acc_int2_line;
+} lsm303;
 
-    i2c_tx(_accmag->i2c, LSM303DLHC_ACC_ADDRESS, buf0, 2);
-    i2c_tx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, buf1, 2);
-    i2c_tx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, buf2, 2);
+void lsm303dlhc_config(i2c_t i2c, exti_line_t mag_data_ready_line,
+                       exti_line_t acc_int1_line, exti_line_t acc_int2_line)
+{
+    // Store the values
+    lsm303.i2c = i2c;
+    lsm303.mag_data_ready_line = mag_data_ready_line;
+    lsm303.acc_int1_line = acc_int1_line;
+    lsm303.acc_int2_line = acc_int2_line;
+
+    // Reboot memory content
+    uint8_t buf[2];
+    buf[0] = CTRL_REG5_A;
+    buf[1] = 0x80;
+    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+
+    // Set powerdown
+    lsm303dlhc_powerdown();
 }
 
-void lsm303dlhc_set_acc_datarate(lsm303dlhc_t accmag, lsm303dlhc_acc_datarate_t datarate)
+void lsm303dlhc_powerdown()
 {
-    uint8_t buf[] = {CTRL_REG1_A, datarate | 0x7};
-    _lsm303dlhc_t *_accmag = accmag;
+    // Stop accelero
+    uint8_t buf[2];
+    buf[0] = CTRL_REG1_A;
+    buf[1] = 0x00;
+    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
 
-    i2c_tx(_accmag->i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    // Stop magneto
+    buf[0] = MR_REG_M;
+    buf[1] = 0x03;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+
+    // Stop temperature sensor
+    buf[0] = CRA_REG_M;
+    buf[1] = 0x00;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 }
 
-void lsm303dlhc_set_mag_datarate(lsm303dlhc_t accmag, lsm303dlhc_mag_datarate_t datarate)
+void lsm303dlhc_mag_config(lsm303dlhc_mag_datarate_t datarate,
+                           lsm303dlhc_mag_scale_t scale, lsm303dlhc_mag_mode_t mode,
+                           lsm303dlhc_temp_mode_t temp_mode)
 {
-    uint8_t buf1[] = {MR_REG_M, 0};
-    uint8_t buf2[] = {CRA_REG_M, datarate | 0x80};
-    _lsm303dlhc_t *_accmag = accmag;
+    uint8_t buf[2];
 
-    i2c_tx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, buf1, 2);
-    i2c_tx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, buf2, 2);
+    // Set MAG datarate and temperature sensor
+    buf[0] = CRA_REG_M;
+    buf[1] = datarate | temp_mode;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+
+    // Set MAG scale
+    buf[0] = CRB_REG_M;
+    buf[1] = scale;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+
+    // Set MAG mode
+    buf[0] = MR_REG_M;
+    buf[1] = mode;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 }
 
-void lsm303dlhc_set_acc_scale(lsm303dlhc_t accmag, lsm303dlhc_acc_scale_t scale)
+void lsm303dlhc_mag_set_drdy_int(handler_t data_ready_handler,
+                                 handler_arg_t data_ready_arg)
 {
-    uint8_t buf[2] = {CTRL_REG4_A, scale | 0x88};
-
-    _lsm303dlhc_t *_accmag = accmag;
-
-    i2c_tx(_accmag->i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    // Enable interrupt generation if required
+    if (data_ready_handler)
+    {
+        exti_set_handler(lsm303.mag_data_ready_line, data_ready_handler,
+                         data_ready_arg);
+        exti_enable_interrupt_line(lsm303.mag_data_ready_line,
+                                   EXTI_TRIGGER_RISING);
+    }
+    else
+    {
+        exti_disable_interrupt_line(lsm303.mag_data_ready_line);
+    }
 }
 
-void lsm303dlhc_set_mag_scale(lsm303dlhc_t accmag, lsm303dlhc_mag_scale_t scale)
+void lsm303dlhc_mag_sample_single()
 {
-    uint8_t buf[] = {CRB_REG_M, scale};
-    _lsm303dlhc_t *_accmag = accmag;
+    uint8_t buf[2];
 
-    i2c_tx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    // Set MAG mode to single
+    buf[0] = MR_REG_M;
+    buf[1] = 0x01;
+    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 }
 
-void lsm303dlhc_read_acc(lsm303dlhc_t accmag, int16_t *acc)
+void lsm303dlhc_acc_config(lsm303dlhc_acc_datarate_t datarate,
+                           lsm303dlhc_acc_scale_t scale)
+{
+    uint8_t buf[2];
+
+    // Set the data rate
+    buf[0] = CTRL_REG1_A;
+    buf[1] = datarate | 0x7;
+    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+
+    // Set the scale
+    buf[0] = CTRL_REG4_A;
+    buf[1] = scale | 0x88;
+    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+
+    // Enable data ready interrupt
+    buf[0] = CTRL_REG3_A;
+    buf[1] = 0x18;
+    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+}
+
+void lsm303dlhc_acc_set_drdy_int(handler_t data_ready_handler,
+                                 handler_arg_t data_ready_arg)
+{
+    // Enable interrupt generation if required
+    if (data_ready_handler)
+    {
+        exti_set_handler(lsm303.acc_int1_line, data_ready_handler,
+                         data_ready_arg);
+        exti_enable_interrupt_line(lsm303.acc_int1_line, EXTI_TRIGGER_RISING);
+    }
+    else
+    {
+        exti_disable_interrupt_line(lsm303.acc_int1_line);
+    }
+}
+
+void lsm303dlhc_read_acc(int16_t *acc)
 {
     uint8_t reg = READ_MULTIPLE_BYTE | OUT_X_L_A;
-    _lsm303dlhc_t *_accmag = accmag;
 
-    i2c_tx_rx(_accmag->i2c, LSM303DLHC_ACC_ADDRESS, &reg, 1, (uint8_t *)acc, 6);
+    i2c_tx_rx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, &reg, 1, (uint8_t *) acc, 6);
     acc[0] >>= 4;
     acc[1] >>= 4;
     acc[2] >>= 4;
@@ -146,29 +230,64 @@ static inline void swap(int16_t *x)
     *x = t | (*x << 8);
 }
 
-void lsm303dlhc_read_mag(lsm303dlhc_t accmag, int16_t *mag)
+void lsm303dlhc_read_mag(int16_t *mag)
 {
     uint8_t reg = OUT_X_H_M;
     int16_t t;
-    _lsm303dlhc_t *_accmag = accmag;
 
-    i2c_tx_rx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *)mag, 6);
+    // Read the 6 bytes for the 3 values
+    i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *) mag, 6);
 
+    // Swap them to fit the host endianness (little endian)
     swap(&(mag[0]));
     swap(&(mag[1]));
     swap(&(mag[2]));
 
+    // Place them in order (X, Y, Z)
     t = mag[2];
     mag[2] = mag[1];
     mag[1] = t;
+
+    // Compensate for Z different sensitivity
+    mag[2] *= 670. / 600;
 }
 
-void lsm303dlhc_read_temp(lsm303dlhc_t accmag, int16_t *temp)
+void lsm303dlhc_read_temp(int16_t *temp)
 {
     uint8_t reg = TEMP_OUT_H_M;
-    _lsm303dlhc_t *_accmag = accmag;
 
-    i2c_tx_rx(_accmag->i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *)temp, 2);
+    i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *) temp, 2);
 
     swap(temp);
+}
+
+lsm303dlhc_mag_datarate_t lsm303dlhc_mag_compute_datarate(uint32_t freq)
+{
+    if (freq <= 1)
+    {
+        return LSM303DLHC_MAG_RATE_1_5HZ;
+    }
+    else if (freq <= 3)
+    {
+        return LSM303DLHC_MAG_RATE_3HZ;
+    }
+    else if (freq <= 7)
+    {
+        return LSM303DLHC_MAG_RATE_7_5HZ;
+    }
+    else if (freq <= 15)
+    {
+        return LSM303DLHC_MAG_RATE_15HZ;
+    }
+    else if (freq <= 30)
+    {
+        return LSM303DLHC_MAG_RATE_30HZ;
+    }
+    else if (freq <= 75)
+    {
+        return LSM303DLHC_MAG_RATE_75HZ;
+    }
+
+    // All other cases, return max
+    return LSM303DLHC_MAG_RATE_220HZ;
 }

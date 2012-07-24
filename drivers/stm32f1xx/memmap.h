@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -33,25 +33,7 @@ extern "C" {
 
 #include <stdint.h>
 
-    /* Useful macros */
-#ifndef BV
-#define BV(x) (1 << (x))
-#endif
-
-    static inline volatile uint32_t *mem_get_reg32(uint32_t addr)
-    {
-        return (volatile uint32_t *) addr;
-    }
-
-    static inline volatile uint16_t *mem_get_reg16(uint32_t addr)
-    {
-        return (volatile uint16_t *) addr;
-    }
-
-    static inline volatile uint8_t *mem_get_reg8(uint32_t addr)
-    {
-        return (volatile uint8_t *) addr;
-    }
+#include "cm3_memmap.h"
 
     /* RCC section */
 #define RCC_BASE_ADDRESS        0x40021000
@@ -229,6 +211,7 @@ extern "C" {
     /* USB section */
 #define USB_BASE_ADDRESS                0x40005C00
 #define USB_PMA_BASE_ADDRESS            0x40006000
+#define USB_PMA_SIZE                    512
 
     // Offsets
 #define USB_EPnR_OFFSET                 0x00
@@ -274,6 +257,31 @@ extern "C" {
 #define FLASH_OBR_OFFSET                0x1C
 #define FLASH_WRPR_OFFSET               0x20
 
+    /* ADC section */
+#define ADC1_BASE_ADDRESS               0x40012400
+#define ADC2_BASE_ADDRESS               0x40012800
+
+#define ADCx_SR_OFFSET                  0x00
+#define ADCx_CR1_OFFSET                 0x04
+#define ADCx_CR2_OFFSET                 0x08
+#define ADCx_SMPR1_OFFSET               0x0C
+#define ADCx_SMPR2_OFFSET               0x10
+#define ADCx_JOFR1_OFFSET               0x14
+#define ADCx_JOFR2_OFFSET               0x18
+#define ADCx_JOFR3_OFFSET               0x1C
+#define ADCx_JOFR4_OFFSET               0x20
+#define ADCx_HTR_OFFSET                 0x24
+#define ADCx_LTR_OFFSET                 0x28
+#define ADCx_SQR1_OFFSET                0x2C
+#define ADCx_SQR2_OFFSET                0x30
+#define ADCx_SQR3_OFFSET                0x34
+#define ADCx_JSQR_OFFSET                0x38
+#define ADCx_JDR1_OFFSET                0x3C
+#define ADCx_JDR2_OFFSET                0x40
+#define ADCx_JDR3_OFFSET                0x44
+#define ADCx_JDR4_OFFSET                0x48
+#define ADCx_DR_OFFSET                  0x4C
+
     /* CRC Section */
 #define CRC_BASE_ADDRESS              0x40023000
 
@@ -281,6 +289,15 @@ extern "C" {
 #define CRC_DR_OFFSET                0x00
 #define CRC_IDR_OFFSET               0x04
 #define CRC_CR_OFFSET                0x08
+
+    /* Independent Watchdog Section */
+#define IWDG_BASE_ADDRESS      0x40003000
+
+    // Offsets
+#define IWDG_KR_OFFSET          0x00
+#define IWDG_PR_OFFSET          0x04
+#define IWDG_RLR_OFFSET         0x08
+#define IWDG_SR_OFFSET          0x0C
 
     /* Unique 96bit ID section */
 #define UNIQUE_ID_BASE_ADDRESS          0x1FFFF7E8

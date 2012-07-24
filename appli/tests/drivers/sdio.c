@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2012 HiKoB.
  */
 
 /*
@@ -28,6 +28,9 @@
 #include <stdbool.h>
 #include "platform.h"
 #include "printf.h"
+
+#include "sdio.h"
+extern sdio_t sdio;
 
 bool transfer_ended = false;
 sd_error_t err = SD_NO_ERROR;
@@ -48,7 +51,7 @@ int main()
     // Initialize the platform
     platform_init();
 
-    for(i = 0; i < 0x10000; i++)
+    for (i = 0; i < 0x10000; i++)
     {
         asm("nop");
     }
@@ -58,7 +61,7 @@ int main()
 
     printf("SD Initialization\r\n");
 
-    if((err = sd_init(sdio)) != SD_NO_ERROR)
+    if ((err = sd_init(sdio)) != SD_NO_ERROR)
     {
         error();
     }
@@ -67,7 +70,7 @@ int main()
 
     printf("Card type is: ");
 
-    switch(sd_get_type(sdio))
+    switch (sd_get_type(sdio))
     {
         case SDSC_1_1:
             printf("SD v1.1 Standard capacity\r\n");
@@ -85,9 +88,9 @@ int main()
     printf("Card has %d 512-byte block\r\n", sd_get_size(sdio));
 
 
-    for(j = 0; j < sd_get_size(sdio); j++)
+    for (j = 0; j < sd_get_size(sdio); j++)
     {
-        for(i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
+        for (i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
         {
             buf[i] = j;
         }
@@ -95,7 +98,7 @@ int main()
         printf("Writing block #%d\r\n", j);
         transfer_ended = false;
 
-        if(sd_get_type(sdio) == SDHC)
+        if (sd_get_type(sdio) == SDHC)
         {
             err = sd_write_single_block(sdio, j, buf);
         }
@@ -104,19 +107,22 @@ int main()
             err = sd_write_single_block(sdio, j * 512, buf);
         }
 
-        if(err != SD_NO_ERROR)
+        if (err != SD_NO_ERROR)
         {
             error();
         }
 
-        while(!transfer_ended);
+        while (!transfer_ended)
+        {
+            ;
+        }
 
-        if(err != SD_NO_ERROR)
+        if (err != SD_NO_ERROR)
         {
             error();
         }
 
-        for(i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
+        for (i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
         {
             buf[i] = j + 1;
         }
@@ -124,7 +130,7 @@ int main()
         printf("Reading the written block: ");
         transfer_ended = false;
 
-        if(sd_get_type(sdio) == SDHC)
+        if (sd_get_type(sdio) == SDHC)
         {
             err = sd_read_single_block(sdio, j, buf);
         }
@@ -133,21 +139,24 @@ int main()
             err = sd_read_single_block(sdio, j * 512, buf);
         }
 
-        if(err != SD_NO_ERROR)
+        if (err != SD_NO_ERROR)
         {
             error();
         }
 
-        while(!transfer_ended);
+        while (!transfer_ended)
+        {
+            ;
+        }
 
-        if(err != SD_NO_ERROR)
+        if (err != SD_NO_ERROR)
         {
             error();
         }
 
-        for(i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
+        for (i = 0; i < sizeof(buf) / sizeof(buf[0]); i++)
         {
-            if(buf[i] != (j & 0xFF))
+            if (buf[i] != (j & 0xFF))
             {
                 printf("wrong buffer content\r\n");
                 error();
@@ -159,14 +168,17 @@ int main()
 
     printf("END\r\n");
 
-    while(1);
+    while (1)
+    {
+        ;
+    }
 
     return 0;
 }
 
 void error()
 {
-    switch(err)
+    switch (err)
     {
         case SD_NO_ERROR:
             printf("SD_NO_ERROR");
@@ -260,5 +272,8 @@ void error()
             break;
     }
 
-    while(1);
+    while (1)
+    {
+        ;
+    }
 }

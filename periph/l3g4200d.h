@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -22,17 +22,14 @@
  *
  *  Created on: Jul 31, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef L3G4200D_H_
 #define L3G4200D_H_
 
+#include <stdbool.h>
 #include <stdint.h>
-
-/**
- * This type defines a gyrometer
- */
-typedef void *l3g4200d_t;
 
 typedef enum
 {
@@ -50,24 +47,24 @@ typedef enum
 } l3g4200d_scale_t;
 
 /* Read WHOAMI register */
-uint8_t l3g4200d_read_whoami(l3g4200d_t gyro);
+uint8_t l3g4200d_read_whoami();
 
 /* Read CTRL_REGi */
-uint8_t l3g4200d_read_crtl_reg(l3g4200d_t gyro, uint8_t i);
+uint8_t l3g4200d_read_crtl_reg(uint8_t i);
 
 /* Switch off sensor */
-void l3g4200d_powerdown(l3g4200d_t gyro);
+void l3g4200d_powerdown();
 
 /* Data rate configuration */
-void l3g4200d_set_datarate(l3g4200d_t gyro, l3g4200d_datarate_t datarate);
+void l3g4200d_set_datarate(l3g4200d_datarate_t datarate);
 
 /* Scale configuration */
-void l3g4200d_set_scale(l3g4200d_t gyro, l3g4200d_scale_t scale);
+void l3g4200d_set_scale(l3g4200d_scale_t scale, bool bdu);
 
 /* Rotation speed reading */
-void l3g4200d_read_rot_speed(l3g4200d_t gyro, int16_t *rot_speed);
+void l3g4200d_read_rot_speed(int16_t *rot_speed);
 
 /* Temperature reading */
-void l3g4200d_read_temp(l3g4200d_t gyro, uint8_t *temp);
+void l3g4200d_read_temp(uint8_t *temp);
 
 #endif /* L3G4200D_H_ */

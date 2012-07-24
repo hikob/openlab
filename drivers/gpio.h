@@ -14,19 +14,14 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * gpio.h
+/**
+ * GPIO driver header file.
  *
  *  Created on: Jul 8, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
- */
-
-/*
- * GPIO driver header file.
- *
  */
 
 #ifndef GPIO_H_

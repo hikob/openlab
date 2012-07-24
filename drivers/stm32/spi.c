@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -36,6 +36,8 @@ static inline void transfer_dma(_spi_t *_spi, const uint8_t *tx_buffer,
                                 uint8_t *rx_buffer, uint16_t length);
 static inline void transfer_interrupt(_spi_t *_spi, const uint8_t *tx_buffer,
                                       uint8_t *rx_buffer, uint16_t length);
+static inline void cancel_dma(_spi_t *_spi);
+static inline void cancel_interrupt(_spi_t *_spi);
 
 static void transfer_done(_spi_t *spi);
 
@@ -59,7 +61,7 @@ void spi_enable(spi_t spi, uint32_t baudrate, spi_clock_mode_t clock_mode)
     uint16_t divider;
     uint32_t pclk;
 
-    if(_spi->apb_bus == 1)
+    if (_spi->apb_bus == 1)
     {
         pclk = rcc_sysclk_get_clock_frequency(RCC_SYSCLK_CLOCK_PCLK1);
     }
@@ -68,10 +70,10 @@ void spi_enable(spi_t spi, uint32_t baudrate, spi_clock_mode_t clock_mode)
         pclk = rcc_sysclk_get_clock_frequency(RCC_SYSCLK_CLOCK_PCLK2);
     }
 
-    for(divider = 0; divider < 8; divider++)
+    for (divider = 0; divider < 8; divider++)
     {
         // Check if clock divided is not too high
-        if(pclk / (1 << (divider + 1)) <= baudrate)
+        if (pclk / (1 << (divider + 1)) <= baudrate)
         {
             break;
         }
@@ -108,7 +110,7 @@ uint8_t spi_transfer_single(spi_t spi, uint8_t tx)
     uint8_t rx;
 
     // Wait until TXE=1
-    while(!(*spi_get_SR(_spi) & SPI_SR__TXE))
+    while (!(*spi_get_SR(_spi) & SPI_SR__TXE))
     {
     }
 
@@ -116,7 +118,7 @@ uint8_t spi_transfer_single(spi_t spi, uint8_t tx)
     *spi_get_DR(_spi) = tx;
 
     // Wait until RXNE=1
-    while(!(*spi_get_SR(_spi) & SPI_SR__RXNE))
+    while (!(*spi_get_SR(_spi) & SPI_SR__RXNE))
     {
     }
 
@@ -124,7 +126,7 @@ uint8_t spi_transfer_single(spi_t spi, uint8_t tx)
     rx = *spi_get_DR(_spi);
 
     // Wait until BSY=0
-    while(*spi_get_SR(_spi) & SPI_SR__BSY)
+    while (*spi_get_SR(_spi) & SPI_SR__BSY)
     {
     }
 
@@ -138,11 +140,11 @@ void spi_transfer(spi_t spi, const uint8_t *tx_buffer, uint8_t *rx_buffer,
     uint32_t i;
 
     //  For each byte to write
-    for(i = 0; i < length; i++)
+    for (i = 0; i < length; i++)
     {
         uint8_t rx_, tx_;
 
-        if(tx_buffer)
+        if (tx_buffer)
         {
             tx_ = tx_buffer[i];
         }
@@ -153,7 +155,7 @@ void spi_transfer(spi_t spi, const uint8_t *tx_buffer, uint8_t *rx_buffer,
 
         rx_ = spi_transfer_single(spi, tx_);
 
-        if(rx_buffer)
+        if (rx_buffer)
         {
             rx_buffer[i] = rx_;
         }
@@ -169,8 +171,11 @@ void spi_transfer_async(spi_t spi, const uint8_t *tx_buffer,
     _spi->transfer_handler = handler;
     _spi->transfer_handler_arg = handler_arg;
 
+    // Notify of ongoing underground transfer
+    platform_prevent_low_power();
+
     // Check if DMA channels are available
-    if(_spi->dma_channel_rx && _spi->dma_channel_tx)
+    if (_spi->dma_channel_rx && _spi->dma_channel_tx)
     {
         // Yes, use DMA
         transfer_dma(_spi, tx_buffer, rx_buffer, length);
@@ -180,9 +185,27 @@ void spi_transfer_async(spi_t spi, const uint8_t *tx_buffer,
         // No, use Interrupt
         transfer_interrupt(_spi, tx_buffer, rx_buffer, length);
     }
+}
 
-    // Notify of ongoing underground transfer
-    platform_prevent_low_power();
+void spi_async_cancel(spi_t spi)
+{
+    _spi_t *_spi = spi;
+
+    // Just clear handlers
+    _spi->transfer_handler = NULL;
+    _spi->transfer_handler_arg = NULL;
+
+    // Check if DMA channels are available
+    if (_spi->dma_channel_rx && _spi->dma_channel_tx)
+    {
+        // Yes, use DMA
+        cancel_dma(_spi);
+    }
+    else
+    {
+        // No, use Interrupt
+        cancel_interrupt(_spi);
+    }
 }
 
 static inline void transfer_dma(_spi_t *_spi, const uint8_t *tx_buffer,
@@ -241,8 +264,37 @@ static inline void transfer_interrupt(_spi_t *_spi, const uint8_t *tx_buffer,
     _spi->isr_rx = rx_buffer;
     _spi->isr_count = length;
 
+    // Clear any pending RX
+    (void) *spi_get_DR(_spi);
+
     // Enable RX and TX interrupt
     *spi_get_CR2(_spi) = SPI_CR2__TXEIE | SPI_CR2__RXNEIE;
+}
+static inline void cancel_dma(_spi_t *_spi)
+{
+    // Disable the DMA trigger generation
+    *spi_get_CR2(_spi) = 0;
+
+    // Cancel the transfers
+    dma_cancel(_spi->dma_channel_rx);
+
+    if (dma_cancel(_spi->dma_channel_tx))
+    {
+        // Release low power if aborted
+        platform_release_low_power();
+    }
+}
+
+static inline void cancel_interrupt(_spi_t *_spi)
+{
+    // Disable RX and TX interrupt
+    *spi_get_CR2(_spi) = 0;
+
+    // Check if transfer not finished
+    if (_spi->isr_count != 0)
+    {
+        platform_release_low_power();
+    }
 }
 static void transfer_done(_spi_t *_spi)
 {
@@ -250,7 +302,7 @@ static void transfer_done(_spi_t *_spi)
     platform_release_low_power();
 
     // Call handler if any
-    if(_spi->transfer_handler)
+    if (_spi->transfer_handler)
     {
         _spi->transfer_handler(_spi->transfer_handler_arg);
     }
@@ -262,59 +314,45 @@ void spi_handle_interrupt(_spi_t *_spi)
     uint8_t sr = *spi_get_SR(_spi);
 
     // Switch on the interrupt source
-    if(sr & SPI_SR__RXNE)
+    if (sr & SPI_SR__RXNE)
     {
         // RX ready, read one byte
-        if(_spi->isr_rx)
-        {
-            // Store received byte
-            *(_spi->isr_rx) = *spi_get_DR(_spi);
+        uint8_t rx = *spi_get_DR(_spi);
 
-            // Increment RX pointer
-            _spi->isr_rx++;
-        }
-        else
+        // Store if required
+        if (_spi->isr_rx)
         {
-            // Read anyway
-            (void) *spi_get_DR(_spi);
+            // Store received byte and increment
+            *(_spi->isr_rx++) = rx;
         }
 
         // Decrement transfer count
         _spi->isr_count--;
 
         // Check if transfer done
-        if(_spi->isr_count == 0)
+        if (_spi->isr_count == 0)
         {
             // Disable interrupt
             *spi_get_CR2(_spi) = 0;
 
-            // Call transfer done
+            // Call transfer done and return
             transfer_done(_spi);
-
-            // return
             return;
         }
     }
 
-    if(sr & SPI_SR__TXE)
+    if (sr & SPI_SR__TXE)
     {
         // TX empty, write next byte if there are to write
-        if(_spi->isr_count > 0)
+        if (_spi->isr_count > 0)
         {
-            // Check if there is a TX pointer
-            if(_spi->isr_tx)
-            {
-                // Write next byte
-                *spi_get_DR(_spi) = *_spi->isr_tx;
-
-                // Increment TX pointer
-                _spi->isr_tx++;
-            }
-            else
-            {
-                // Write dummy byte
-                *spi_get_DR(_spi) = 0;
-            }
+            // Write next byte
+            *spi_get_DR(_spi) = _spi->isr_tx ? *(_spi->isr_tx++) : 0;
+        }
+        else
+        {
+            // Disable TX interrupt
+            *spi_get_CR2(_spi) &= ~SPI_CR2__TXEIE;
         }
     }
 }

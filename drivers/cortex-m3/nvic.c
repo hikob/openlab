@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011, 2012 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -30,9 +30,6 @@
 #include "handler.h"
 
 #include "rcc_sysclk.h"
-
-/** Set the priority of an interrupt line */
-static void nvic_set_priority(nvic_irq_line_t line, uint8_t priority);
 
 static handler_t tick_handler;
 static handler_arg_t tick_handler_arg;
@@ -61,6 +58,17 @@ void nvic_disable_interrupt_line(nvic_irq_line_t line)
 
     // Clear the pending bit
     *cm3_nvic_get_CLEAR_PENDING(word) = BV(bit);
+}
+
+void nvic_set_priority(nvic_irq_line_t line, uint8_t priority)
+{
+    volatile uint8_t *priority_reg;
+
+    // Get a pointer to the register
+    priority_reg = cm3_nvic_get_PRIORITY(line);
+
+    // Set given value
+    *priority_reg = priority;
 }
 
 void nvic_enable_systick(uint32_t freq, handler_t handler, handler_arg_t arg)
@@ -92,21 +100,10 @@ void nvic_disable_systick()
 
 void systick_handler()
 {
-    if(tick_handler)
+    if (tick_handler)
     {
         tick_handler(tick_handler_arg);
     }
-}
-
-static void nvic_set_priority(nvic_irq_line_t line, uint8_t priority)
-{
-    volatile uint8_t *priority_reg;
-
-    // Get a pointer to the register
-    priority_reg = cm3_nvic_get_PRIORITY(line);
-
-    // Set given value
-    *priority_reg = priority;
 }
 
 void nvic_reset()

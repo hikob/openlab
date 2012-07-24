@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -25,9 +25,11 @@
  */
 
 #include "platform.h"
+#include "agilefox.h"
 
+
+#include "stm32/timer_.h"
 #include "rf2xx.h"
-#include "lib/net_timer.h"
 #include "phy_rf2xx/phy_rf2xx.h"
 
 /* Phy Instantiation */
@@ -37,9 +39,6 @@ phy_t phy = &phy_rf231;
 
 void platform_net_setup()
 {
-    // Setup the NET_TIMER library, timer 3
-    net_timer_init(tim3);
-
     // Setup the PHY libraries
     phy_rf2xx_init(&phy_rf231, rf231, tim3, TIMER_CHANNEL_3);
 }

@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -40,13 +40,13 @@
  *----------------------------------------------------------*/
 
 #define configUSE_PREEMPTION            1
-#define configUSE_IDLE_HOOK             0
+#define configUSE_IDLE_HOOK             1
 #define configUSE_TICK_HOOK             0
 #define configCPU_CLOCK_HZ              ((unsigned portLONG)72000000) // Clock setup from main.c in the demo application.
 #define configTICK_RATE_HZ              ((portTickType)1000)
 #define configMAX_PRIORITIES            ((unsigned portBASE_TYPE)8)
-#define configMINIMAL_STACK_SIZE        ((unsigned portSHORT)48) // Size in uint32_t (real stack size is multiplied by 4)
-#define configTOTAL_HEAP_SIZE           ((size_t)(12 * 1024)) // Size in bytes
+#define configMINIMAL_STACK_SIZE        ((unsigned portSHORT)200) // Size in uint32_t (real stack size is multiplied by 4)
+#define configTOTAL_HEAP_SIZE           ((size_t)(24 * 1024)) // Size in bytes
 #define configMAX_TASK_NAME_LEN         (8)
 #define configUSE_TRACE_FACILITY        1
 #define configUSE_16_BIT_TICKS          0
@@ -66,7 +66,7 @@
 #define configMAX_CO_ROUTINE_PRIORITIES (2)
 
 /* Software timer definitions. */
-#define configUSE_TIMERS                1
+#define configUSE_TIMERS                0
 #define configTIMER_TASK_PRIORITY       (1)
 #define configTIMER_QUEUE_LENGTH        10
 #define configTIMER_TASK_STACK_DEPTH    (4 * configMINIMAL_STACK_SIZE)

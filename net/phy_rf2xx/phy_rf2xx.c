@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -27,18 +27,12 @@
 #include "phy_rf2xx.h"
 #include "rf2xx.h"
 
-// FreeRTOS include
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "semphr.h"
-#include "task.h"
-
 // Global lib
 #include "event.h"
 #include "printf.h"
 
 // Net lib
-#include "lib/net_timer.h"
+#include "soft_timer_delay.h"
 
 /* Private Functions */
 // Interrupt handlers
@@ -61,6 +55,8 @@ static void handle_rx_end(handler_arg_t arg);
 static void handle_rx_timeout(handler_arg_t arg);
 static void handle_tx_end(handler_arg_t arg);
 static void start_rx(handler_arg_t arg);
+
+#define RF_MAX_WAIT soft_timer_ms_to_ticks(1)
 
 void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, timer_t timer,
                     timer_channel_t channel)
@@ -109,7 +105,7 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
     phy_rf2xx_t *_phy = phy;
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -125,11 +121,11 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
     }
 
     // Check min and max value
-    if(channel < PHY_MIN_CHANNEL)
+    if (channel < PHY_MIN_CHANNEL)
     {
         channel = PHY_MIN_CHANNEL;
     }
-    else if(channel > PHY_MAX_CHANNEL)
+    else if (channel > PHY_MAX_CHANNEL)
     {
         channel = PHY_MAX_CHANNEL;
     }
@@ -139,7 +135,7 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
                     RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE | channel);
 
     // Go back to sleep if it was in this state
-    if(_phy->state == PHY_STATE_SLEEP)
+    if (_phy->state == PHY_STATE_SLEEP)
     {
         rf2xx_sleep(_phy->radio);
     }
@@ -153,7 +149,7 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
     phy_rf2xx_t *_phy = phy;
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -170,7 +166,7 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
     }
 
     // Convert power value to register value
-    switch(power)
+    switch (power)
     {
         case PHY_POWER_m30dBm:
             power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
@@ -195,6 +191,7 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
             break;
         default:
             power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
+            break;
     }
 
     // Write new data to register
@@ -203,7 +200,7 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
                     | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT | power);
 
     // Go back to sleep if it was in this state
-    if(_phy->state == PHY_STATE_SLEEP)
+    if (_phy->state == PHY_STATE_SLEEP)
     {
         rf2xx_sleep(_phy->radio);
     }
@@ -217,7 +214,7 @@ uint8_t phy_cca(phy_t phy)
     phy_rf2xx_t *_phy = phy;
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -239,13 +236,23 @@ uint8_t phy_cca(phy_t phy)
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__RX_ON);
 
     uint8_t reg;
+    uint32_t t_end;
 
     // Wait until RX is entered
+    t_end = soft_timer_time() + RF_MAX_WAIT;
+
     do
     {
         reg = rf2xx_get_status(_phy->radio);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("RF delay expired #0");
+            return 0;
+        }
     }
-    while((reg & RF2XX_TRX_STATUS__RX_ON) == 0);
+    while ((reg & RF2XX_TRX_STATUS__RX_ON) == 0);
 
     // Request a CCA
     reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_CC_CCA);
@@ -253,17 +260,26 @@ uint8_t phy_cca(phy_t phy)
     rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_CC_CCA, reg);
 
     // Wait until CCA is performed
+    t_end = soft_timer_time() + RF_MAX_WAIT;
+
     do
     {
         reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_STATUS);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("RF delay expired #1");
+            return 0;
+        }
     }
-    while((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
+    while ((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
 
     // Stop RX
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
     // Go back to sleep if needed
-    if(_phy->state == PHY_STATE_SLEEP)
+    if (_phy->state == PHY_STATE_SLEEP)
     {
         // Sleep
         rf2xx_sleep(_phy->radio);
@@ -279,14 +295,14 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
     phy_rf2xx_t *_phy = phy;
 
     // Check the provided packet
-    if(pkt == NULL)
+    if (pkt == NULL)
     {
         log_error("Invalid provided RX packet: NULL");
         HALT();
     }
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -313,17 +329,38 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
     _phy->pkt->t_rx_start = 0;
     _phy->pkt->t_rx_end = 0;
 
+    // Compute delta
+    uint32_t now = soft_timer_time();
+    int16_t delta_rx = rx_time - now;
+    int16_t delta_timeout = timeout_time - now;
+
+    // Check for invalid time
+    if ((rx_time && (delta_rx < 1)) || (timeout_time && (delta_timeout < 1))
+            || (rx_time && timeout_time && (timeout_time - rx_time < 1)))
+    {
+        // Invalid timing (too late) go back to previous state
+        // Check state
+        switch (_phy->state)
+        {
+            case PHY_STATE_SLEEP:
+                // Back to sleep
+                sleep(_phy);
+                break;
+            case PHY_STATE_IDLE:
+                // Back to idle
+                idle(_phy);
+                break;
+            default:
+                break;
+        }
+
+        return PHY_ERR_TOO_LATE;
+    }
+
     // Store State
     _phy->state = PHY_STATE_RX_WAIT;
 
-    // compute delta
-    uint16_t now = timer_time(_phy->timer);
-    int16_t delta = ((uint16_t) rx_time) - now;
-
-    if( // Check if an RX time is specified
-        rx_time &&
-        // Check start time has not passed
-        (delta > 1))
+    if (/* Check if an RX time is specified */rx_time)
     {
         // Set RX start time
         timer_set_channel_compare(_phy->timer, _phy->channel, rx_time & 0xFFFF,
@@ -337,6 +374,7 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
 
     return PHY_SUCCESS;
 }
+
 phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
                     phy_handler_t handler)
 {
@@ -344,21 +382,21 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     phy_rf2xx_t *_phy = phy;
 
     // Check the provided packet
-    if(pkt == NULL)
+    if (pkt == NULL)
     {
         log_error("Invalid provided TX packet: NULL");
         HALT();
     }
 
     // Check length is valid
-    if(pkt->length > PHY_MAX_TX_LENGTH)
+    if (pkt->length > PHY_MAX_TX_LENGTH)
     {
         log_error("length too big: %u", pkt->length);
         return PHY_ERR_INVALID_LENGTH;
     }
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -373,7 +411,7 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     }
 
     // Store State
-    _phy->state = PHY_STATE_TX;
+    _phy->state = PHY_STATE_TX_WAIT;
 
     // Store packet
     _phy->pkt = pkt;
@@ -401,15 +439,15 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     int16_t spare_time = 0;
 
     // Check if TX time is delayed
-    if(tx_time)
+    if (tx_time)
     {
         // Update TX alarm time
         tx_time -= PHY_TIMING__TX_OFFSET;
 
         // Check if Time to start is not elapsed
-        spare_time = (int16_t)((tx_time & 0xFFFF) - timer_time(_phy->timer));
+        spare_time = tx_time - soft_timer_time();
 
-        if(spare_time > 1)
+        if (spare_time > 1)
         {
             // Set timer
             timer_set_channel_compare(_phy->timer, _phy->channel, tx_time
@@ -417,8 +455,24 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
         }
         else
         {
-            // TX time has elapsed, start ASAP.
-            launch_now = 1;
+            log_warning("TX too late: %d", -spare_time);
+
+            // Check state
+            switch (_phy->state)
+            {
+                case PHY_STATE_SLEEP:
+                    // Back to sleep
+                    sleep(_phy);
+                    break;
+                case PHY_STATE_IDLE:
+                    // Back to idle
+                    idle(_phy);
+                    break;
+                default:
+                    break;
+            }
+
+            return PHY_ERR_TOO_LATE;
         }
     }
     else
@@ -429,12 +483,22 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
 
     // Wait until PLL ON state
     uint8_t status;
+    uint32_t t_end = soft_timer_time() + RF_MAX_WAIT;
 
     do
     {
         status = rf2xx_get_status(_phy->radio);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("RF delay expired #2");
+            // Go back to IDLE
+            idle(_phy);
+            return PHY_ERR_INVALID_STATE;
+        }
     }
-    while(status != RF2XX_TRX_STATUS__PLL_ON);
+    while (status != RF2XX_TRX_STATUS__PLL_ON);
 
     // Copy the packet to the radio FIFO
     rf2xx_fifo_write_first(_phy->radio, _phy->pkt->length + 2);
@@ -442,14 +506,9 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
                                      _phy->pkt->length, NULL, NULL);
 
     // Launch now if required
-    if(launch_now)
+    if (launch_now)
     {
         tx_start_handler(_phy, timer_time(_phy->timer));
-        //        printf("(NOW! %d)", spare_time);
-    }
-    else
-    {
-        //        printf("(%d spare)", spare_time);
     }
 
     // Return Success
@@ -462,6 +521,9 @@ static void reset(phy_rf2xx_t *_phy)
 {
     // Stop timer
     timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+
+    // Stop any Asynchronous access
+    rf2xx_fifo_access_cancel(_phy->radio);
 
     // Configure the radio interrupts
     rf2xx_irq_disable(_phy->radio);
@@ -488,7 +550,7 @@ static void reset(phy_rf2xx_t *_phy)
 
     // Set stored TX power
     reg = RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT
-          | PHY_POWER_0dBm;
+          | RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
     rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, reg);
 
     // Disable CLKM signal
@@ -514,6 +576,10 @@ static void sleep(phy_rf2xx_t *_phy)
     // Power off the radio
     rf2xx_sleep(_phy->radio);
 
+    // Remove handler and packet
+    _phy->handler = NULL;
+    _phy->pkt = NULL;
+
     // Save state
     _phy->state = PHY_STATE_SLEEP;
 }
@@ -527,7 +593,7 @@ static void idle(phy_rf2xx_t *_phy)
     timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
 
     // Check state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_SLEEP:
             // Wakeup
@@ -537,6 +603,9 @@ static void idle(phy_rf2xx_t *_phy)
             // Nothing to do
             break;
     }
+
+    // Cancel any ongoing transfer
+    rf2xx_fifo_access_cancel(_phy->radio);
 
     // Force IDLE
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
@@ -553,13 +622,13 @@ static void start_rx(handler_arg_t arg)
     phy_rf2xx_t *_phy = arg;
 
     // Check state and pkt
-    if(_phy->state != PHY_STATE_RX_WAIT)
+    if (_phy->state != PHY_STATE_RX_WAIT)
     {
         log_error("start_rx but state not RX wait: %x", _phy->state);
-        HALT();
+        return;
     }
 
-    if(_phy->pkt == NULL)
+    if (_phy->pkt == NULL)
     {
         log_error("start_rx but pkt NULL");
         HALT();
@@ -592,16 +661,24 @@ static void start_rx(handler_arg_t arg)
 
     // Loop until RX_ON is entered
     uint8_t status;
+    uint32_t t_end = soft_timer_time() + RF_MAX_WAIT;
 
     do
     {
         status = rf2xx_get_status(_phy->radio);
+
+        // Check for block
+        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        {
+            log_error("RF delay expired #3");
+            break;
+        }
     }
-    while((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
+    while ((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
             != RF2XX_TRX_STATUS__RX_ON);
 
     // Set timer for timeout, if any
-    if(_phy->rx_timeout)
+    if (_phy->rx_timeout)
     {
         timer_set_channel_compare(_phy->timer, _phy->channel, _phy->rx_timeout
                                   & 0xFFFF, (timer_handler_t) rx_timeout_handler, _phy);
@@ -619,13 +696,13 @@ static void handle_rx_start(handler_arg_t arg)
     phy_rf2xx_t *_phy = arg;
 
     // Check state and pkt
-    if(_phy->state != PHY_STATE_RX)
+    if (_phy->state != PHY_STATE_RX)
     {
         log_error("handle_rx_start but state not RX: %x", _phy->state);
         HALT();
     }
 
-    if(_phy->pkt == NULL)
+    if (_phy->pkt == NULL)
     {
         log_error("handle_rx_start but pkt NULL");
         HALT();
@@ -635,17 +712,17 @@ static void handle_rx_start(handler_arg_t arg)
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
     // Check the CRC is good
-    if(!(rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_RSSI)
+    if (!(rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_RSSI)
             & RF2XX_PHY_RSSI_MASK__RX_CRC_VALID))
     {
-        // Error CRC, call handler
-        log_warning("RX CRC error");
+        // Stop timer
+        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
 
         // Force Idle
         idle(_phy);
 
         // Call handler
-        if(_phy->handler)
+        if (_phy->handler)
         {
             _phy->handler(PHY_RX_CRC_ERROR);
         }
@@ -656,8 +733,9 @@ static void handle_rx_start(handler_arg_t arg)
     // Read length byte (first byte)
     _phy->pkt->length = rf2xx_fifo_read_first(_phy->radio);
 
-    // Check valid length
-    if((_phy->pkt->length == 0) || (_phy->pkt->length > PHY_MAX_RX_LENGTH))
+    // Check valid length (not zero and enough space to store it)
+    if ((_phy->pkt->length == 0) ||
+            (_phy->pkt->data + _phy->pkt->length > _phy->pkt->raw_data + PHY_MAX_RX_LENGTH))
     {
         // Error length, end transfer
         rf2xx_fifo_read_remaining(_phy->radio, _phy->pkt->data, 0);
@@ -666,7 +744,7 @@ static void handle_rx_start(handler_arg_t arg)
         idle(_phy);
 
         // Call handler
-        if(_phy->handler)
+        if (_phy->handler)
         {
             _phy->handler(PHY_RX_LENGTH_ERROR);
         }
@@ -675,7 +753,7 @@ static void handle_rx_start(handler_arg_t arg)
     }
 
     // Store RX start time
-    _phy->pkt->t_rx_start = net_timer_time();
+    _phy->pkt->t_rx_start = soft_timer_time();
 
     // Retrieve remaining of the data asynchronously (+1) to have the LQI
     uint8_t length = _phy->pkt->length + 1;
@@ -690,20 +768,20 @@ static void handle_rx_end(handler_arg_t arg)
     phy_rf2xx_t *_phy = arg;
 
     // Check state and pkt
-    if(_phy->state != PHY_STATE_RX)
+    if (_phy->state != PHY_STATE_RX)
     {
         log_error("handle_rx_end but state not RX: %x", _phy->state);
-        HALT();
+        return;
     }
 
-    if(_phy->pkt == NULL)
+    if (_phy->pkt == NULL)
     {
         log_error("handle_rx_end but pkt NULL");
         HALT();
     }
 
     // Store RX END time
-    _phy->pkt->t_rx_end = net_timer_time();
+    _phy->pkt->t_rx_end = soft_timer_time();
 
     // Read the ED value (~RSSI)
     _phy->pkt->rssi = -91
@@ -715,7 +793,7 @@ static void handle_rx_end(handler_arg_t arg)
     // Remove status bytes from length
     _phy->pkt->length -= 2;
 
-    if(_phy->pkt->t_rx_end - _phy->pkt->t_rx_start > 500)
+    if (_phy->pkt->t_rx_end - _phy->pkt->t_rx_start > 500)
     {
         log_error("Too much time to read a packet, length = %u",
                   _phy->pkt->length + 1);
@@ -727,7 +805,7 @@ static void handle_rx_end(handler_arg_t arg)
     idle(_phy);
 
     // Call RX handler if any
-    if(_phy->handler)
+    if (_phy->handler)
     {
         _phy->handler(PHY_SUCCESS);
     }
@@ -738,10 +816,10 @@ static void handle_rx_timeout(handler_arg_t arg)
     phy_rf2xx_t *_phy = arg;
 
     // Handle Timeout should only occur in RX state
-    if((_phy->state != PHY_STATE_RX_WAIT) && (_phy->state != PHY_STATE_RX))
+    if ((_phy->state != PHY_STATE_RX_WAIT) && (_phy->state != PHY_STATE_RX))
     {
-        log_error("invalid state for phy handle_rx_timeout: %x", _phy->state);
-        HALT();
+        // Interrupt may have slipped, discard
+        log_warning("invalid state for phy handle_rx_timeout: %x", _phy->state);
         return;
     }
 
@@ -749,7 +827,7 @@ static void handle_rx_timeout(handler_arg_t arg)
     idle(_phy);
 
     // Notify receiving failed
-    if(_phy->handler)
+    if (_phy->handler)
     {
         _phy->handler(PHY_RX_TIMEOUT_ERROR);
     }
@@ -764,7 +842,7 @@ static void handle_tx_end(handler_arg_t arg)
     idle(_phy);
 
     // Notify sending is done if handler is not null
-    if(_phy->handler)
+    if (_phy->handler)
     {
         _phy->handler(PHY_SUCCESS);
     }
@@ -779,12 +857,12 @@ static void handle_irq(handler_arg_t arg)
     uint8_t irq_status = rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
 
     // Switch on the state
-    switch(_phy->state)
+    switch (_phy->state)
     {
         case PHY_STATE_RX:
 
             // Check if TRX_END happened
-            if(irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
+            if (irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
             {
                 // Start processing
                 handle_rx_start(_phy);
@@ -800,7 +878,7 @@ static void handle_irq(handler_arg_t arg)
         case PHY_STATE_TX:
 
             // Check if TRX_END happened
-            if(irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
+            if (irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
             {
                 // Start processing
                 handle_tx_end(_phy);
@@ -828,7 +906,7 @@ static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value)
     phy_rf2xx_t *_phy = arg;
 
     // Check state
-    if(_phy->state != PHY_STATE_RX)
+    if (_phy->state != PHY_STATE_RX)
     {
         log_error("DIG2 but state not RX");
         HALT();
@@ -838,15 +916,15 @@ static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value)
     timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
 
     // Store timer value, if rx packet specified
-    if(_phy->pkt)
+    if (_phy->pkt)
     {
-        _phy->pkt->timestamp = net_timer_convert_time(timer_value);
+        _phy->pkt->timestamp = soft_timer_convert_time(timer_value);
     }
 }
 static void rx_start_handler(handler_arg_t arg, uint16_t timer_value)
 {
     // Request a post of start_rx
-    event_post_from_isr(EVENT_QUEUE_NETWORK_HIGH, start_rx, arg);
+    event_post_from_isr(EVENT_QUEUE_NETWORK, start_rx, arg);
 }
 
 static void tx_start_handler(handler_arg_t arg, uint16_t timer_value)
@@ -854,20 +932,23 @@ static void tx_start_handler(handler_arg_t arg, uint16_t timer_value)
     // Cast to PHY
     phy_rf2xx_t *_phy = arg;
 
-    // Start TX by setting SLP_TR
-    rf2xx_slp_tr_set(_phy->radio);
+    if (_phy->state == PHY_STATE_TX_WAIT)
+    {
+        // Start TX by setting SLP_TR
+        rf2xx_slp_tr_set(_phy->radio);
 
-    // Store time
-    _phy->pkt->timestamp = net_timer_time() + PHY_TIMING__TX_OFFSET;
+        // Store time
+        _phy->pkt->timestamp = soft_timer_time() + PHY_TIMING__TX_OFFSET;
 
-    // Store State
-    _phy->state = PHY_STATE_TX;
+        // Store State
+        _phy->state = PHY_STATE_TX;
 
-    // Disable timer
-    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+        // Disable timer
+        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
 
-    // Clear SLP_TR
-    rf2xx_slp_tr_clear(_phy->radio);
+        // Clear SLP_TR
+        rf2xx_slp_tr_clear(_phy->radio);
+    }
 }
 
 static void rx_timeout_handler(handler_arg_t arg, uint16_t timer_value)
@@ -879,7 +960,7 @@ static void rx_timeout_handler(handler_arg_t arg, uint16_t timer_value)
     timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
 
     // Call handle_rx_timeout handler from event task
-    event_post_from_isr(EVENT_QUEUE_NETWORK_HIGH, handle_rx_timeout, arg);
+    event_post_from_isr(EVENT_QUEUE_NETWORK, handle_rx_timeout, arg);
 }
 
 static void irq_handler(handler_arg_t arg)
@@ -888,14 +969,14 @@ static void irq_handler(handler_arg_t arg)
     phy_rf2xx_t *_phy = arg;
 
     // Store IRQ time
-    _phy->pkt->eop_time = net_timer_time();
+    _phy->pkt->eop_time = soft_timer_time();
 
     // Call IRQ handler from event task
-    event_post_from_isr(EVENT_QUEUE_NETWORK_HIGH, handle_irq, arg);
+    event_post_from_isr(EVENT_QUEUE_NETWORK, handle_irq, arg);
 }
 
 static void fifo_read_done_handler(handler_arg_t arg)
 {
     // Call RX end handler from event task
-    event_post_from_isr(EVENT_QUEUE_NETWORK_HIGH, handle_rx_end, arg);
+    event_post_from_isr(EVENT_QUEUE_NETWORK, handle_rx_end, arg);
 }

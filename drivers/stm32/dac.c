@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -34,7 +34,7 @@ void dac_enable(dac_channel_t channel)
     // Enable the DAC in the RCC
     rcc_apb_enable(RCC_APB_BUS_DAC, RCC_APB_BIT_DAC);
 
-    switch(channel)
+    switch (channel)
     {
         case DAC_CHANNEL_1:
             *dac_get_CR() &= ~0x0000FFFF;
@@ -49,7 +49,7 @@ void dac_enable(dac_channel_t channel)
 
 void dac_disable(dac_channel_t channel)
 {
-    switch(channel)
+    switch (channel)
     {
         case DAC_CHANNEL_1:
             *dac_get_CR() &= ~0x0000FFFF;

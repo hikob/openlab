@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2012 HiKoB.
  */
 
 /*
@@ -44,16 +44,16 @@ int main()
     // Register handler
     button_set_handler(button_handler, NULL);
 
-    while(1)
+    while (1)
     {
         int i;
 
-        for(i = 0; i < 0x80000; i++)
+        for (i = 0; i < 0x80000; i++)
         {
             __asm__("nop");
         }
 
-        if(button_state())
+        if (button_state())
         {
             leds_toggle(LED_0);
         }

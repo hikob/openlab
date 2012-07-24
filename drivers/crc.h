@@ -39,6 +39,9 @@ void crc_disable();
 void crc_reset();
 
 /** Compute a CRC32 over a range of memory */
-uint32_t crc_compute(const uint32_t *addr, uint32_t length);
+void crc_compute(const uint32_t *addr, uint32_t length);
+
+/** Terminate the CRC32 computation */
+uint32_t crc_terminate();
 
 #endif /* CRC_H_ */

@@ -32,9 +32,8 @@ if("${DRIVERS}" STREQUAL "stm32f1xx")
 		stm32/dma
 		stm32/unique_id
 		stm32/usb
-		stm32/cdc_acm
-		stm32/hid
 		stm32/crc
+		stm32/watchdog
 		stm32f1xx/boot
 		stm32f1xx/rcc
 		stm32f1xx/rcc_clock
@@ -42,6 +41,7 @@ if("${DRIVERS}" STREQUAL "stm32f1xx")
 		stm32f1xx/afio
 		stm32f1xx/exti
 		stm32f1xx/gpio
+		stm32f1xx/adc
 		stm32f1xx/flash
 		stm32f1xx/sdio
 	)

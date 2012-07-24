@@ -14,13 +14,13 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2012 HiKoB.
  */
 
 /*
- * blink.c
+ * leds.c
  *
- *  Created on: Jul 7, 2011
+ *  Created on: Jul 5, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
  */
@@ -38,11 +38,11 @@ int main()
 
     uint8_t count = 0;
 
-    while(1)
+    while (1)
     {
         int i;
 
-        for(i = 0; i < 0x80000; i++)
+        for (i = 0; i < 0x80000; i++)
         {
             __asm__("nop");
         }

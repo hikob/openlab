@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -26,6 +26,8 @@
 
 #ifndef RCC_CLOCK_H_
 #define RCC_CLOCK_H_
+
+#include <stdbool.h>
 #include <stdint.h>
 
 /* HSI section */
@@ -36,6 +38,7 @@ enum
 
 void rcc_hsi_enable();
 void rcc_hsi_disable();
+bool rcc_is_hsi_enabled();
 
 static inline uint32_t rcc_hsi_get_frequency()
 {

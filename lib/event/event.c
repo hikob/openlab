@@ -14,11 +14,11 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
- * event.c
+ * event_rtos.c
  *
  *  Created on: Jul 6, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
@@ -35,54 +35,90 @@
 #include "event.h"
 #include "printf.h"
 
+#include "soft_timer.h"
+
 #ifndef EVENT_QUEUE_LENGTH
-#define EVENT_QUEUE_LENGTH 4
+#define EVENT_QUEUE_LENGTH 12
 #endif
+
+#ifndef TRACE_EVENT
+#define TRACE_EVENT 0
+#endif // TRACE_EVENT
+#define TRACE_LENGTH 16
 
 // typedef
 typedef struct
 {
     handler_t event;
     handler_arg_t event_arg;
+#if TRACE_EVENT
+    uint32_t t_in, t_out;
+#endif
 } queue_entry_t;
+
+#if TRACE_EVENT
+typedef struct
+{
+    uint32_t queue;
+    handler_t event;
+    handler_arg_t arg;
+    uint32_t t_in, t_out;
+} trace_entry_t;
+static trace_entry_t trace[TRACE_LENGTH];
+static uint32_t trace_next = 0;
+#endif
 
 // prototypes
 static void event_task(void *param);
-static void event_debug();
 
 // data
-static xTaskHandle tasks[3];
-static xQueueHandle queues[3];
-static queue_entry_t current_entries[3];
+static xTaskHandle tasks[2];
+static xQueueHandle queues[2];
+static queue_entry_t current_entries[2];
 
 void event_init(void)
 {
-    uint32_t i;
+    // Create the 1st Queue
+    queues[0] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
 
-    for(i = EVENT_QUEUE_APPLI; i <= EVENT_QUEUE_NETWORK_HIGH; i++)
+    if (queues[0] == NULL)
     {
-        // Create the ith Queue
-        queues[i] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
+        log_error("Failed to create the event queue #0!");
+        HALT();
+    }
 
-        if(queues[i] == NULL)
-        {
-            log_error("Failed to create the event queue #%d!", i);
-            HALT();
-        }
+    // Create the 1st task, plate its number in the param variable
+    xTaskCreate(event_task, (const signed char *) "evt0",
+                configMINIMAL_STACK_SIZE, (void *) 0,
+                configMAX_PRIORITIES - 2, tasks);
 
-        signed char task_name[] = "evt0";
-        task_name[3] = '0' + i;
-        // Create the ith task, plate its number in the param variable
-        xTaskCreate(event_task, task_name, 5 * configMINIMAL_STACK_SIZE, (void *) i,
-                    configMAX_PRIORITIES - 3 + i, tasks + i);
+    if (tasks[0] == NULL)
+    {
+        log_error("Failed to create the event task #0!");
+        HALT();
+    }
 
-        if(tasks[i] == NULL)
-        {
-            log_error("Failed to create the event task #%d!", i);
-            HALT();
-        }
+    // Create the 2nd Queue
+    queues[1] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
+
+    if (queues[1] == NULL)
+    {
+        log_error("Failed to create the event queue #1!");
+        HALT();
+    }
+
+    // Create the 2nd task, plate its number in the param variable
+    xTaskCreate(event_task, (const signed char *) "evt1",
+                configMINIMAL_STACK_SIZE, (void *) 1,
+                configMAX_PRIORITIES - 1, tasks + 1);
+
+    if (tasks[1] == NULL)
+    {
+        log_error("Failed to create the event task #1!");
+        HALT();
     }
 }
+
 event_status_t event_post(event_queue_t queue, handler_t event,
                           handler_arg_t arg)
 {
@@ -93,7 +129,7 @@ event_status_t event_post(event_queue_t queue, handler_t event,
     entry.event_arg = arg;
 
     // Send to Queue
-    if(xQueueSendToBack(queues[queue], &entry, 0) == pdTRUE)
+    if (xQueueSendToBack(queues[queue], &entry, 0) == pdTRUE)
     {
         return EVENT_OK;
     }
@@ -101,7 +137,6 @@ event_status_t event_post(event_queue_t queue, handler_t event,
     {
         log_error("Failed to post to queue #%u, current event: %x", queue,
                   entry.event);
-        event_debug();
         HALT();
         return EVENT_FULL;
     }
@@ -118,9 +153,9 @@ event_status_t event_post_from_isr(event_queue_t queue, handler_t event,
     entry.event_arg = arg;
 
     // Send to Queue
-    if(xQueueSendToBackFromISR(queues[queue], &entry, &yield) == pdTRUE)
+    if (xQueueSendToBackFromISR(queues[queue], &entry, &yield) == pdTRUE)
     {
-        if(yield)
+        if (yield)
         {
             // The event task should yield!
             vPortYieldFromISR();
@@ -135,7 +170,6 @@ event_status_t event_post_from_isr(event_queue_t queue, handler_t event,
     {
         log_error("Failed to post to queue #%u from ISR, current event: %x",
                   queue, entry.event);
-        event_debug();
         HALT();
         return EVENT_FULL;
     }
@@ -148,15 +182,31 @@ static void event_task(void *param)
     queue_entry_t *entry = current_entries + num;
 
     // Infinite loop
-    while(1)
+    while (1)
     {
         // Get next event
         entry->event = NULL;
 
-        if(xQueueReceive(queue, entry, portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(queue, entry, portMAX_DELAY) == pdTRUE)
         {
             // Call the event
+#if TRACE_EVENT
+            entry->t_in = soft_timer_time();
+#endif // TRACE_EVENT
             entry->event(entry->event_arg);
+#if TRACE_EVENT
+            entry->t_out = soft_timer_time();
+
+            asm volatile("cpsid i");
+            trace[trace_next].queue = num;
+            trace[trace_next].event = entry->event;
+            trace[trace_next].arg = entry->event_arg;
+            trace[trace_next].t_in = entry->t_in;
+            trace[trace_next].t_out = entry->t_out;
+
+            trace_next = (trace_next + 1) % TRACE_LENGTH;
+            asm volatile("cpsie i");
+#endif // TRACE_EVENT
         }
         else
         {
@@ -166,19 +216,40 @@ static void event_task(void *param)
     }
 }
 
-static void event_debug()
+void event_debug()
 {
     uint32_t i;
-#if RELEASE == 0
-    log_printf("Debugging locked queues...");
+    log_printf("Debugging Queues...\n");
 
-    for(i = EVENT_QUEUE_APPLI; i <= EVENT_QUEUE_NETWORK_HIGH; i++)
+    for (i = EVENT_QUEUE_APPLI; i <= EVENT_QUEUE_NETWORK; i++)
     {
-        log_printf("\tQueue #%u Current event: %x", i, current_entries[i].event);
+        log_printf("\tQueue #%u Current event:  %x", i,
+                   current_entries[i].event);
+
+        if (current_entries[i].event)
+        {
+            log_printf("(arg: %x", current_entries[i].event_arg);
+#if TRACE_EVENT
+            log_printf(", t_in: %u", current_entries[i].t_in);
+#endif // TRACE_EVENT
+            log_printf(")");
+        }
+
+        log_printf(", %u waiting\n", uxQueueMessagesWaiting(queues[i]));
     }
 
-    signed char buf[256];
-    vTaskList(buf);
-    log_printf("\n%s\n", buf);
-#endif
+#if TRACE_EVENT
+    log_printf("Event Backtrace:\n");
+    log_printf("ID\tQueue\tEvent\t\tArg\t\tT_in\tT_out\tDuration\n");
+
+    for (i = 1; i <= TRACE_LENGTH; i++)
+    {
+        trace_entry_t *entry = trace + ((trace_next + TRACE_LENGTH - i)
+                                        % TRACE_LENGTH);
+        log_printf("-%u\t%u\t%8x\t%8x\t%5u\t%5u\t%u\n", i, entry->queue,
+                   entry->event, entry->arg, entry->t_in, entry->t_out,
+                   entry->t_out - entry->t_in);
+    }
+
+#endif // TRACE_EVENT
 }

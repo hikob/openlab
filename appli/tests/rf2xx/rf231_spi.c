@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -31,6 +31,8 @@
 
 #include "rf2xx.h"
 #include "rf2xx/rf2xx_regs.h"
+
+extern rf2xx_t rf231;
 
 #define TEST_LENGTH 126
 
@@ -55,11 +57,11 @@ int main()
     rf2xx_wakeup(rf231);
     rf2xx_set_state(rf231, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
-    while(1)
+    while (1)
     {
         uint32_t i;
 
-        for(i = 0; i < TEST_LENGTH; i++)
+        for (i = 0; i < TEST_LENGTH; i++)
         {
             tx_fifo[i] = rand();
             rx_fifo[i] = 0;
@@ -70,7 +72,7 @@ int main()
         done = 0;
         rf2xx_fifo_write_async(rf231, tx_fifo, TEST_LENGTH, transfer_done, NULL);
 
-        while(!done)
+        while (!done)
         {
             // Wait
         }
@@ -79,7 +81,7 @@ int main()
         done = 0;
         rf2xx_fifo_read_async(rf231, rx_fifo, TEST_LENGTH, transfer_done, NULL);
 
-        while(!done)
+        while (!done)
         {
             // Wait
         }
@@ -88,12 +90,12 @@ int main()
         // Compare
         uint32_t err = 0;
 
-        for(i = 0; i < TEST_LENGTH - 1; i++)
+        for (i = 0; i < TEST_LENGTH - 1; i++)
         {
             err += (tx_fifo[i] != rx_fifo[1 + i]);
         }
 
-        if(err == 0)
+        if (err == 0)
         {
             printf("\tNo error\n");
         }
@@ -102,9 +104,9 @@ int main()
             printf("\t%u errors!\n", err);
             printf("Diff:\nid\tTX\tRX\n");
 
-            for(i = 0; i < TEST_LENGTH - 1; i++)
+            for (i = 0; i < TEST_LENGTH - 1; i++)
             {
-                if(tx_fifo[i] != rx_fifo[1 + i])
+                if (tx_fifo[i] != rx_fifo[1 + i])
                 {
                     printf("\x1b[31m%u\t%x\t%x\x1b[0m\n", i, tx_fifo[i], rx_fifo[i + 1]);
                 }

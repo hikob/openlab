@@ -26,12 +26,11 @@ set(FREERTOS_PORT "ARM_CM3")
 
 # GCC target specific flags
 set(MY_C_FLAGS   "${MY_C_FLAGS} -DGCC_ARMCM3")
-set(MY_C_FLAGS   "${MY_C_FLAGS} -gdwarf-2 -fno-builtin")
+set(MY_C_FLAGS   "${MY_C_FLAGS} -gdwarf-2 -fno-builtin -fsingle-precision-constant")
 set(MY_C_FLAGS   "${MY_C_FLAGS} -mcpu=cortex-m3 -mthumb -mthumb-interwork -mfix-cortex-m3-ldrd -msoft-float")
 
 # LD target specific flags
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -nostartfiles -nodefaultlibs") # -lc -lm -lgcc -lstdc++
-set(MY_LD_FLAGS  "${MY_LD_FLAGS} -Wl,-Map=${EXECUTABLE_OUTPUT_PATH}/out.map,--cref") #,--gc-sections
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -T${PROJECT_SOURCE_DIR}/platform/${PLATFORM}/${LINKSCRIPT}")
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -mcpu=cortex-m3 -mthumb -mthumb-interwork")
 
@@ -52,8 +51,8 @@ macro(add_executable)
 add_custom_target(flash_${ARGV0} openocd -f "${OOCD_ITF}"
 	-f "target/${OOCD_TARGET}.cfg"
 	-c "gdb_port ${GDB_PORT}"
-	-c "tcl_port ${TCL_PORT}"
 	-c "telnet_port ${TELNET_PORT}"
+	-c "tcl_port ${TCL_PORT}"
 	-c "init" 
 	-c "targets"
 	-c "reset halt"
@@ -84,3 +83,4 @@ add_custom_target(reset openocd -f "${OOCD_ITF}"
 	-c "targets"
 	-c "reset run"
 	-c "shutdown")
+

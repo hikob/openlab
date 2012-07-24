@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -36,7 +36,7 @@ void rcc_hsi_enable()
     *rcc_get_CR() |= RCC_CR__HSION_MASK;
 
     // Wait for HSIRDY to be set
-    while(!(*rcc_get_CR() & RCC_CR__HSIRDY_MASK))
+    while (!(*rcc_get_CR() & RCC_CR__HSIRDY_MASK))
     {
         asm("nop");
     }
@@ -45,6 +45,11 @@ void rcc_hsi_enable()
 void rcc_hsi_disable()
 {
     *rcc_get_CR() &= ~RCC_CR__HSION_MASK;
+}
+
+bool rcc_is_hsi_enabled()
+{
+    return (((*rcc_get_CR()) & RCC_CR__HSION_MASK) != 0);
 }
 
 /* HSE section */
@@ -57,7 +62,7 @@ void rcc_hse_enable()
     *rcc_get_CR() |= RCC_CR__HSEON_MASK;
 
     // Wait for HSERDY to be set
-    while(!(*rcc_get_CR() & RCC_CR__HSERDY_MASK))
+    while (!(*rcc_get_CR() & RCC_CR__HSERDY_MASK))
     {
         asm("nop");
     }
@@ -86,7 +91,7 @@ void rcc_lsi_enable()
     *rcc_get_CSR() |= RCC_CSR__LSION_MASK;
 
     // Wait for LSERDY to be set
-    while(!(*rcc_get_CSR() & RCC_CSR__LSIRDY_MASK))
+    while (!(*rcc_get_CSR() & RCC_CSR__LSIRDY_MASK))
     {
         asm("nop");
     }
@@ -113,7 +118,7 @@ void rcc_pll_enable(rcc_pll_source_t source, rcc_pll_multiplier_t mul, rcc_pll_p
     *rcc_get_CR() |= RCC_CR__PLLON_MASK;
 
     // Wait for PLL RDY to be set
-    while(!(*rcc_get_CR() & RCC_CR__PLLRDY_MASK))
+    while (!(*rcc_get_CR() & RCC_CR__PLLRDY_MASK))
     {
         asm("nop");
     }
@@ -130,7 +135,7 @@ uint32_t rcc_pll_get_frequency()
     uint32_t clk = 0;
     uint32_t cfgr = *rcc_get_CFGR();
 
-    switch((cfgr & RCC_CFGR__PLLSRC_MASK) >> 16)
+    switch ((cfgr & RCC_CFGR__PLLSRC_MASK) >> 16)
     {
         case RCC_PLL_SOURCE_HSI:
             clk = rcc_hsi_get_frequency() / 2;
@@ -139,7 +144,7 @@ uint32_t rcc_pll_get_frequency()
         case RCC_PLL_SOURCE_HSE:
             clk = rcc_hse_get_frequency();
 
-            if(((cfgr & RCC_CFGR__PLLXTPRE_MASK) >> 17) == RCC_PLL_PREDIV)
+            if (((cfgr & RCC_CFGR__PLLXTPRE_MASK) >> 17) == RCC_PLL_PREDIV)
             {
                 clk /= 2;
             }
@@ -147,7 +152,7 @@ uint32_t rcc_pll_get_frequency()
             break;
     }
 
-    switch((cfgr & RCC_CFGR__PLLMUL_MASK) >> 18)
+    switch ((cfgr & RCC_CFGR__PLLMUL_MASK) >> 18)
     {
         case RCC_PLL_MUL_2:
             clk *= 2;

@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -34,6 +34,7 @@ typedef uint8_t nvic_irq_line_t;
 
 void nvic_enable_interrupt_line(nvic_irq_line_t line);
 void nvic_disable_interrupt_line(nvic_irq_line_t line);
+void nvic_set_priority(nvic_irq_line_t line, uint8_t priority);
 
 void nvic_enable_systick(uint32_t frequency, handler_t handler, handler_arg_t arg);
 void nvic_disable_systick();

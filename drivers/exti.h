@@ -14,7 +14,7 @@
  * License along with HiKoB Openlab. If not, see
  * <http://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2011 HiKoB.
+ * Copyright (C) 2011,2012 HiKoB.
  */
 
 /*
@@ -66,5 +66,6 @@ typedef enum
 void exti_set_handler(exti_line_t line, handler_t handler, handler_arg_t arg);
 void exti_enable_interrupt_line(exti_line_t line, exti_trigger_t trigger);
 void exti_disable_interrupt_line(exti_line_t line);
+
 
 #endif /* EXTI_H_ */

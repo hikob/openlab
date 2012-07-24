@@ -32,7 +32,7 @@ endif(NOT EXISTS "${PROJECT_SOURCE_DIR}/platform/${PLATFORM}/include.cmake")
 
 # Put all binaries in the same directory as well as libraries
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
-set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/lib")
+set(LIBRARY_OUTPUT_PATH    "${PROJECT_BINARY_DIR}/libout")
 
 # Include the platform specific variables
 include(${PROJECT_SOURCE_DIR}/platform/${PLATFORM}/include.cmake)
@@ -43,11 +43,9 @@ if(NOT DEFINED OPT)
 endif(NOT DEFINED OPT)
 
 # Set RELEASE flag if variable set
-if(DEFINED RELEASE AND RELEASE)
-	set(MY_C_FLAGS "${MY_C_FLAGS} -DRELEASE=1")
-else(DEFINED RELEASE AND RELEASE)
-	set(MY_C_FLAGS "${MY_C_FLAGS} -DRELEASE=0")
-endif(DEFINED RELEASE AND RELEASE)
+if(DEFINED RELEASE)
+	set(MY_C_FLAGS "${MY_C_FLAGS} -DRELEASE=${RELEASE}")
+endif(DEFINED RELEASE)
 
 # Set the DEBUG flag if variable set
 if(DEFINED DEBUG)
@@ -55,9 +53,19 @@ if(DEFINED DEBUG)
 endif(DEFINED DEBUG)
 
 # Set KEEP_UART flag if variable set
-if(KEEP_UART)
-set(MY_C_FLAGS "${MY_C_FLAGS} -DKEEP_UART=1")
-endif(KEEP_UART)
+if(DEFINED KEEP_UART)
+    set(MY_C_FLAGS "${MY_C_FLAGS} -DKEEP_UART=${KEEP_UART}")
+endif(DEFINED KEEP_UART)
+
+# Set TRACE_EVENT flag if variable set
+if(DEFINED TRACE_EVENT)
+    set(MY_C_FLAGS "${MY_C_FLAGS} -DTRACE_EVENT=${TRACE_EVENT}")
+endif(DEFINED TRACE_EVENT)
+
+# Set LOG_LEVEL flag if variable set
+if(DEFINED LOG_LEVEL)
+    set(MY_C_FLAGS "${MY_C_FLAGS} -DLOG_LEVEL=${LOG_LEVEL}")
+endif(DEFINED LOG_LEVEL)
 
 # Remove dynamic linking
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
