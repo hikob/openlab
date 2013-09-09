@@ -27,6 +27,7 @@
 #include "pca9685_.h"
 
 #include "printf.h"
+#include "debug.h"
 
 enum
 {
@@ -120,6 +121,7 @@ uint32_t pca9685_get_number()
 {
     return pca_config.num;
 }
+
 pca9685_t pca9685_get(uint32_t index)
 {
     return index >= pca_config.num ? NULL : pca_config.first + index;
@@ -213,28 +215,5 @@ void pca9685_set_all_leds(pca9685_t pca, uint16_t value)
 
     // Apply
     i2c_tx(_pca->i2c, _pca->addr, buf, 5);
-}
-
-void pca9685_test(pca9685_t pca)
-{
-    _pca9685_t *_pca = pca;
-
-    // Read the MODE0 and MODE1 registers
-    uint8_t reg;
-    uint8_t mode1, mode2;
-
-    reg = REG_MODE1;
-    i2c_tx_rx(_pca->i2c, _pca->addr, &reg, 1, &mode1, 1);
-    reg = REG_MODE2;
-    i2c_tx_rx(_pca->i2c, _pca->addr, &reg, 1, &mode2, 1);
-
-    log_printf("PCA: MODE1: %x, MODE2: %x\n", mode1, mode2);
-
-    reg = REG_LED0_ON_L;
-    uint8_t leds[4];
-    i2c_tx_rx(_pca->i2c, _pca->addr, &reg, 1, leds, 4);
-
-    log_printf("PCA: ON_L: %x ON_H: %x OFF_L: %x OFF_H %x\n", leds[0], leds[1],
-               leds[2], leds[3]);
 }
 

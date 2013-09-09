@@ -17,15 +17,28 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * dac.h
- *
- *  Created on: Oct 17, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+/**
+ * \file dac.h
+ * \date Oct 17, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef DAC_H_
 #define DAC_H_
+
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup DAC DAC driver
+ *
+ * This driver provides all functions required to output an analog voltage on
+ * a configured PIN of the micro-controller.
+ *
+ *@{
+ */
 
 #include <stdint.h>
 
@@ -52,9 +65,20 @@ void dac_disable(dac_channel_t channel);
 /**
  * Update the output value of a DAC channel.
  *
+ * Values range from 0 to 0xFFF0 and will output a proportional analog value
+ * ranging from 0 to Vcc volts.
+ *
+ * The DAC resolution is 12bit, aligned on the left. Hence the smallest non-zero
+ * value is 0x10, and to output Vcc/2 0x8000 should be used as the value.
+ *
  * \param channel the channel to update;
  * \param value the value to set.
  */
 void dac_set_channel_value(dac_channel_t channel, uint16_t value);
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* DAC_H_ */

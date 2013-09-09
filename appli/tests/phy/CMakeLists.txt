@@ -22,7 +22,9 @@ if(${PLATFORM_HAS_PHY})
 	add_executable(phy_simpletx simpletx)
 	target_link_libraries(phy_simpletx platform)
 
-	# Add the executables
 	add_executable(phy_simplerx simplerx)
 	target_link_libraries(phy_simplerx platform)
+	
+	add_executable(phy_ed ed)
+	target_link_libraries(phy_ed platform)
 endif(${PLATFORM_HAS_PHY})

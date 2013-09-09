@@ -29,6 +29,7 @@
 #include "pga308_.h"
 
 #include "printf.h"
+#include "debug.h"
 
 enum
 {
@@ -112,6 +113,9 @@ void pga308_enable()
     // Enable the power
     gpio_pin_clear(pga308_config.gpio, pga308_config.enable_pin);
 
+    // Enable the UART
+    uart_enable(pga308_config.uart, 114000);
+
     // Enter Software Lock Mode
     pga308_write_reg(PGA308_REG__SFTC, PGA308_SFTC__SWL_SOFTLOCK);
 
@@ -145,6 +149,7 @@ void pga308_configure_gain(pga308_input_gain_t input_gain, uint16_t zero_dac,
 void pga308_disable()
 {
     gpio_pin_set(pga308_config.gpio, pga308_config.enable_pin);
+    uart_disable(pga308_config.uart);
 }
 
 adc_t pga308_get_adc()
@@ -201,6 +206,7 @@ static void pga308_write_reg(uint8_t addr, uint16_t value)
 
 void pga308_print_regs()
 {
+    (void) pga308_read_reg;
     log_printf("PGA308 registers:\n");
     log_printf("\tZDAC:\t%04x\n", pga308_read_reg(PGA308_REG__ZDAC));
     log_printf("\tGDAC:\t%04x\n", pga308_read_reg(PGA308_REG__GDAC));

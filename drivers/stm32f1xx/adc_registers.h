@@ -34,53 +34,53 @@
  * All registers must be accessed by words (32bit)
  */
 
-static inline volatile uint32_t *adc_get_SR(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_SR(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_SR_OFFSET);
 }
-static inline volatile uint32_t *adc_get_CR1(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_CR1(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_CR1_OFFSET);
 }
-static inline volatile uint32_t *adc_get_CR2(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_CR2(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_CR2_OFFSET);
 }
-static inline volatile uint32_t *adc_get_SMPRx(_adc_t *_adc, uint8_t smpr)
+static inline volatile uint32_t *adc_get_SMPRx(const _adc_t *_adc, uint8_t smpr)
 {
     return mem_get_reg32(_adc->base_address + ADCx_SMPR1_OFFSET + 4
                          * (smpr - 1));
 }
-static inline volatile uint32_t *adc_get_JOFRx(_adc_t *_adc, uint8_t jofr)
+static inline volatile uint32_t *adc_get_JOFRx(const _adc_t *_adc, uint8_t jofr)
 {
     return mem_get_reg32(_adc->base_address + ADCx_JOFR1_OFFSET + 4
                          * (jofr - 1));
 }
-static inline volatile uint32_t *adc_get_HTR(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_HTR(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_HTR_OFFSET);
 }
-static inline volatile uint32_t *adc_get_LTR(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_LTR(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_LTR_OFFSET);
 }
-static inline volatile uint32_t *adc_get_SQR1(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_SQR1(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_SQR1_OFFSET);
 }
-static inline volatile uint32_t *adc_get_SQRx(_adc_t *_adc, uint8_t sqr)
+static inline volatile uint32_t *adc_get_SQRx(const _adc_t *_adc, uint8_t sqr)
 {
     return mem_get_reg32(_adc->base_address + ADCx_SQR1_OFFSET + 4 * (sqr - 1));
 }
-static inline volatile uint32_t *adc_get_JSQR(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_JSQR(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_JSQR_OFFSET);
 }
-static inline volatile uint32_t *adc_get_JDRx(_adc_t *_adc, uint8_t jdr)
+static inline volatile uint32_t *adc_get_JDRx(const _adc_t *_adc, uint8_t jdr)
 {
     return mem_get_reg32(_adc->base_address + ADCx_JDR1_OFFSET + 4 * (jdr - 1));
 }
-static inline volatile uint32_t *adc_get_DR(_adc_t *_adc)
+static inline volatile uint32_t *adc_get_DR(const _adc_t *_adc)
 {
     return mem_get_reg32(_adc->base_address + ADCx_DR_OFFSET);
 }

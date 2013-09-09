@@ -32,18 +32,19 @@
 #include "uart_registers.h"
 #include "rcc.h"
 #include "gpio_.h"
+#include "nvic_.h"
 
 #include "platform.h"
 
-static inline void tx_dma(_uart_t *_uart, const uint8_t *tx_buffer,
+static inline void tx_dma(const _uart_t *_uart, const uint8_t *tx_buffer,
                           uint16_t length);
-static inline void tx_interrupt(_uart_t *_uart, const uint8_t *tx_buffer,
+static inline void tx_interrupt(const _uart_t *_uart, const uint8_t *tx_buffer,
                                 uint16_t length);
-static void tx_done(_uart_t *_uart);
+static void tx_done(const _uart_t *_uart);
 
 void uart_enable(uart_t uart, uint32_t baudrate)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     // Enable the Clock for this peripheral
     rcc_apb_enable(_uart->apb_bus, _uart->apb_bit);
@@ -87,22 +88,19 @@ void uart_enable(uart_t uart, uint32_t baudrate)
     // Set 1 stop bit, no CLOCK
     *uart_get_CR2(_uart) = 0;
 
-    // Set no interrupt by default
-    *uart_get_CR2(_uart) = 0;
-
     // Enable the uart interrupt line in the NVIC
     nvic_enable_interrupt_line(_uart->irq_line);
 
     // Enable the DMA if set
-    if (_uart->dma_channel_tx)
+    if (_uart->data->dma_channel_tx)
     {
-        dma_enable(_uart->dma_channel_tx);
+        dma_enable(_uart->data->dma_channel_tx);
     }
 }
 
 void uart_disable(uart_t uart)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     // Disable USART, TX and RX
     *uart_get_CR1(_uart) = 0;
@@ -115,11 +113,11 @@ void uart_disable(uart_t uart)
 }
 void uart_set_rx_handler(uart_t uart, uart_handler_t handler, handler_arg_t arg)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     // Store the handler and arg
-    _uart->rx_handler = handler;
-    _uart->rx_handler_arg = arg;
+    _uart->data->rx_handler = handler;
+    _uart->data->rx_handler_arg = arg;
 
     // Enable RX interrupt if required
     if (handler)
@@ -139,14 +137,14 @@ void uart_set_rx_handler(uart_t uart, uart_handler_t handler, handler_arg_t arg)
 
 void uart_set_irq_priority(uart_t uart, uint8_t priority)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     // Set the priority in the NVIC
     nvic_set_priority(_uart->irq_line, priority);
 }
 void uart_transfer(uart_t uart, const uint8_t *tx_buffer, uint16_t length)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     uint32_t i;
 
@@ -171,11 +169,11 @@ void uart_transfer(uart_t uart, const uint8_t *tx_buffer, uint16_t length)
 void uart_transfer_async(uart_t uart, const uint8_t *tx_buffer,
                          uint16_t length, handler_t handler, handler_arg_t handler_arg)
 {
-    _uart_t *_uart = uart;
+    const _uart_t *_uart = uart;
 
     // Store the handlers
-    _uart->tx_handler = handler;
-    _uart->tx_handler_arg = handler_arg;
+    _uart->data->tx_handler = handler;
+    _uart->data->tx_handler_arg = handler_arg;
 
     // Notify of ongoing underground transfer
     platform_prevent_low_power();
@@ -186,7 +184,7 @@ void uart_transfer_async(uart_t uart, const uint8_t *tx_buffer,
     }
 
     // Check if DMA is enabled
-    if (_uart->dma_channel_tx)
+    if (_uart->data->dma_channel_tx)
     {
         // Yes, Send with DMA
         tx_dma(_uart, tx_buffer, length);
@@ -199,13 +197,13 @@ void uart_transfer_async(uart_t uart, const uint8_t *tx_buffer,
 
 }
 
-static inline void tx_dma(_uart_t *_uart, const uint8_t *tx_buffer,
+static inline void tx_dma(const _uart_t *_uart, const uint8_t *tx_buffer,
                           uint16_t length)
 {
     // Configure the TX DMA channel
     dma_config(
         // The DMA channel
-        _uart->dma_channel_tx,
+        _uart->data->dma_channel_tx,
         // the Peripheral Address (UART Data Register)
         (uint32_t) uart_get_DR(_uart),
         // The Memory address: if rx_buffer is provided, use it
@@ -220,34 +218,34 @@ static inline void tx_dma(_uart_t *_uart, const uint8_t *tx_buffer,
         DMA_INCREMENT_ON);
 
     // Start the TX DMA, with the Uart handler
-    dma_start(_uart->dma_channel_tx, (handler_t) tx_done, (handler_arg_t) _uart);
+    dma_start(_uart->data->dma_channel_tx, (handler_t) tx_done, (handler_arg_t) (uint32_t) _uart);
 
     // Enable the DMA trigger generation
     *uart_get_CR3(_uart) |= UART_CR3__DMAT;
 }
-static inline void tx_interrupt(_uart_t *_uart, const uint8_t *tx_buffer,
+static inline void tx_interrupt(const _uart_t *_uart, const uint8_t *tx_buffer,
                                 uint16_t length)
 {
     // Store tx pointer and length
-    _uart->isr_tx = tx_buffer;
-    _uart->isr_count = length;
+    _uart->data->isr_tx = tx_buffer;
+    _uart->data->isr_count = length;
 
     // Enable the TXE interrupt
     *uart_get_CR1(_uart) |= UART_CR1__TXEIE;
 }
 
-static void tx_done(_uart_t *_uart)
+static void tx_done(const _uart_t *_uart)
 {
     // Notify of ongoing underground transfer terminated
     platform_release_low_power();
 
     // Call handler if any
-    if (_uart->tx_handler)
+    if (_uart->data->tx_handler)
     {
-        _uart->tx_handler(_uart->tx_handler_arg);
+        _uart->data->tx_handler(_uart->data->tx_handler_arg);
     }
 }
-void uart_handle_interrupt(_uart_t *_uart)
+void uart_handle_interrupt(const _uart_t *_uart)
 {
     uint32_t sr = *uart_get_SR(_uart);
 
@@ -258,10 +256,10 @@ void uart_handle_interrupt(_uart_t *_uart)
         uint8_t c = *uart_get_DR(_uart);
 
         // Check if handler
-        if (_uart->rx_handler)
+        if (_uart->data->rx_handler)
         {
             // Call the handler
-            _uart->rx_handler(_uart->rx_handler_arg, c);
+            _uart->data->rx_handler(_uart->data->rx_handler_arg, c);
         }
     }
     else
@@ -278,15 +276,15 @@ void uart_handle_interrupt(_uart_t *_uart)
             if ((sr & UART_SR__TXE) && (*uart_get_CR1(_uart) & UART_CR1__TXEIE))
             {
                 // Check if there are some more bytes to send
-                if (_uart->isr_count)
+                if (_uart->data->isr_count)
                 {
                     // Yes, send next byte
-                    *uart_get_DR(_uart) = *_uart->isr_tx;
+                    *uart_get_DR(_uart) = *_uart->data->isr_tx;
 
                     // Increment pointer
-                    _uart->isr_tx++;
+                    _uart->data->isr_tx++;
                     // Decrement count
-                    _uart->isr_count--;
+                    _uart->data->isr_count--;
                 }
                 else
                 {

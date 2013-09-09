@@ -30,31 +30,39 @@
 #include "memmap.h"
 #include "timer_.h"
 
-static inline volatile uint16_t *timer_get_CR1(_timer_t *timer)
+static inline volatile uint16_t *timer_get_CR1(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CR1_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CR2(_timer_t *timer)
+static inline volatile uint16_t *timer_get_CR2(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CR2_OFFSET);
 }
-static inline volatile uint16_t *timer_get_SMCR(_timer_t *timer)
+static inline volatile uint16_t *timer_get_SMCR(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_SMCR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_DIER(_timer_t *timer)
+static inline volatile uint16_t *timer_get_DIER(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_DIER_OFFSET);
 }
-static inline volatile uint16_t *timer_get_SR(_timer_t *timer)
+static inline volatile uint32_t *timer_get_DIER_bitband(const _timer_t *timer, uint32_t bit)
+{
+    return mem_get_bitband(timer->base_address + TIMx_DIER_OFFSET, bit);
+}
+static inline volatile uint16_t *timer_get_SR(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_SR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_EGR(_timer_t *timer)
+static inline volatile uint32_t *timer_get_SR_bitband(const _timer_t *timer, uint32_t bit)
+{
+    return mem_get_bitband(timer->base_address + TIMx_SR_OFFSET, bit);
+}
+static inline volatile uint16_t *timer_get_EGR(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_EGR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CCMRx(_timer_t *timer, uint32_t ccmr)
+static inline volatile uint16_t *timer_get_CCMRx(const _timer_t *timer, uint32_t ccmr)
 {
     if (ccmr == 1)
     {
@@ -65,29 +73,29 @@ static inline volatile uint16_t *timer_get_CCMRx(_timer_t *timer, uint32_t ccmr)
         return mem_get_reg16(timer->base_address + TIMx_CCMR2_OFFSET);
     }
 }
-static inline volatile uint16_t *timer_get_CCER(_timer_t *timer)
+static inline volatile uint16_t *timer_get_CCER(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CCER_OFFSET);
 }
-static inline volatile uint32_t *timer_get_CNT(_timer_t *timer)
+static inline volatile uint32_t *timer_get_CNT(const _timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_CNT_OFFSET);
 }
-static inline volatile uint16_t *timer_get_PSC(_timer_t *timer)
+static inline volatile uint16_t *timer_get_PSC(const _timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_PSC_OFFSET);
 }
-static inline volatile uint32_t *timer_get_ARR(_timer_t *timer)
+static inline volatile uint32_t *timer_get_ARR(const _timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_ARR_OFFSET);
 }
-static inline volatile uint32_t *timer_get_CCRx(_timer_t *timer,
+static inline volatile uint32_t *timer_get_CCRx(const _timer_t *timer,
         uint32_t channel)
 {
     return mem_get_reg32(timer->base_address + TIMx_CCR1_OFFSET + (4 * channel));
 }
 #if defined(TIMx_BDTR_OFFSET)
-static inline volatile uint32_t *timer_get_BDTR(_timer_t *timer)
+static inline volatile uint32_t *timer_get_BDTR(const _timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_BDTR_OFFSET);
 }
@@ -120,6 +128,19 @@ enum
     TIMER_DIER__CC2IE = 0x0004,
     TIMER_DIER__CC1IE = 0x0002,
     TIMER_DIER__UIE = 0x0001,
+
+    TIMER_DIER__TDE_bit = 14,
+    TIMER_DIER__CC4DE_bit = 12,
+    TIMER_DIER__CC3DE_bit = 11,
+    TIMER_DIER__CC2DE_bit = 10,
+    TIMER_DIER__CC1DE_bit = 9,
+    TIMER_DIER__UDE_bit = 8,
+    TIMER_DIER__TIE_bit = 5,
+    TIMER_DIER__CC4IE_bit = 4,
+    TIMER_DIER__CC3IE_bit = 3,
+    TIMER_DIER__CC2IE_bit = 2,
+    TIMER_DIER__CC1IE_bit = 1,
+    TIMER_DIER__UIE_bit = 0,
 };
 
 enum
@@ -130,6 +151,13 @@ enum
     TIMER_SR__CC2IF = 0x0004,
     TIMER_SR__CC1IF = 0x0002,
     TIMER_SR__UIF = 0x0001,
+
+    TIMER_SR__TIF_bit = 5,
+    TIMER_SR__CC4IF_bit = 4,
+    TIMER_SR__CC3IF_bit = 3,
+    TIMER_SR__CC2IF_bit = 2,
+    TIMER_SR__CC1IF_bit = 1,
+    TIMER_SR__UIF_bit = 0,
 };
 
 enum

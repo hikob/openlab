@@ -34,10 +34,10 @@
 #include "scsi.h"
 #include "scsi_sd.h"
 
-
 #define NO_DEBUG_HEADER
 #define LOG_LEVEL LOG_LEVEL_WARNING
 #include "printf.h"
+#include "debug.h"
 
 #if (LOG_LEVEL < LOG_LEVEL_DEBUG)
 #define DBG(x...)   printf(x)
@@ -90,10 +90,10 @@ void scsi_sd_read_capacity(uint8_t lun, uint32_t *bcount, uint16_t *bsize)
 /* READ10, MMC5 page 425                                                  */
 /* ********************************************************************** */
 
-scsi_cmdret_t scsi_sd_read10( SCSI_PARAMS )
+scsi_cmdret_t scsi_sd_read10( scsi_params_t scsi_params )
 {
-    const sdio_t   *sdio     = (const sdio_t*)scsi_lun[lun].info;
-    scsi_cdb10_t   *cdb10    = (scsi_cdb10_t *)cmd;
+    const sdio_t   *sdio     = (const sdio_t*)scsi_lun[scsi_params.lun].info;
+    scsi_cdb10_t   *cdb10    = (scsi_cdb10_t *)scsi_params.cmd;
     //uint8_t       DPO      = (cdb10->cdb_info >> 4) & 0x1;
     //uint8_t       FUA      = (cdb10->cdb_info >> 3) & 0x1;
     uint32_t        lba      = msbtohost32(cdb10->lba);
@@ -111,32 +111,32 @@ scsi_cmdret_t scsi_sd_read10( SCSI_PARAMS )
     if ((lba + nblocks - 1) >= sdsize)
     {
 	log_error("SCSI Read(10), read beyond limit (limit 0x%08x, request 0x%08x / +%d)",sdsize,lba,nblocks);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
-    if (datamax < BLOCKSIZE)
+    if (scsi_params.datamax < BLOCKSIZE)
     {
-	log_error("SCSI Read(10), read buffer is smaller than a single sector (%d/%d bytes)",datalen,BLOCKSIZE);
-	*status = SCSI_CHECK_CONDITION;
+	log_error("SCSI Read(10), read buffer is smaller than a single sector (%d/%d bytes)",scsi_params.datalen,BLOCKSIZE);
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_ERROR;
     }
 
-    sdret = sd_read_single_block(*sdio, la, data);
+    sdret = sd_read_single_block(*sdio, la, scsi_params.data);
 
-    if (cont == 0)
+    if (scsi_params.cont == 0)
     {
 	log_info("SCSI Read(10) type %d, lba 0x%08x, length %d",sdtype,lba,nblocks);
     }
     else
     {
-	DBG("-%d-\n",cont);
+	DBG("-%d-\n",scsi_params.cont);
     }
 
     if (sdret != SD_NO_ERROR)
     {
 	log_error("SCSI Read Command Error on SD %d",sdret);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
@@ -150,27 +150,27 @@ scsi_cmdret_t scsi_sd_read10( SCSI_PARAMS )
     if (sdret != SD_NO_ERROR)
     {
 	log_error("SCSI Read Error on SD (lba 0x%08x) ret %d",lba,sdret);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
     switch (nblocks)
     {
     case 0:
-	*status        = SCSI_CHECK_CONDITION;
-	ret            = SCSI_CMD_ERROR;
+	*scsi_params.status        = SCSI_CHECK_CONDITION;
+    ret          		       = SCSI_CMD_ERROR;
 	break;
     case 1:
-	*datalen       = BLOCKSIZE;
-	*status        = SCSI_GOOD;
-	ret            = SCSI_CMD_DONE;
+	*scsi_params.datalen       = BLOCKSIZE;
+	*scsi_params.status        = SCSI_GOOD;
+	ret          			   = SCSI_CMD_DONE;
 	break;
     default:
-	cdb10->lba     = msbtohost32( lba     + 1 );
-	cdb10->length  = msbtohost16( nblocks - 1 );
-	*datalen       = BLOCKSIZE;
-	*status        = SCSI_GOOD;
-	ret            = SCSI_CMD_PARTIAL;
+	cdb10->lba    			   = msbtohost32( lba     + 1 );
+	cdb10->length			   = msbtohost16( nblocks - 1 );
+	*scsi_params.datalen       = BLOCKSIZE;
+	*scsi_params.status        = SCSI_GOOD;
+	ret           			   = SCSI_CMD_PARTIAL;
 	break;
     }
     return ret;
@@ -180,11 +180,11 @@ scsi_cmdret_t scsi_sd_read10( SCSI_PARAMS )
 /* WRITE10, MMC5 page 425                                                  */
 /* ********************************************************************** */
 
-scsi_cmdret_t scsi_sd_write10( SCSI_PARAMS )
+scsi_cmdret_t scsi_sd_write10( scsi_params_t scsi_params )
 {
-    const sdio_t *sdio = (const sdio_t*)scsi_lun[lun].info;
+    const sdio_t *sdio = (const sdio_t*)scsi_lun[scsi_params.lun].info;
 
-    scsi_cdb10_t   *cdb10    = (scsi_cdb10_t *)cmd;
+    scsi_cdb10_t   *cdb10    = (scsi_cdb10_t *)scsi_params.cmd;
     //uint8_t       DPO      = (cdb10->cdb_info >> 4) & 0x1;
     //uint8_t       FUA      = (cdb10->cdb_info >> 3) & 0x1;
     uint32_t        lba      = msbtohost32(cdb10->lba);
@@ -202,21 +202,21 @@ scsi_cmdret_t scsi_sd_write10( SCSI_PARAMS )
     if ((lba + nblocks - 1) >= sdsize)
     {
 	log_error("SCSI Write(10), write beyond limit (limit 0x%08x, request 0x%08x / +%d)",sdsize,lba,nblocks);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
-    if (datamax < BLOCKSIZE)
+    if (scsi_params.datamax < BLOCKSIZE)
     {
-	log_error("SCSI Write(10), write buffer is smaller than a single sector (%d/%d bytes)",datamax,BLOCKSIZE);
-	*status = SCSI_CHECK_CONDITION;
+	log_error("SCSI Write(10), write buffer is smaller than a single sector (%d/%d bytes)",scsi_params.datamax,BLOCKSIZE);
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_ERROR;
     }
 
-    if (cont == 0)
+    if (scsi_params.cont == 0)
     {
 	log_info("SCSI Write(10) type %d, lba 0x%08x, length %d",sdtype,lba,nblocks);
-	*status = SCSI_GOOD;
+	*scsi_params.status = SCSI_GOOD;
 	return SCSI_CMD_PARTIAL;
     }
     else
@@ -229,14 +229,14 @@ scsi_cmdret_t scsi_sd_write10( SCSI_PARAMS )
 	sdret             = SD_NO_ERROR;
 	sd_transfer_ended = true;
 #else
-        sdret = sd_write_single_block(*sdio, la, data);
+        sdret = sd_write_single_block(*sdio, la, scsi_params.data);
 #endif
     }
 
     if (sdret != SD_NO_ERROR)
     {
 	log_error("SCSI Write Command Error on SD %d",sdret);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
@@ -250,26 +250,26 @@ scsi_cmdret_t scsi_sd_write10( SCSI_PARAMS )
     if (sdret != SD_NO_ERROR)
     {
 	log_error("SCSI Write Error on SD (lba 0x%08x) ret %d",lba,sdret);
-	*status = SCSI_CHECK_CONDITION;
+	*scsi_params.status = SCSI_CHECK_CONDITION;
 	return SCSI_CMD_DONE;
     }
 
     switch (nblocks)
     {
     case 0:
-	*status        = SCSI_CHECK_CONDITION;
+	*scsi_params.status        = SCSI_CHECK_CONDITION;
 	ret            = SCSI_CMD_ERROR;
 	break;
     case 1:
-	*datalen       = BLOCKSIZE;
-	*status        = SCSI_GOOD;
+	*scsi_params.datalen       = BLOCKSIZE;
+	*scsi_params.status        = SCSI_GOOD;
 	ret            = SCSI_CMD_DONE;
 	break;
     default:
 	cdb10->lba     = msbtohost32( lba     + 1 );
 	cdb10->length  = msbtohost16( nblocks - 1 );
-	*datalen       = BLOCKSIZE;
-	*status        = SCSI_GOOD;
+	*scsi_params.datalen       = BLOCKSIZE;
+	*scsi_params.status        = SCSI_GOOD;
 	ret            = SCSI_CMD_PARTIAL;
 	break;
     }

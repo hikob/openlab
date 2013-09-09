@@ -18,19 +18,34 @@
  */
 
 /**
- * SPI driver header file.
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \file spi.h
+ * \date Jul 7, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef SPI_H_
 #define SPI_H_
+
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup SPI SPI master driver
+ *
+ * This driver provides all functions required to perform SPI data
+ * transfers, either synchronously or asynchronously, to a connected slave.
+ *
+ *@{
+ */
 
 #include "handler.h"
 
 /**
  * Abstract representation of a SPI driver.
  */
-typedef void *spi_t;
+typedef const void *spi_t;
 
 /**
  * The possible SPI clock modes.
@@ -116,5 +131,10 @@ void spi_transfer_async(spi_t spi, const uint8_t *tx_buffer,
  * \param spi the SPI driver to use
  */
 void spi_async_cancel(spi_t spi);
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* SPI_H_ */

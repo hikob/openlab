@@ -36,6 +36,15 @@
 
 typedef struct
 {
+    // The estimated frequency
+    uint32_t frequency;
+
+    timer_handler_t update_handler;
+    handler_arg_t update_handler_arg;
+} _timer_data_t;
+
+typedef struct
+{
     // Base Address of the timer
     uint32_t base_address;
     // APB bus number
@@ -45,58 +54,44 @@ typedef struct
     // IRQ line in the NVIC
     nvic_irq_line_t irq_line;
 
-    // The estimated frequency
-    uint32_t frequency;
-
     uint8_t number_of_channels;
-
-    timer_handler_t update_handler;
-    handler_arg_t update_handler_arg;
 
     timer_handler_t *channel_handlers;
     handler_arg_t *channel_handler_args;
+    _timer_data_t *data;
 } _timer_t;
 
-static inline void timer_init(_timer_t *timer, uint32_t base_address,
-                              rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line,
-                              uint8_t number_of_channels, timer_handler_t *channel_handlers,
-                              handler_arg_t *channel_handler_args)
-{
-    timer->base_address = base_address;
-
-    timer->apb_bus = apb_bus;
-    timer->apb_bit = apb_bit;
-    timer->irq_line = irq_line;
-
-    timer->number_of_channels = number_of_channels;
-
-    timer->channel_handlers = channel_handlers;
-    timer->channel_handler_args = channel_handler_args;
-
-    // Clear frequency
-    timer->frequency = 0;
+#define TIMER_INIT(name, addr, bus, bit, line, num) \
+    static _timer_data_t name##_data; \
+    static timer_handler_t name##_handlers[num]; \
+    static handler_arg_t name##_args[num]; \
+    const _timer_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line = line, \
+    .number_of_channels = num, \
+    .channel_handlers = name##_handlers, \
+    .channel_handler_args = name##_args, \
+    .data = &name##_data \
 }
 
-static inline void timer_init_basic(_timer_t *timer, uint32_t base_address,
-                                    rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line)
-{
-    // Initialize the timer with zero channel
-    timer_init(timer, base_address, apb_bus, apb_bit, irq_line, 0, NULL, NULL);
+#define TIMER_INIT_BASIC(name, addr, bus, bit, line) \
+    static _timer_data_t name##_data; \
+    const _timer_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line = line, \
+    .number_of_channels = num, \
+    .channel_handlers = NULL, \
+    .channel_handler_args = NULL, \
+    .data = &name##_data \
 }
-
-static inline void timer_init_general(_timer_t *timer, uint32_t base_address,
-                                      rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line,
-                                      timer_handler_t *channel_handlers, handler_arg_t *channel_handler_args)
-{
-    // Initialize the timer with four channels
-    timer_init(timer, base_address, apb_bus, apb_bit, irq_line, 4,
-               channel_handlers, channel_handler_args);
-}
-
-void timer_handle_interrupt(_timer_t *timer);
+void timer_handle_interrupt(const _timer_t *timer);
 
 #include "timer_registers.h"
-static inline void timer_restart(_timer_t *_timer)
+static inline void timer_restart(const _timer_t *_timer)
 {
     // Set the UG bit to generate an update event (reset)
     *timer_get_EGR(_timer) = TIMER_EGR__UG;

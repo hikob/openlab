@@ -36,12 +36,9 @@ typedef struct
     rcc_apb_bit_t apb2_bit;
 } _gpio_t;
 
-static inline void gpio_init(_gpio_t *_gpio, uint32_t base_address, rcc_apb_bit_t apb2_bit)
-{
-    _gpio->base_address = base_address;
-    _gpio->apb2_bit = apb2_bit;
-}
+#define GPIO_INIT(name, ba, ab) \
+        const _gpio_t name = { .base_address = (ba), .apb2_bit = (ab) }
 
-void gpio_set_alternate_function(_gpio_t *_gpio, gpio_pin_t pin);
+void gpio_set_alternate_function(const _gpio_t *_gpio, gpio_pin_t pin);
 
 #endif /* GPIO__H_ */

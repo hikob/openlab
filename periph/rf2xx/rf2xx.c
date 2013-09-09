@@ -34,33 +34,44 @@
 
 #include "soft_timer.h"
 #include "printf.h"
+#include "debug.h"
 
 #define RF_MAX_WAIT soft_timer_ms_to_ticks(1)
 
 /* Handy functions */
 inline static void csn_set(_rf2xx_t *_radio)
 {
-    gpio_pin_set(_radio->csn_gpio, _radio->csn_pin);
+    gpio_pin_set(_radio->config->csn_gpio, _radio->config->csn_pin);
 }
 inline static void csn_clear(_rf2xx_t *_radio)
 {
-    gpio_pin_clear(_radio->csn_gpio, _radio->csn_pin);
+    gpio_pin_clear(_radio->config->csn_gpio, _radio->config->csn_pin);
 }
 inline static void rstn_set(_rf2xx_t *_radio)
 {
-    gpio_pin_set(_radio->rstn_gpio, _radio->rstn_pin);
+    gpio_pin_set(_radio->config->rstn_gpio, _radio->config->rstn_pin);
 }
 inline static void rstn_clear(_rf2xx_t *_radio)
 {
-    gpio_pin_clear(_radio->rstn_gpio, _radio->rstn_pin);
+    gpio_pin_clear(_radio->config->rstn_gpio, _radio->config->rstn_pin);
 }
 inline static void slp_tr_set(_rf2xx_t *_radio)
 {
-    gpio_pin_set(_radio->slp_tr_gpio, _radio->slp_tr_pin);
+    gpio_pin_set(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin);
+    gpio_set_output(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin);
 }
 inline static void slp_tr_clear(_rf2xx_t *_radio)
 {
-    gpio_pin_clear(_radio->slp_tr_gpio, _radio->slp_tr_pin);
+    gpio_pin_clear(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin);
+    gpio_set_output(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin);
+}
+inline static void pa_enable_set(_rf2xx_t *_radio)
+{
+    gpio_pin_set(_radio->config->pa_enable_gpio, _radio->config->pa_enable_pin);
+}
+inline static void pa_enable_clear(_rf2xx_t *_radio)
+{
+    gpio_pin_clear(_radio->config->pa_enable_gpio, _radio->config->pa_enable_pin);
 }
 /* Handler for SPI transfer */
 static void transfer_done(handler_arg_t arg);
@@ -72,20 +83,22 @@ void rf2xx_init(rf2xx_t radio)
     _rf2xx_t *_radio = radio;
 
     // Initialize the IOs
-    // 1: enable the ports
-    gpio_enable(_radio->csn_gpio);
-    gpio_enable(_radio->rstn_gpio);
-    gpio_enable(_radio->slp_tr_gpio);
-
-    // 2: set output/input
-    gpio_set_output(_radio->csn_gpio, _radio->csn_pin);
-    gpio_set_output(_radio->rstn_gpio, _radio->rstn_pin);
-    gpio_set_output(_radio->slp_tr_gpio, _radio->slp_tr_pin);
+    // Set output/input
+    gpio_set_output(_radio->config->csn_gpio, _radio->config->csn_pin);
+    gpio_set_output(_radio->config->rstn_gpio, _radio->config->rstn_pin);
+    gpio_set_output(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin);
 
     // Set RSTn low, CSn high and SLP_TR low
     rstn_clear(_radio);
     csn_set(_radio);
     slp_tr_clear(_radio);
+
+    // Configure PA if any
+    if (_radio->config->pa_enable_gpio != NULL)
+    {
+        gpio_set_output(_radio->config->pa_enable_gpio, _radio->config->pa_enable_pin);
+        pa_enable_clear(_radio);
+    }
 
     // Wait a few micro-seconds
     soft_timer_delay_us(RF2XX_TIMING__VCC_TO_P_ON);
@@ -141,6 +154,13 @@ void rf2xx_reset(rf2xx_t radio)
             != RF2XX_TRX_STATUS__TRX_OFF);
 }
 
+rf2xx_type_t rf2xx_get_type(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+    return _radio->config->type;
+}
+
 /* Register, FIFO, SRAM access */
 uint8_t rf2xx_reg_read(rf2xx_t radio, uint8_t addr)
 {
@@ -152,11 +172,11 @@ uint8_t rf2xx_reg_read(rf2xx_t radio, uint8_t addr)
     csn_clear(_radio);
 
     // Send Register Read access and address
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_REG | RF2XX_ACCESS_READ
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_REG | RF2XX_ACCESS_READ
                         | addr);
 
     // Receive value
-    value = spi_transfer_single(_radio->spi, 0x0);
+    value = spi_transfer_single(_radio->config->spi, 0x0);
 
     // End SPI transfer
     csn_set(_radio);
@@ -173,11 +193,11 @@ void rf2xx_reg_write(rf2xx_t radio, uint8_t addr, uint8_t value)
     csn_clear(_radio);
 
     // Send first byte being the command and address
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_REG | RF2XX_ACCESS_WRITE
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_REG | RF2XX_ACCESS_WRITE
                         | addr);
 
     // Send value
-    spi_transfer_single(_radio->spi, value);
+    spi_transfer_single(_radio->config->spi, value);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -223,11 +243,11 @@ uint8_t rf2xx_fifo_read_first(rf2xx_t radio)
     csn_clear(_radio);
 
     // Send the command byte
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_FRAMEBUFFER
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_FRAMEBUFFER
                         | RF2XX_ACCESS_READ);
 
     // Read the first FIFO byte
-    uint8_t first = spi_transfer_single(_radio->spi, 0);
+    uint8_t first = spi_transfer_single(_radio->config->spi, 0);
 
     // Do not stop the SPI transfer (but the next function MUST be called after)
     return first;
@@ -248,7 +268,7 @@ void rf2xx_fifo_read_remaining_async(rf2xx_t radio, uint8_t *buffer,
     if (length)
     {
         // Receive the remaining of the data asynchronously
-        spi_transfer_async(_radio->spi, 0x0, buffer, length, transfer_done,
+        spi_transfer_async(_radio->config->spi, 0x0, buffer, length, transfer_done,
                            radio);
     }
     else
@@ -265,7 +285,7 @@ void rf2xx_fifo_read_remaining(rf2xx_t radio, uint8_t *buffer, uint16_t length)
     // SPI transfer already started
 
     // Receive the remaining of the data synchronously (no SPI handler)
-    spi_transfer(_radio->spi, 0x0, buffer, length);
+    spi_transfer(_radio->config->spi, 0x0, buffer, length);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -313,11 +333,11 @@ void rf2xx_fifo_write_first(rf2xx_t radio, uint8_t first)
     csn_clear(_radio);
 
     // Send Frame Buffer Write access
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_FRAMEBUFFER
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_FRAMEBUFFER
                         | RF2XX_ACCESS_WRITE);
 
     // Transfer the first byte
-    spi_transfer_single(_radio->spi, first);
+    spi_transfer_single(_radio->config->spi, first);
 
     // Do not end the SPI transfer, as a *_remaining_* call must be made after
 }
@@ -329,7 +349,7 @@ void rf2xx_fifo_write_remaining(rf2xx_t radio, const uint8_t *buffer,
     _rf2xx_t *_radio = radio;
 
     // Transfer the remaining synchronously
-    spi_transfer(_radio->spi, buffer, 0x0, length);
+    spi_transfer(_radio->config->spi, buffer, 0x0, length);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -346,7 +366,7 @@ void rf2xx_fifo_write_remaining_async(rf2xx_t radio, const uint8_t *buffer,
     _radio->transfer_arg = arg;
 
     // Send the remaining of the data asynchronously
-    spi_transfer_async(_radio->spi, buffer, 0x0, length, transfer_done, radio);
+    spi_transfer_async(_radio->config->spi, buffer, 0x0, length, transfer_done, radio);
 
 }
 
@@ -356,7 +376,7 @@ void rf2xx_fifo_access_cancel(rf2xx_t radio)
     _rf2xx_t *_radio = radio;
 
     // Cancer any asynchronous transfer
-    spi_async_cancel(_radio->spi);
+    spi_async_cancel(_radio->config->spi);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -376,13 +396,13 @@ void rf2xx_sram_read(rf2xx_t radio, uint8_t addr, uint8_t *buffer,
     csn_clear(_radio);
 
     // Send SRAM Read access
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_SRAM | RF2XX_ACCESS_READ);
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_SRAM | RF2XX_ACCESS_READ);
 
     // Send SRAM Address
-    spi_transfer_single(_radio->spi, addr);
+    spi_transfer_single(_radio->config->spi, addr);
 
     // Receive the remaining of the data synchronously
-    spi_transfer(_radio->spi, 0x0, buffer, length);
+    spi_transfer(_radio->config->spi, 0x0, buffer, length);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -397,13 +417,13 @@ void rf2xx_sram_write(rf2xx_t radio, uint8_t addr, const uint8_t *buffer,
     csn_clear(_radio);
 
     // Send the first byte (command)
-    spi_transfer_single(_radio->spi, RF2XX_ACCESS_SRAM | RF2XX_ACCESS_WRITE);
+    spi_transfer_single(_radio->config->spi, RF2XX_ACCESS_SRAM | RF2XX_ACCESS_WRITE);
 
     // Send SRAM Address
-    spi_transfer_single(_radio->spi, addr);
+    spi_transfer_single(_radio->config->spi, addr);
 
     // Send the remaining of the data synchronously
-    spi_transfer(_radio->spi, buffer, 0x0, length);
+    spi_transfer(_radio->config->spi, buffer, 0x0, length);
 
     // End the SPI transfer
     csn_set(_radio);
@@ -446,7 +466,7 @@ void rf2xx_wakeup(rf2xx_t radio)
     _rf2xx_t *_radio = radio;
     uint8_t status;
 
-    // Set SLP_TR to enter TRX_OFF
+    // Clear SLP_TR to enter TRX_OFF
     rf2xx_slp_tr_clear(_radio);
 
     // Wait until TRX OFF state is reached
@@ -465,7 +485,7 @@ void rf2xx_irq_configure(rf2xx_t radio, handler_t handler, handler_arg_t arg)
     _rf2xx_t *_radio = radio;
 
     // Store handler in EXTI
-    exti_set_handler(_radio->irq_exti_line, handler, arg);
+    exti_set_handler(_radio->config->irq_exti_line, handler, arg);
 }
 void rf2xx_irq_enable(rf2xx_t radio)
 {
@@ -473,7 +493,7 @@ void rf2xx_irq_enable(rf2xx_t radio)
     _rf2xx_t *_radio = radio;
 
     // Enable EXTI interrupt
-    exti_enable_interrupt_line(_radio->irq_exti_line, EXTI_TRIGGER_RISING);
+    exti_enable_interrupt_line(_radio->config->irq_exti_line, EXTI_TRIGGER_RISING);
 }
 void rf2xx_irq_disable(rf2xx_t radio)
 {
@@ -481,7 +501,12 @@ void rf2xx_irq_disable(rf2xx_t radio)
     _rf2xx_t *_radio = radio;
 
     // Disable EXTI interrupt
-    exti_disable_interrupt_line(_radio->irq_exti_line);
+    exti_disable_interrupt_line(_radio->config->irq_exti_line);
+}
+
+int32_t rf2xx_has_dig2(rf2xx_t radio)
+{
+    return ((_rf2xx_t*) radio)->config->dig2_timer != NULL;
 }
 
 void rf2xx_dig2_configure(rf2xx_t radio, timer_handler_t handler,
@@ -499,19 +524,55 @@ void rf2xx_dig2_enable(rf2xx_t radio)
     // Cast to _rf2xx_t
     _rf2xx_t *_radio = radio;
 
-    // Start capture in timer
-    timer_set_channel_capture(_radio->dig2_timer, _radio->dig2_channel,
-                              TIMER_CAPTURE_EDGE_RISING, _radio->dig2_handler, _radio->dig2_arg);
-
+    if (_radio->config->dig2_timer)
+    {
+        // Start capture in timer
+        timer_set_channel_capture(_radio->config->dig2_timer, _radio->config->dig2_channel,
+                                  TIMER_CAPTURE_EDGE_RISING, _radio->dig2_handler, _radio->dig2_arg);
+    }
 }
 void rf2xx_dig2_disable(rf2xx_t radio)
 {
     // Cast to _rf2xx_t
     _rf2xx_t *_radio = radio;
 
-    // Disable capture
-    timer_set_channel_capture(_radio->dig2_timer, _radio->dig2_channel,
-                              TIMER_CAPTURE_EDGE_RISING, NULL, NULL);
+    if (_radio->config->dig2_timer)
+    {
+            // Disable capture
+        timer_set_channel_capture(_radio->config->dig2_timer, _radio->config->dig2_channel,
+                                  TIMER_CAPTURE_EDGE_RISING, NULL, NULL);
+    }
+}
+
+/* DIG3/4 for external PA */
+int32_t rf2xx_has_pa(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+    return _radio->config->pa_enable_gpio != NULL;
+
+}
+void rf2xx_pa_enable(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+
+    if (_radio->config->pa_enable_gpio)
+    {
+        // Set the enable PIN
+        pa_enable_set(_radio);
+    }
+}
+void rf2xx_pa_disable(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+
+    if (_radio->config->pa_enable_gpio)
+    {
+        // Clear the enable PIN
+        pa_enable_clear(_radio);
+    }
 }
 
 /* SLP_TR command */
@@ -532,6 +593,14 @@ void rf2xx_slp_tr_clear(rf2xx_t radio)
     slp_tr_clear(_radio);
 }
 
+void rf2xx_slp_tr_config_timer(rf2xx_t radio)
+{
+    // Cast to _rf2xx_t
+    _rf2xx_t *_radio = radio;
+
+    // Set timer
+    gpio_set_timer_output(_radio->config->slp_tr_gpio, _radio->config->slp_tr_pin, _radio->config->slp_tr_af);
+}
 /* Private Functions */
 static void transfer_done(handler_arg_t caller)
 {

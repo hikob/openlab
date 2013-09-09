@@ -17,15 +17,31 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * dma.h
+/**
+ * \file dma.h
  *
- *  Created on: Aug 19, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ * \date Aug 19, 2011
+ * \author Christophe Braillon <christophe.braillon.at.hikob.com>
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef DMA_H_
 #define DMA_H_
+
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup DMA DMA driver
+ *
+ * This driver provides the functions used to execute Direct Memory Accesses,
+ * i.e. transferring data either from a peripheral to memory or from memory to
+ * a peripheral.
+ *
+ *@{
+ */
 
 #include <stdint.h>
 #include "handler.h"
@@ -33,7 +49,7 @@
 /**
  * Abstract representation of a DMA driver
  */
-typedef void *dma_t;
+typedef const void *dma_t;
 
 /**
  * The DMA channels
@@ -124,5 +140,10 @@ void dma_start(dma_t dma, handler_t done_handler, handler_arg_t handler_arg);
  * \return 1 if the DMA transfer was aborted, 0 if it was already finished.
  */
 int32_t dma_cancel(dma_t dma);
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* DMA_H_ */

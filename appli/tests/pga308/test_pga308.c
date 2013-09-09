@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include "platform.h"
 #include "printf.h"
+#include "debug.h"
 
 #include "event.h"
 #include "soft_timer.h"
@@ -41,7 +42,7 @@ static void adc_sample_done(handler_arg_t arg, uint16_t value);
 static void char_rx(handler_arg_t arg, uint8_t c);
 static volatile uint8_t new_char = 0;
 
-extern adc_t adc1;
+extern adg759_t pga308_mux;
 
 static volatile int32_t adc_value;
 static soft_timer_t st;
@@ -61,7 +62,7 @@ static void start(handler_arg_t arg)
 {
     uart_set_rx_handler(uart_print, char_rx, NULL);
 
-    printf("### Testing PGA308 ###\n");
+    log_printf("### Testing PGA308 ###\n");
 
     // Configure the PGA for input gain 400, offset Vref/4, remaining gain 3
     pga308_configure_gain(PGA308_INPUT_GAIN__100, 0x4000, 0x4000,
@@ -70,15 +71,15 @@ static void start(handler_arg_t arg)
     // Enable the pga and all
     pga308_enable();
 
-    adg759_enable();
+    adg759_enable(pga308_mux);
 
     log_printf("Enabled\n");
 
     // Set ADC handler
-    adc_set_handler(adc1, adc_sample_done, NULL);
+    adc_set_handler(pga308_get_adc(), adc_sample_done, NULL);
 
     // Request an ADC sample
-    adc_prepare_single(adc1, pga308_get_adc_channel());
+    adc_prepare_single(pga308_get_adc(), pga308_get_adc_channel());
 
     // Create a soft timer
     soft_timer_set_handler(&st, measure, NULL);
@@ -90,18 +91,16 @@ static void start(handler_arg_t arg)
 static void measure(handler_arg_t arg)
 {
     static int count = 0;
-    const char signs[] =
-    { '*', '#', '$', '@' };
     uint32_t mux_input = ADG759_INPUT_1;
     //    for (mux_input = 1; mux_input <= 4; mux_input++)
     {
         // Set the selected mux
-        adg759_select(mux_input);
+        adg759_select(pga308_mux, mux_input);
 
         // Start new sample
         adc_value = -1;
-        adc_prepare_single(adc1, pga308_get_adc_channel());
-        adc_sample_single(adc1);
+        adc_prepare_single(pga308_get_adc(), pga308_get_adc_channel());
+        adc_sample_single(pga308_get_adc());
 
         // Wait until value updated
         while (adc_value == -1)
@@ -109,10 +108,15 @@ static void measure(handler_arg_t arg)
             asm volatile("nop");
         }
 
-        printf("\x1b[0G\x1b[%uC%c", adc_value / 15, signs[mux_input - 1]);
+#if RELEASE == 0
+        const char signs[] =
+        { '*', '#', '$', '@' };
+        log_printf("\x1b[0G\x1b[%uC%c", adc_value / 15, signs[mux_input - ADG759_INPUT_1]);
+#endif
     }
-    printf("\t%u", adc_value);
-    printf("\n");
+
+    log_printf("\t%u", adc_value);
+    log_printf("\n");
 
     count ++;
 

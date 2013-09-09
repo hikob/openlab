@@ -20,18 +20,51 @@
 /*
  * soft_timer.h
  *
- *  Created on: Jan 13, 2012
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Jan 13, 2012
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef SOFT_TIMER_H_
 #define SOFT_TIMER_H_
 
+/**
+ * \addtogroup lib
+ * @{
+ */
+
+/**
+ * \addtogroup soft_timer
+ * @{
+ */
+
+/**
+ * \defgroup soft_timer_alarm Soft Timer Alarms
+ *
+ *  The Software Timer library allows one to schedule events. The handler function
+ *  passed to the library will be posted to the \ref event library after a given
+ *  delay, or at a certain time.
+ *
+ *  Events posted may be periodically called if requested.
+
+ * \see \ref example_soft_timer_alarm.c for an example of using alarms.
+ *
+ * @{
+ */
+
 #include <stdint.h>
+
+#include "event.h"
 #include "handler.h"
 
 #include "soft_timer_delay.h"
 
+/**
+ * Type defining an alarm used by the Software Timer. Its fields should NOT be
+ * modified directly as they are used internally by the library, but instead
+ * with \ref soft_timer_set_handler to change the handler function to be called
+ * on timer alarm, \ref soft_timer_start or \ref soft_timer_start_at to modify
+ * the alarm time.
+ */
 typedef struct soft_timer_alarm
 {
     /** Internally used pointer DO TO MODIFY */
@@ -43,19 +76,29 @@ typedef struct soft_timer_alarm
     /** Periodicity, DO NOT MODIFY */
     uint32_t period;
 
+    /** The priority queue on which to post the event, DO NOT MODIFY */
+    event_queue_t priority;
+
+    /** Handler to be called on timer alarm, DO NOT MODIFY */
     handler_t handler;
+
+    /** Handler argument to be provided to the handler, DO NOT MODIFY */
     handler_arg_t handler_arg;
 } soft_timer_t;
 
 /**
  * Initialize and start the soft timer library, if not already started.
+ * This MUST be called first before any other function call if an application
+ * is using it.
  */
 void soft_timer_init();
 
 /**
- * Set the handler and argument to this alarm.
+ * Set the handler function and argument of an alarm
  *
- * \param timer the timer to configure
+ * The handler and argument will be called when the timer expires.
+ *
+ * \param timer the timer alarm to configure
  * \param handler the handler function to call when alarm expires;
  * \param handler_arg_t the handler argument to provide;
  */
@@ -64,10 +107,19 @@ static inline void soft_timer_set_handler(soft_timer_t *timer,
 {
     timer->handler = handler;
     timer->handler_arg = arg;
+    timer->priority = EVENT_QUEUE_APPLI;
+}
+
+static inline void soft_timer_set_event_priority(soft_timer_t *timer,
+        event_queue_t priority)
+{
+    timer->priority = priority;
 }
 
 /**
- * Schedule an alarm;
+ * Schedule an alarm.
+ *
+ * The given timer alarm.
  *
  * \param timer the timer to schedule;
  * \param ticks the delay before the alarm;
@@ -104,6 +156,15 @@ void soft_timer_reset(soft_timer_t *timer);
  */
 int32_t soft_timer_is_active(soft_timer_t *timer);
 
+/**
+ *
+ */
 void soft_timer_debug();
+
+/**
+ * @}
+ * @}
+ * @}
+ */
 
 #endif /* SOFT_TIMER_H_ */

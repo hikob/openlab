@@ -56,6 +56,8 @@ enum
 {
     RCC_LSE_FREQUENCY = 32768
 };
+void rcc_lse_enable();
+void rcc_lse_disable();
 
 static inline uint32_t rcc_lse_get_frequency()
 {

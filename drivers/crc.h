@@ -17,31 +17,74 @@
  * Copyright (C) 2012 HiKoB.
  */
 
-/*
- * crc.h
+/**
+ * \file crc.h
  *
- *  Created on: Jan 17, 2012
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Jan 17, 2012
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef CRC_H_
 #define CRC_H_
 
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup CRC CRC Computing driver
+ *
+ * This driver provides hardware CRC computation methods, compatible with
+ * standard CRC algorithm such as Ethernet.
+ *
+ * The CRC is computed over a given number of words.
+ *
+ *@{
+ */
+
 #include <stdint.h>
 
-/** Enable the CRC module */
+/**
+ * Enable the CRC module.
+ *
+ * \note This must be called before any of the \ref crc_reset, \ref crc_compute
+ * and \ref crc_terminate functions.
+ */
 void crc_enable();
 
-/** Disable the CRC module */
+/**
+ * Disable the CRC module.
+ *
+ * This saves power when not needed.
+ */
 void crc_disable();
 
-/** Reset the CRC module */
+/**
+ * Reset the CRC module.
+ *
+ * And prepare the driver to compute a new CRC over a given memory range.
+ */
 void crc_reset();
 
-/** Compute a CRC32 over a range of memory */
+/**
+ * Compute a CRC32 over a range of memory.
+ *
+ * \param addr a pointer to the internal memory to start computing
+ * \param length the number of words to compute the CRC over
+ */
 void crc_compute(const uint32_t *addr, uint32_t length);
 
-/** Terminate the CRC32 computation */
+/**
+ * Terminate the CRC32 computation.
+ *
+ * \return the computed CRC value
+ */
 uint32_t crc_terminate();
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* CRC_H_ */

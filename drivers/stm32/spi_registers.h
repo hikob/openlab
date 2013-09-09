@@ -29,23 +29,23 @@
 
 #include "memmap.h"
 
-static inline volatile uint16_t *spi_get_CR1(_spi_t *_spi)
+static inline volatile uint16_t *spi_get_CR1(const _spi_t *_spi)
 {
     return mem_get_reg16(_spi->base_address + SPIx_CR1_OFFSET);
 }
-static inline volatile uint16_t *spi_get_CR2(_spi_t *_spi)
+static inline volatile uint16_t *spi_get_CR2(const _spi_t *_spi)
 {
     return mem_get_reg16(_spi->base_address + SPIx_CR2_OFFSET);
 }
-static inline volatile uint16_t *spi_get_SR(_spi_t *_spi)
+static inline volatile uint16_t *spi_get_SR(const _spi_t *_spi)
 {
     return mem_get_reg16(_spi->base_address + SPIx_SR_OFFSET);
 }
-static inline volatile uint16_t *spi_get_DR(_spi_t *_spi)
+static inline volatile uint16_t *spi_get_DR(const _spi_t *_spi)
 {
     return mem_get_reg16(_spi->base_address + SPIx_DR_OFFSET);
 }
-static inline volatile uint16_t *spi_get_CRCPR(_spi_t *_spi)
+static inline volatile uint16_t *spi_get_CRCPR(const _spi_t *_spi)
 {
     return mem_get_reg16(_spi->base_address + SPIx_CRCPR_OFFSET);
 }

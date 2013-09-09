@@ -1,0 +1,28 @@
+# C/C++ mode
+--mode=c
+
+# Brackets
+--style=ansi
+--add-brackets
+
+# Indentation
+--indent=spaces=4
+--indent-switches
+--indent-preprocessor
+--indent-col1-comments
+--indent-classes
+--indent-namespaces
+
+# Padding options
+--break-blocks
+--pad-oper
+--pad-header
+--unpad-paren
+--convert-tabs
+
+# Style
+--align-pointer=name
+--lineend=linux
+
+# Don't keep originals 
+--suffix=none

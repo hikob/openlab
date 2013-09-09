@@ -54,6 +54,9 @@ typedef struct
     // Timer Channel for alarm
     timer_channel_t channel;
 
+    /** 1 if the timer channel controls the SLP_TR pin */
+    uint32_t timer_is_slptr;
+
     // Pointers to the packet used in TX or RX
     phy_packet_t *pkt;
 
@@ -69,6 +72,11 @@ typedef struct
 
 /**
  * Initialize the PHY layer
+ *
+ * \param phy the PHY to init.
+ * \param radio the RF2xx radio used by the PHY;
+ * \param timer a timer to provide timeouts and so;
+ * \param channel a timer channel for timeouts and so;
  */
 void phy_rf2xx_init(phy_rf2xx_t *phy, rf2xx_t radio, timer_t timer,
                     timer_channel_t channel);

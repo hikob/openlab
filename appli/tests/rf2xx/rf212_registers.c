@@ -49,7 +49,6 @@ int main()
 
     printf("Initializing RF212...");
     // Init. the radio
-    rf2xx_init(rf212);
     rf2xx_wakeup(rf212);
     printf("OK\n");
 

@@ -17,26 +17,50 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * timer.h
+/**
+ * \file timer.h
  *
- *  Created on: Jul 6, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Jul 6, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef TIMER_H_
 #define TIMER_H_
 
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup Timer Timer driver
+ *
+ * This driver provides all API functions required to control a hardware timer.
+ * The clock source can be selected from either internal or external clock, then
+ * each of its channels may be configured in capture or compare mode.
+ *
+ *@{
+ */
+
 #include <stdint.h>
 #include "handler.h"
 
 /** Abstract type representing a timer */
-typedef void *timer_t;
+typedef const void *timer_t;
 
-/** Timer Handler function */
+/**
+ * Timer Handler function prototype, called on update/compare/capture interrupt.
+ *
+ * \param arg the argument passed when registering the handler
+ * \param timer_value the timer value when the interrupt triggered
+ */
 typedef void (*timer_handler_t)(handler_arg_t arg, uint16_t timer_value);
 
-/** Timer channels */
+/**
+ *  Maximum available timer channels
+ *
+ * \note Not all timer have all the timer channels available.
+ */
 typedef enum
 {
     TIMER_CHANNEL_1 = 0,
@@ -138,6 +162,7 @@ uint32_t timer_get_frequency(timer_t timer);
  *
  * \return the number of channels of this timer.
  */
+
 uint16_t timer_get_number_of_channels();
 /**
  * Enable a Timer channel in compare mode.
@@ -157,6 +182,7 @@ uint16_t timer_get_number_of_channels();
  */
 void timer_set_channel_compare(timer_t timer, timer_channel_t channel,
                                uint16_t compare_value, timer_handler_t handler, handler_arg_t arg);
+
 /**
  * Update a Timer channel compare value.
  *
@@ -186,18 +212,25 @@ typedef enum
 /**
  * Activate a channel output on the corresponding PINs.
  *
+ * Use the FROZEN mode to disable
+ *
  * \param timer the timer;
  * \param channel the channel to activate output;
  * \param mode the output mode
  */
 void timer_activate_channel_output(timer_t timer, timer_channel_t channel,
                                    timer_output_mode_t mode);
+
+/**
+ * Available modes for input capture mode.
+ */
 typedef enum
 {
     TIMER_CAPTURE_EDGE_RISING = 0,
     TIMER_CAPTURE_EDGE_FALLING = 1,
     TIMER_CAPTURE_EDGE_BOTH = 3,
 } timer_capture_edge_t;
+
 /**
  * Enable a Timer channel in capture mode.
  *
@@ -225,5 +258,10 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
  * \return 1 if the update flag is set, 0 if it is not
  */
 uint32_t timer_get_update_flag(timer_t timer);
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* TIMER_H_ */

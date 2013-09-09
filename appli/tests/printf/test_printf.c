@@ -26,12 +26,13 @@
 
 #include "platform.h"
 #include "printf.h"
+#include "ansi.h"
 
 int main()
 {
     char *ptr = "Hello world!";
     char *np = 0;
-    int i = 5;
+    int i = 5, r;
     unsigned int bs = sizeof(int) * 8;
     int mi;
     char buf[80];
@@ -89,10 +90,55 @@ int main()
     printf("%s", buf);
     sprintf(buf, "-3: %4d space padded\n", -3);
     printf("%s", buf);
-    sprintf(buf, "-3: %4d space padded\n", -324);
+    sprintf(buf, "-324: %4d space padded\n", -324);
     printf("%s", buf);
-    sprintf(buf, "-3: %4d space padded\n", -9324);
+    sprintf(buf, "-9324: %4d space padded\n", -9324);
     printf("%s", buf);
+
+    if((r = sprintf(buf, "%d", 12345)) == 5)
+    {
+        printf("sprintf return value is OK\n");
+    }
+    else
+    {
+        printf("sprintf return value is wrong, returned value is %d instead of 5\n", r);
+    }
+
+    if((r = snprintf(buf, 4, "%d", 12345)) == 5)
+    {
+        printf("sprintf return value is OK, result should be 123 == %s\n", buf);
+    }
+    else
+    {
+        printf("sprintf return value is wrong, returned value is %d instead of 5\n", r);
+    }
+
+    if((r = snprintf(buf, 5, "%d", 12345)) == 5)
+    {
+        printf("sprintf return value is OK, result should be 1234 == %s\n", buf);
+    }
+    else
+    {
+        printf("sprintf return value is wrong, returned value is %d instead of 5\n", r);
+    }
+
+    if((r = snprintf(buf, 6, "%d", 12345)) == 5)
+    {
+        printf("sprintf return value is OK, result should be 12345 == %s\n", buf);
+    }
+    else
+    {
+        printf("sprintf return value is wrong, returned value is %d instead of 5\n", r);
+    }
+ 
+    if((r = snprintf(buf, 7, "%d", 12345)) == 5)
+    {
+        printf("sprintf return value is OK, result should be 12345 == %s\n", buf);
+    }
+    else
+    {
+        printf("sprintf return value is wrong, returned value is %d instead of 5\n", r);
+    }   
 
     printf("\nPrintf for float test:\n======================\n");
 
@@ -100,7 +146,8 @@ int main()
 
     for (mi = 0; mi < sizeof(f) / sizeof(f[0]); mi++)
     {
-        printf("(uint32_t)0x%08X = (float)%f\r\n", *((uint32_t *)(&f[mi])), f[mi]);
+        void* p = (&f[mi]);
+        printf("(uint32_t)0x%08X = (float)%f\r\n", *((uint32_t *)p), f[mi]);
     }
 
     return 0;

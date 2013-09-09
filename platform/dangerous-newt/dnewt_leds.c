@@ -36,11 +36,11 @@ void platform_leds_setup()
 {
     // Configure the LEDs
     // Enable port C
-    gpio_enable(gpioC);
+    gpio_enable(GPIO_C);
 
     // Set output pins B10 and B12
-    gpio_set_output(gpioC, GPIO_PIN_5);
-    gpio_set_output(gpioC, GPIO_PIN_10);
+    gpio_set_output(GPIO_C, GPIO_PIN_5);
+    gpio_set_output(GPIO_C, GPIO_PIN_10);
 
     // Clear LEDs
     leds_off(LED_0 + LED_1);
@@ -50,24 +50,24 @@ void leds_off(uint8_t leds)
 {
     if (leds & LED_0)
     {
-        gpio_pin_set(gpioC, GPIO_PIN_5);
+        gpio_pin_set(GPIO_C, GPIO_PIN_5);
     }
 
     if (leds & LED_1)
     {
-        gpio_pin_set(gpioC, GPIO_PIN_10);
+        gpio_pin_set(GPIO_C, GPIO_PIN_10);
     }
 }
 void leds_on(uint8_t leds)
 {
     if (leds & LED_0)
     {
-        gpio_pin_clear(gpioC, GPIO_PIN_5);
+        gpio_pin_clear(GPIO_C, GPIO_PIN_5);
     }
 
     if (leds & LED_1)
     {
-        gpio_pin_clear(gpioC, GPIO_PIN_10);
+        gpio_pin_clear(GPIO_C, GPIO_PIN_10);
     }
 }
 
@@ -75,11 +75,11 @@ void leds_toggle(uint8_t leds)
 {
     if (leds & LED_0)
     {
-        gpio_pin_toggle(gpioC, GPIO_PIN_5);
+        gpio_pin_toggle(GPIO_C, GPIO_PIN_5);
     }
 
     if (leds & LED_1)
     {
-        gpio_pin_toggle(gpioC, GPIO_PIN_10);
+        gpio_pin_toggle(GPIO_C, GPIO_PIN_10);
     }
 }

@@ -20,10 +20,14 @@
 List of platform types:
 -Agile Fox:      0x07
 -Dangerous Newt: 0x08
+-Azure Lion:     0x06
+-Native:         0xAA
 
 List of platform version:
 -Agile Fox:      0x10
 -Dangerous Newt: 0x01
+-Azure Lion:     0x04
+-Native:         0x01
 
 The available flags set with the set(PLATFORM_HAS_... 1) command in the include.cmake files are:
 
@@ -43,4 +47,3 @@ PLATFORM_HAS_PHY
 	If the platform has at least one phy accessible through "phy"
 PLATFORM_HAS_USB
 	If the platform has an USB port
-

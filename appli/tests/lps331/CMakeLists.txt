@@ -17,7 +17,7 @@
 # Copyright (C) 2011,2012 HiKoB.
 #
 
-if(${PLATFORM_HAS_LPS331})
+if(${PLATFORM_HAS_LPS331AP})
 	add_executable(test_lps331 lps331)
-	target_link_libraries(test_lps331 platform lps331 printf)
-endif(${PLATFORM_HAS_LPS331})
+	target_link_libraries(test_lps331 platform lps331ap printf)
+endif(${PLATFORM_HAS_LPS331AP})

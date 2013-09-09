@@ -70,5 +70,5 @@ static void sample_done_isr(handler_arg_t arg)
 
 static void print_result(handler_arg_t arf)
 {
-    printf("VBat \t%u\n", batfb_vbat);
+    printf("VBat %f\t\tVcc %f\n", batfb_vbat, batfb_vcc);
 }

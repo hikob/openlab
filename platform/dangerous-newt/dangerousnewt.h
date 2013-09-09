@@ -28,23 +28,8 @@
 #define DANGEROUSNEWT_H_
 
 #include "platform.h"
-#include "gpio.h"
-#include "timer.h"
-#include "spi.h"
-#include "i2c.h"
-#include "uart.h"
-#include "dma.h"
-#include "adc.h"
-
+#include "stm32f1xx.h"
 #include "rf2xx.h"
-
-/* Drivers */
-extern gpio_t gpioA, gpioB, gpioC, gpioD, gpioE, gpioF, gpioG;
-extern timer_t tim2, tim3, tim4, tim6, tim7;
-extern spi_t spi2;
-extern i2c_t i2c2;
-extern uart_t uart1, uart2;
-extern adc_t adc1;
 
 /* Peripheral */
 extern rf2xx_t rf231;

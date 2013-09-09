@@ -31,12 +31,21 @@
 #define NO_DEBUG_HEADER
 #define LOG_LEVEL LOG_LEVEL_WARNING
 #include "printf.h"
+#include "debug.h"
 
 #if (LOG_LEVEL < LOG_LEVEL_DEBUG)
 #define DBG(x...)   printf(x)
 #else
 #define DBG(x...)   do { } while(0)
 #endif // LOG_LEVEL
+
+/* ************************************************************ */
+/* ************************************************************ */
+/* ************************************************************ */
+
+//HID
+#define usb_VendorId   0x046D
+#define usb_ProductId  0xC063
 
 /* ************************************************************ */
 /* ************************************************************ */
@@ -128,6 +137,9 @@ static const struct
     .wDescriptorLength    = sizeof(hid_report_descriptor)
 };
 
+#define DFU_INTERFACE        1
+#define DFU_INTERFACE_STRING 4
+
 static const usb_iface_desc_t hid_iface_desc[] =
 {
     {
@@ -144,6 +156,8 @@ static const usb_iface_desc_t hid_iface_desc[] =
         .class_specific_len   = sizeof(hid_descriptor),
         .endpoint_descriptors = hid_endp_desc
     },
+    // DFU Interface (bInterfaceNumber, iInterface)
+//    DFU_RUNTIME_INTERFACE(DFU_INTERFACE, DFU_INTERFACE_STRING)
 };
 
 static const usb_conf_desc_t hid_conf_desc[] =
@@ -293,6 +307,12 @@ static void hid_class_interface(usb_device_request_t *req)
     uint16_t alternate;
 
     usb_get_interface(&interface, &alternate);
+
+    if (interface == DFU_INTERFACE)
+    {
+        usb_dfu_class_interface(req);
+        return;
+    }
 
     switch (req->bRequest)
     {

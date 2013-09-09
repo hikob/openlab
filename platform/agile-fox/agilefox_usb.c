@@ -28,6 +28,7 @@
 #include "agilefox.h"
 
 #include "sdio_.h"
+#include "usb_.h"
 
 #include "libusb.h"
 #include "usb/scsi_sd.h"
@@ -37,6 +38,9 @@
 
 /* ************************************************** */
 /* ************************************************** */
+
+//WEAK const uint16_t usb_VendorId             = 0x0483;
+//WEAK const uint16_t usb_ProductId            = 0x5740;
 
 WEAK const uint8_t  scsi_vendor_string[8]    = { 'H','i','K','o','B',0,0,0 };
 WEAK const uint8_t  scsi_product_string[16]  = { 'A','g','i','l','e',' ','F','o','x',0,0,0,0,0,0,0 };
@@ -83,11 +87,32 @@ WEAK const usb_string_desc_t usb_string_desc[] =
     }
 };
 
+/* ************************************************** */
+/* ************************************************** */
+
+WEAK const mmap_entry_t mmapfs_files[] = 
+{
+    {
+	.arg     = NULL,
+	.name    = "EEPROM", 
+	.ext     = "RAW", 
+	.maxsize = 4096, 
+	.info    = NULL,
+	.read    = storage_eeprom_read,
+	.write   = storage_eeprom_write,
+	.unlink  = NULL
+    },
+};
+
+WEAK const mmapfs_t _mmapfs = {
+    .size  = 1, 
+    .files = mmapfs_files,
+};
 
 /* ************************************************** */
 /* ************************************************** */
 
-WEAK const uint8_t    scsi_max_lun = 0;
+WEAK const uint8_t    scsi_max_lun = 1;
 WEAK const scsi_lun_t scsi_lun[] = {
     { 
 	.type          = USB_MSC_SD,
@@ -97,7 +122,21 @@ WEAK const scsi_lun_t scsi_lun[] = {
 	.read10        = scsi_sd_read10,
 	.write10       = scsi_sd_write10 
     },
+    { 
+	.type          = USB_MSC_MMAPFS,
+	.info          = & _mmapfs,
+	.init          = scsi_mmapfs_init,
+	.read_capacity = scsi_mmapfs_read_capacity,
+	.read10        = scsi_mmapfs_read10,
+	.write10       = scsi_mmapfs_write10 
+    }
 };
 
 /* ************************************************** */
 /* ************************************************** */
+
+void usb_lp_can1_rx0_isr()
+{
+    usb_handle_interrupt();
+}
+

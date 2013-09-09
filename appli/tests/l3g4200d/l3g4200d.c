@@ -26,9 +26,36 @@
 
 #include <stdint.h>
 #include "platform.h"
+#include "l3g4200d.h"
+#include "event.h"
 #include "printf.h"
 
-#include "l3g4200d.h"
+#define GYRO_INTER
+
+#ifdef GYRO_INTER
+
+static int16_t gyro_values[3];
+static void gyro_data(handler_arg_t arg);
+static void read_gyro(handler_arg_t arg);
+
+static void gyro_data(handler_arg_t arg)
+{
+    event_post(EVENT_QUEUE_APPLI, read_gyro, arg);
+}
+
+static void read_gyro(handler_arg_t arg)
+{
+    static int i = 0;
+    l3g4200d_read_rot_speed(gyro_values);
+    if (i == 10)
+    {
+        printf("G: %d %d %d\n", gyro_values[0], gyro_values[1], gyro_values[2]);
+        i = 0;
+    }
+    i++;
+}
+
+#endif
 
 int main()
 {
@@ -39,18 +66,23 @@ int main()
 
     printf("# Testing L3G4200D\n");
 
-    printf("# Setting L3G4200D datarate...\n");
-    l3g4200d_set_datarate(L3G4200D_800HZ);
-
-    printf("# Setting L3G4200D scale...\n");
-    l3g4200d_set_scale(L3G4200D_2000DPS, true);
+    printf("# Setting L3G4200D datarate and scale...\n");
+    l3g4200d_gyr_config(L3G4200D_200HZ, L3G4200D_2000DPS, true);
 
     printf("# Reading L3G4200D WHOAMI register: 0xD3 == 0x%02X\n", l3g4200d_read_whoami());
-
     for (i = 1; i <= 5; i++)
     {
         printf("# CTRL_REG%d = 0x%02X\n", i, l3g4200d_read_crtl_reg(i));
     }
+
+#ifdef GYRO_INTER
+
+    l3g4200d_set_drdy_int(gyro_data, NULL);
+    read_gyro(NULL);
+
+    platform_run();
+
+#else
 
     while (1)
     {
@@ -60,7 +92,7 @@ int main()
         l3g4200d_read_rot_speed(g);
         l3g4200d_read_temp(&t);
 
-        printf("%d %d %d %d\n", g[0], g[1], g[2], t);
+        printf("%d\t%d\t%d\t%d\n", g[0], g[1], g[2], t);
 
         for (i = 0; i < 0x800; i++)
         {
@@ -70,5 +102,9 @@ int main()
         leds_toggle(LED_0 + LED_1);
     }
 
+#endif
+
     return 0;
 }
+
+

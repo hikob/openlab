@@ -37,6 +37,6 @@ phy_t phy = &phy_rf231;
 void platform_net_setup()
 {
     // Setup the PHY libraries
-    phy_rf2xx_init(&phy_rf231, rf231, tim3, TIMER_CHANNEL_3);
+    phy_rf2xx_init(&phy_rf231, rf231, TIM_3, TIMER_CHANNEL_3);
 }
 

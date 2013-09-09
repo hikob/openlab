@@ -24,6 +24,8 @@ set(LINKSCRIPT ../scripts/stm32f103rey6.ld)
 
 set(DRIVERS stm32f1xx)
 
+set(PLATFORM_RAM_KB 64)
+
 set(MY_C_FLAGS "${MY_C_FLAGS} -DDANGEROUS_NEWT")
 set(PLATFORM_TYPE    0x08)
 set(PLATFORM_VERSION 0x01)

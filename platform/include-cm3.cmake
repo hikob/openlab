@@ -20,19 +20,32 @@
 set(CMAKE_C_COMPILER   "arm-none-eabi-gcc")
 set(CMAKE_CXX_COMPILER "arm-none-eabi-g++")
 set(CMAKE_OBJDUMP      "arm-none-eabi-objdump")
+set(CMAKE_AR           "arm-none-eabi-ar")
+set(CMAKE_RANLIB       "arm-none-eabi-ranlib")
+set(CMAKE_OBJCOPY      "arm-none-eabi-objcopy")
 
 # FreeRTOS port
 set(FREERTOS_PORT "ARM_CM3")
+set(FREERTOS_MEMMANG heap_1)
 
 # GCC target specific flags
 set(MY_C_FLAGS   "${MY_C_FLAGS} -DGCC_ARMCM3")
-set(MY_C_FLAGS   "${MY_C_FLAGS} -gdwarf-2 -fno-builtin -fsingle-precision-constant")
+
+# If RELEASE is not set, set the debug option to gcc
+if(RELEASE EQUAL 0)
+	set(MY_C_FLAGS "${MY_C_FLAGS} -gdwarf-2")
+endif(RELEASE EQUAL 0)
+
+set(MY_C_FLAGS   "${MY_C_FLAGS} -fno-builtin -fsingle-precision-constant")
 set(MY_C_FLAGS   "${MY_C_FLAGS} -mcpu=cortex-m3 -mthumb -mthumb-interwork -mfix-cortex-m3-ldrd -msoft-float")
+set(MY_C_FLAGS   "${MY_C_FLAGS} -ffunction-sections -fdata-sections -Wl,--gc-sections")
 
 # LD target specific flags
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -nostartfiles -nodefaultlibs") # -lc -lm -lgcc -lstdc++
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -T${PROJECT_SOURCE_DIR}/platform/${PLATFORM}/${LINKSCRIPT}")
 set(MY_LD_FLAGS  "${MY_LD_FLAGS} -mcpu=cortex-m3 -mthumb -mthumb-interwork")
+set(MY_LD_FLAGS  "${MY_LD_FLAGS} -ffunction-sections -fdata-sections -Wl,--gc-sections")
+set(MY_LD_FLAGS  "${MY_LD_FLAGS} -Wl,-Map,${EXECUTABLE_OUTPUT_PATH}/out.map -Wl,--cref")
 
 # Set OOCD target
 if(NOT OOCD_ITF)
@@ -63,7 +76,19 @@ add_custom_target(flash_${ARGV0} openocd -f "${OOCD_ITF}"
 	-c "shutdown" DEPENDS ${ARGV0})
 add_custom_target(dump_${ARGV0} ${CMAKE_OBJDUMP} -S -d 
 	${EXECUTABLE_OUTPUT_PATH}/${ARGV0}.elf DEPENDS ${ARGV0})
+add_custom_target(mmap_${ARGV0} 
+        ${PROJECT_SOURCE_DIR}/tools/memmap.py -j 
+	-t "MemMap for ${ARGV0}"
+	-m "${EXECUTABLE_OUTPUT_PATH}/out.map"
+	-o "${EXECUTABLE_OUTPUT_PATH}/memmap.html"
+        DEPENDS ${ARGV0})
 _add_executable(${ARGN})
+
+add_custom_target(hex_${ARGV0} ${CMAKE_OBJCOPY} -O ihex 
+    ${EXECUTABLE_OUTPUT_PATH}/${ARGV0}.elf 
+    ${EXECUTABLE_OUTPUT_PATH}/${ARGV0}.hex 
+        DEPENDS ${ARGV0})
+
 endmacro(add_executable)
 
 add_custom_target(debug openocd -f "${OOCD_ITF}" 

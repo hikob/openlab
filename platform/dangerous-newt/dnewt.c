@@ -27,6 +27,7 @@
 #include "platform.h"
 #include "dangerousnewt.h"
 
+#include "watchdog.h"
 #include "rcc.h"
 #include "flash.h"
 #include "uart_.h"
@@ -35,11 +36,18 @@
 
 #include "soft_timer.h"
 #include "printf.h"
+#include "debug.h"
 
-platform_reset_cause_t platform_reset_cause;
+__attribute__((weak)) int32_t platform_should_start_watchdog();
 
 void platform_init()
 {
+    // Enable watchdog if requested
+    if (platform_should_start_watchdog && platform_should_start_watchdog())
+    {
+        watchdog_enable(WATCHDOG_DIVIDER_256, 0xFFF);
+    }
+
     // Store the reset cause
     platform_reset_cause = rcc_get_reset_cause();
     rcc_clear_reset_cause();
@@ -58,8 +66,9 @@ void platform_init()
     rcc_sysclk_select_source(RCC_SYSCLK_SOURCE_PLL);
     rcc_hsi_disable();
 
-    // enable the LSE
-    // TODO: see if LSE is always enabled on STM32F...
+    /** enable the LSE
+     * \todo see if LSE is always enabled on STM32F...
+     */
     //rcc_lse_enable();
 
     // Setup the drivers
@@ -71,11 +80,6 @@ void platform_init()
     // Setup the libraries
     platform_lib_setup();
 
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
-
     // Setup the peripherals
     platform_periph_setup();
 
@@ -85,7 +89,7 @@ void platform_init()
     // Feed the random number generator
     random_init(uid->uid32[2]);
 
-    printf("\n\nPlatform starting in ");
+    log_printf("\n\nPlatform starting in ");
     uint32_t i;
 
     for (i = 1; i > 0; i--)
@@ -96,22 +100,8 @@ void platform_init()
 
     // Disable UART if RELEASE and not KEEP UART
 #if defined(RELEASE) && (RELEASE == 1) && (!defined(KEEP_UART) || (KEEP_UART == 0))
-    printf("\nSilence!\n");
-    platform_disable_uart();
+    log_printf("\nSilence!\n");
 #else
-    printf("\nGO!\n");
+    log_printf("\nGO!\n");
 #endif
-
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
-}
-
-void platform_prevent_low_power() {}
-void platform_release_low_power() {}
-
-void xputc(char c)
-{
-    uart_transfer(uart_print, (uint8_t *) &c, 1);
 }

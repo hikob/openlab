@@ -23,21 +23,38 @@
  *  Created on: Aug 30, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
  *              Antoine Fraboulet <antoine.fraboulet.at.hikob.com>
+ *
+ *       Spec : http://www.usb.org/developers/devclass_docs/usbcdc11.pdf
  */
+
+#include "platform.h"
 
 #include "usb.h"
 #include "libusb.h"
 #include "cdc_acm.h"
 
 #define NO_DEBUG_HEADER
-#define LOG_LEVEL LOG_LEVEL_DEBUG
+#define LOG_LEVEL LOG_LEVEL_INFO
 #include "printf.h"
+#include "debug.h"
 
 #if (LOG_LEVEL < LOG_LEVEL_DEBUG)
 #define DBG(x...)   printf(x)
 #else
 #define DBG(x...)   do { } while(0)
 #endif // LOG_LEVEL
+
+/* ************************************************************ */
+/* ************************************************************ */
+/* ************************************************************ */
+
+//CDC-ACM (Arduino)
+//#define usb_VendorId   0x2341
+//#define usb_ProductId  0x0001
+
+//Custom IDs
+#define usb_VendorId   0x89B2	//(actually unused) => HiKoB
+#define usb_ProductId  0x0003	//Agile Fox
 
 /* ************************************************************ */
 /* ************************************************************ */
@@ -58,7 +75,7 @@
 #define CDC_ACM_EP_DATAOUT_SIZE    16
 #define CDC_ACM_EP_DATAIN_SIZE     16
 
-#define CDC_ACM_TXBUF_SIZE         64
+#define CDC_ACM_TXBUF_SIZE         128
 #define CDC_ACM_RXBUF_SIZE         CDC_ACM_EP_DATAOUT_SIZE    
 
 /* ************************************************************ */
@@ -107,7 +124,7 @@ enum
     GET_ATM_DEVICE_STATISTICS                    = 0x51,
     SET_ATM_DEFAULT_VC                           = 0x52,
     GET_ATM_VC_STATISTICS                        = 0x53
-    // 0x54 - 0xFF: Reserved
+        // 0x54 - 0xFF: Reserved
 };
 
 
@@ -214,6 +231,9 @@ static const struct
     .bSlaveInterface0_union    = 1       // Data class interface
 };
 
+#define DFU_INTERFACE        2
+#define DFU_INTERFACE_STRING 4
+
 static const usb_iface_desc_t cdc_acm_iface_desc[] =
 {
     // Comm interface
@@ -246,6 +266,8 @@ static const usb_iface_desc_t cdc_acm_iface_desc[] =
         .class_specific_len    = 0,
         .endpoint_descriptors  = cdc_acm_data_endp_desc
     },
+    // DFU Interface (bInterfaceNumber, iInterface)
+    DFU_RUNTIME_INTERFACE(DFU_INTERFACE, DFU_INTERFACE_STRING)
 };
 
 static const usb_conf_desc_t cdc_acm_conf_desc[] =
@@ -360,8 +382,8 @@ void cdc_acm_register_rx_callback(cdc_acm_data_callback_t cb_rx)
  * Data are protected using eint/dint..
  */
 
-#define dint()   asm volatile("cpsid i\n")
-#define eint()   asm volatile("cpsie i\n")
+#define dint()   platform_enter_critical() // asm volatile("cpsid i\n")
+#define eint()   platform_exit_critical()  // asm volatile("cpsie i\n")
 
 void cdc_acm_send_to_endpoint()
 {
@@ -376,31 +398,31 @@ void cdc_acm_send_to_endpoint()
 
     if (txl == 0)
     {
-	//DBG("=");
-	return;
+        //DBG("=");
+        return;
     }
 
     if (txl > 0)
     {
-	if (txw > txr)
-	{
-	    len = txw - txr;
-	}
-	else
-	{
-	    len = sizeof(tx_buf) - txr;
-	}
+        if (txw > txr)
+        {
+            len = txw - txr;
+        }
+        else
+        {
+            len = sizeof(tx_buf) - txr;
+        }
     }
-    
+
     if (len > usb_get_max_packet_size( CDC_ACM_EP_DATAIN ))
     {
-	len = usb_get_max_packet_size( CDC_ACM_EP_DATAIN );
+        len = usb_get_max_packet_size( CDC_ACM_EP_DATAIN );
     }
 
     if (len > 0)
     {
-	log_debug("cdc_acm tx %d bytes to host",len);
-	usb_send( CDC_ACM_EP_DATAIN, true, NO_CHANGE, &(tx_buf[txr]), len);
+        log_debug("cdc_acm tx %d bytes to host",len);
+        usb_send( CDC_ACM_EP_DATAIN, true, NO_CHANGE, &(tx_buf[txr]), len);
     }
 
     dint();
@@ -408,7 +430,7 @@ void cdc_acm_send_to_endpoint()
     tx_read = tx_read + len;
     if (tx_read >= sizeof(tx_buf))
     {
-	tx_read = 0;
+        tx_read = 0;
     }
     eint();
 }
@@ -458,7 +480,7 @@ uint16_t cdc_acm_send(uint8_t *buf, uint16_t len)
 
     if (i < len)
     {
-	log_warning("cdc_acm tx to host buffer overflow of %d bytes", len - i);
+        log_warning("cdc_acm tx to host buffer overflow of %d bytes on %d bytes msg", len - i, len);
     }
 
     return i;
@@ -482,7 +504,7 @@ static void cdc_acm_data_in(uint8_t endp, bool rx, bool tx)
     if (!tx && rx)
     {
         log_error("CDC ACM data in callback called with: rx = %d and tx = %d", rx, tx);
-	return;
+        return;
     }
 
     //DBG("i");
@@ -496,20 +518,20 @@ static void cdc_acm_data_out(uint8_t endp, bool rx, bool tx)
     if (!rx && tx)
     {
         log_error("CDC ACM data out callback called with: rx = %d and tx = %d", rx, tx);
-	return;
+        return;
     }
 
     //DBG("o");
     if (rx_cb)
     {
-	len = usb_recv_get_len(endp);
-	usb_recv(endp, rx_buf, len);  // len < sizeof(rx_buf) in #defines
-	log_debug("cdc_acm rx %d bytes from host",len);
-	rx_cb(rx_buf, len);
+        len = usb_recv_get_len(endp);
+        usb_recv(endp, rx_buf, len);  // len < sizeof(rx_buf) in #defines
+        log_debug("cdc_acm rx %d bytes from host",len);
+        rx_cb(rx_buf, len);
     }
     else
     {
-	log_warning("No receive callback available");
+        log_warning("No receive callback available");
     }
     usb_recv_set_status(endp, STAT_RX_VALID);
 }
@@ -523,7 +545,7 @@ static void cdc_acm_data_out(uint8_t endp, bool rx, bool tx)
 static bool set_line_coding(uint8_t endp)
 {
     uint16_t len;
-    
+
     len = usb_recv_get_len( ENDPOINT_0 );
 
     if (len == sizeof(line_coding))
@@ -545,7 +567,7 @@ static bool set_line_coding(uint8_t endp)
                 break;
             default:
                 log_error("Unknown char format");
-		break;
+                break;
         }
 
         switch (line_coding.bParityType)
@@ -567,7 +589,7 @@ static bool set_line_coding(uint8_t endp)
                 break;
             default:
                 log_error("Unknown parity type");
-		break;
+                break;
         }
 
         log_info("Data bits: %d", line_coding.bDataBits);
@@ -590,8 +612,26 @@ static void cdc_acm_class_interface(usb_device_request_t *req)
 
     usb_get_interface(&interface, &alternate);
 
+#if defined(DFU_INTERFACE)
+    if (interface == DFU_INTERFACE)
+    {
+        usb_dfu_class_interface(req);
+        return;
+    }
+#endif
+
     switch (req->bRequest)
     {
+        case SEND_ENCAPSULATED_COMMAND :
+            // TODO
+            log_not_implemented("send_encap");
+            break;
+
+        case GET_ENCAPSULATED_RESPONSE :
+            // TODO
+            log_not_implemented("get_encap");
+            break;
+
         case SET_LINE_CODING:
             if (req->wLength != sizeof(cdc_acm_line_coding_t))
             {
@@ -599,19 +639,19 @@ static void cdc_acm_class_interface(usb_device_request_t *req)
             }
 
             // Prepare for the incoming data stage
-	    usb_set_next_data_callback( ENDPOINT_0, set_line_coding);
-	    usb_start_stage( ENDPOINT_0, false);
+            usb_set_next_data_callback( ENDPOINT_0, set_line_coding);
+            usb_start_stage( ENDPOINT_0, false);
             break;
 
         case GET_LINE_CODING:
-	    
+
             if (req->wLength != sizeof(line_coding))
             {
                 log_error("Wrong line coding structure size");
             }
-		
-	    // Send requested info
-		usb_send( ENDPOINT_0, true, DATA1, (uint8_t*)&line_coding, req->wLength);
+
+            // Send requested info
+            usb_send( ENDPOINT_0, true, DATA1, (uint8_t*)&line_coding, req->wLength);
             break;
 
         case SET_CONTROL_LINE_STATE:

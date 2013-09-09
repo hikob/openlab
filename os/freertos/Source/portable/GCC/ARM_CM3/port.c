@@ -88,7 +88,7 @@ const unsigned long ulKernelPriority = configKERNEL_INTERRUPT_PRIORITY;
 
 /* Each task maintains its own interrupt status in the critical nesting
 variable. */
-static unsigned portBASE_TYPE uxCriticalNesting = 0xaaaaaaaa;
+static unsigned portBASE_TYPE uxCriticalNesting = 0x0;
 
 /*
  * Setup the timer to generate the tick interrupts.

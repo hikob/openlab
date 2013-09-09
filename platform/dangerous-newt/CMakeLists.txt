@@ -25,13 +25,13 @@ include_directories(
 
 # Add the platform library
 add_library(platform STATIC
+	${PROJECT_SOURCE_DIR}/platform/platform
 	dnewt
 	dnewt_drivers
 	dnewt_leds
 	dnewt_periph
 	dnewt_lib
 	dnewt_net
-	dnewt_freertos
 	)
 
 # Allow for some more cyclic deps in libraries
@@ -39,18 +39,22 @@ set_property(TARGET platform APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
 
 # Link the library to the drivers and peripherals
 target_link_libraries(platform
+# Driver
 	drivers_stm32f1xx
-	softtimer
-	freertos
-	random
-	printf
-	event
 	
+# Periph
 	rf2xx
 	lsm303dlhc
 	pca9685
 	adg759
 	pga308
+
+# Lib
+	freertos
+	random
+	printf
+	event
+	softtimer
 	
-	phy_rf2xx
-	)
+# Net
+	phy_rf2xx)

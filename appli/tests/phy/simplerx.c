@@ -31,83 +31,67 @@
 #include "phy.h"
 #include "soft_timer.h"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
-#include "queue.h"
+#include "event.h"
 
 // Task function
-static void test_task(void *);
+static void enter_rx(handler_arg_t arg);
+static void process_packet(handler_arg_t arg);
 static void rx_done(phy_status_t status);
 
 static phy_packet_t pkt;
-static xSemaphoreHandle rx_sem;
+
+#if 1
+#define PHY phy
+#else
+extern phy_t phy_868;
+#define PHY phy_868
+#endif
 
 int main()
 {
     // Initialize the platform
     platform_init();
 
-    // Create a test task
-    xTaskCreate(test_task, (const signed char * const)"test",
-                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-
-    // Create a semaphore and take it
-    vSemaphoreCreateBinary(rx_sem);
-    xSemaphoreTake(rx_sem, 0);
+    printf("PHY SimpleRX test\n");
+    event_post(EVENT_QUEUE_APPLI, enter_rx, NULL);
 
     platform_run();
     return 0;
 }
 
-void test_task(void *arg)
+static void enter_rx(handler_arg_t arg)
 {
-    (void) arg;
-
-    // Debug
-    printf("PHY SimpleRX test\n");
-
-    // Reset the PHY
-    phy_reset(phy);
+    phy_idle(PHY);
 
     // Set channel
-    phy_set_channel(phy, 15);
+    phy_set_channel(PHY, 15);
 
+    // Enter RX now
+    pkt.data = pkt.raw_data;
+    pkt.length = 0;
+    phy_rx(PHY, 0, 0, &pkt, rx_done);
+}
+
+static void process_packet(handler_arg_t arg)
+{
     // Go to sleep
-    phy_sleep(phy);
+    phy_sleep(PHY);
 
-    while (1)
+    if (pkt.length > 0)
     {
-        // Enter RX now
-        pkt.data = pkt.raw_data;
-        pkt.length = 0;
-        phy_rx(phy, 0, 0, &pkt, rx_done);
+        leds_toggle(LED_1);
+        printf("Packet Received !!\n");
+        printf("\tlength = %u\n", pkt.length);
+        printf("\ttimestamp = %u\n", pkt.timestamp);
+        printf("\trssi = %d\n", pkt.rssi);
+        printf("\tlqi = %d\n", pkt.lqi);
 
-        // Take the semaphore, to wait until taken
-        while (xSemaphoreTake(rx_sem, configTICK_RATE_HZ) != pdTRUE)
-        {
-            leds_toggle(LED_0);
-        }
-
-        // Go to sleep
-        phy_sleep(phy);
-
-        if (pkt.length > 0)
-        {
-            leds_toggle(LED_1);
-            printf("Packet Received !!\n");
-            printf("\tlength = %u\n", pkt.length);
-            printf("\ttimestamp = %u\n", pkt.timestamp);
-            printf("\trssi = %d\n", pkt.rssi);
-            printf("\tlqi = %d\n", pkt.lqi);
-
-            pkt.data[pkt.length] = 0;
-            printf("Data: %s\n", pkt.data);
-        }
-
-        // Wait a little
-        vTaskDelay(configTICK_RATE_HZ / 4);
+        pkt.data[pkt.length] = 0;
+        printf("Data: %s\n", pkt.data);
     }
 
+    // Back to RX
+    enter_rx(NULL);
 }
 
 static void rx_done(phy_status_t status)
@@ -119,7 +103,6 @@ static void rx_done(phy_status_t status)
             printf("PHY RX timeout\n");
             break;
         case PHY_RX_CRC_ERROR:
-        case PHY_RX_ERROR:
         case PHY_RX_LENGTH_ERROR:
             printf("PHY RX error %x\n", status);
             break;
@@ -131,6 +114,6 @@ static void rx_done(phy_status_t status)
             break;
     }
 
-    // Give semaphore
-    xSemaphoreGive(rx_sem);
+    // Post packet processing
+    event_post(EVENT_QUEUE_APPLI, process_packet, NULL);
 }

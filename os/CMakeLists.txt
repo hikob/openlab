@@ -24,9 +24,12 @@ add_library(freertos STATIC
 	freertos/Source/queue
 	freertos/Source/tasks
 	freertos/Source/timers
-	freertos/Source/portable/MemMang/heap_1
+	freertos/Source/portable/MemMang/${FREERTOS_MEMMANG}
 	freertos/Source/portable/GCC/${FREERTOS_PORT}/port
 )
-	
+
 # Link to the drivers
 target_link_libraries(freertos platform)
+
+set(ignore_warning_flags "-Wno-cast-qual -Wno-cast-align")
+set_property(TARGET freertos APPEND PROPERTY COMPILE_FLAGS "${ignore_warning_flags}")

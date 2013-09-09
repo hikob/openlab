@@ -70,6 +70,15 @@ void nvic_set_priority(nvic_irq_line_t line, uint8_t priority)
     // Set given value
     *priority_reg = priority;
 }
+uint8_t nvic_get_priority(nvic_irq_line_t line)
+{
+    volatile uint8_t *priority_reg;
+
+    // Get a pointer to the register
+    priority_reg = cm3_nvic_get_PRIORITY(line);
+
+    return *priority_reg;
+}
 
 void nvic_enable_systick(uint32_t freq, handler_t handler, handler_arg_t arg)
 {

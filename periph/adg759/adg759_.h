@@ -30,11 +30,23 @@
 #include "adg759.h"
 #include "gpio.h"
 
+typedef struct
+{
+    gpio_t enable_gpio;
+    gpio_pin_t enable_pin;
+    gpio_t select_gpio_A0;
+    gpio_pin_t select_pin_A0;
+    gpio_t select_gpio_A1;
+    gpio_pin_t select_pin_A1;
+} _adg759_t;
+
 /**
  * Configure the ADG759 Multiplexer.
  *
+ * This configures the mutliplexer pins.
+ * \param _adg a pointer to the ADG759 structure to initialize
+ * \param type the output type to set to the pins, either open drain or push pull
  */
-void adg759_config(gpio_t enable_gpio, gpio_pin_t enable_pin,
-                   gpio_t select_gpio, gpio_pin_t select_pin_0, gpio_pin_t select_pin_1);
+void adg759_config(const _adg759_t *_adg, gpio_type_t type);
 
 #endif /* ADG759__H_ */

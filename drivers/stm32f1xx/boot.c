@@ -29,7 +29,7 @@
 DEBUG_HANDLER(wwdg_isr);
 DEBUG_HANDLER(pvd_isr);
 DEBUG_HANDLER(tamper_stamp_isr);
-DEBUG_HANDLER(rtc_wkup_isr);
+DEBUG_HANDLER(rtc_isr);
 DEBUG_HANDLER(flash_isr);
 DEBUG_HANDLER(rcc_isr);
 DEBUG_HANDLER(exti0_isr);
@@ -94,7 +94,7 @@ DEBUG_HANDLER(dma2_ch4_5_isr);
 __attribute__((section(".usr_vectors"))) const vector_t usr_vectors[] =
 {
     // 0x40
-    wwdg_isr, pvd_isr, tamper_stamp_isr, rtc_wkup_isr, flash_isr, rcc_isr,
+    wwdg_isr, pvd_isr, tamper_stamp_isr, rtc_isr, flash_isr, rcc_isr,
     exti0_isr, exti1_isr, exti2_isr, exti3_isr, exti4_isr,
     dma1_channel1_isr, dma1_channel2_isr, dma1_channel3_isr,
     dma1_channel4_isr, dma1_channel5_isr, dma1_channel6_isr,

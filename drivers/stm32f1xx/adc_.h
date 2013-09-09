@@ -31,7 +31,17 @@
 #include "rcc.h"
 #include "nvic.h"
 #include "timer.h"
-#include "dma.h"
+
+typedef struct
+{
+    /** Flag indicating if the ADC is taken */
+    volatile int32_t taken;
+
+    /** The conversion handler */
+    adc_handler_t handler;
+    /** The conversion handler argument. */
+    handler_arg_t handler_arg;
+} _adc_data_t;
 
 typedef struct
 {
@@ -43,26 +53,23 @@ typedef struct
     rcc_apb_bit_t apb_bit;
     /** The NVIC irq line */
     nvic_irq_line_t irq_line;
-
-    /** The conversion handler */
-    adc_handler_t handler;
-    /** The conversion handler argument. */
-    handler_arg_t handler_arg;
+    // Data
+    _adc_data_t *data;
 } _adc_t;
 
-static inline void adc_init(_adc_t *_adc, uint32_t base_address,
-                            rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line)
-{
-    // Store the information
-    _adc->base_address = base_address;
-    _adc->apb_bus = apb_bus;
-    _adc->apb_bit = apb_bit;
-    _adc->irq_line = irq_line;
+#define ADC_INIT(name, addr, bus, bit, line) \
+    static _adc_data_t name##_data; \
+    const _adc_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line = line, \
+    .data = &name##_data \
 }
 
 /**
  * Handle an interrupt.
  */
-void adc_handle_interrupt(_adc_t *_adc);
+void adc_handle_interrupt(const _adc_t *_adc);
 
 #endif /* ADC__H_ */

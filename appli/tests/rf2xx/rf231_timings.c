@@ -30,12 +30,14 @@
 #include "printf.h"
 
 #include "soft_timer.h"
+#include "event.h"
+
 #include "phy.h"
 #include "rf2xx.h"
 
-extern rf2xx_t rf231;
+static void start_test(void *);
 
-static void test_task(void *);
+static void test_start(handler_arg_t arg);
 
 static uint32_t t_sleep, t_sleep_total;
 static uint32_t t_wakeup, t_wakeup_total;
@@ -45,35 +47,28 @@ static uint32_t t_rx, t_rx_total;
 static uint32_t count;
 static phy_packet_t my_pkt;
 
+static soft_timer_t stim;
+
 int main()
 {
     // Initialize the platform
     platform_init();
 
-    // Create a test task
-    xTaskCreate(test_task, (const signed char * const)"test",
-                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+    event_init();
+    soft_timer_init();
+    event_post(EVENT_QUEUE_APPLI, start_test, NULL );
 
     platform_run();
     return 0;
 }
-void test_task(void *arg)
+
+static void start_test(handler_arg_t arg)
 {
     printf("Testing the RF231 timings\n");
 
     // Init. the radio
     phy_reset(phy);
     phy_idle(phy);
-
-    // Enable CLKM @ 250kHz
-    uint8_t reg = RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO
-                  | RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO_CLKM
-                  | RF2XX_TRX_CTRL_0_CLKM_CTRL__250kHz;
-    rf2xx_reg_write(rf231, RF2XX_REG__TRX_CTRL_0, reg);
-
-    // Set XCLK TRIM
-    reg = RF2XX_XOSC_CTRL__XTAL_MODE_CRYSTAL | 0xE;
-    rf2xx_reg_write(rf231, RF2XX_REG__XOSC_CTRL, reg);
 
     // Reset the total values
     t_sleep_total = 0;
@@ -83,68 +78,73 @@ void test_task(void *arg)
 
     count = 0;
 
-    while (1)
-    {
-        uint16_t t_a, t_b;
+    test_start(NULL );
+}
 
-        // Start Idle
-        phy_idle(phy);
+static void test_start(handler_arg_t arg)
+{
+    // Start Idle
+    phy_idle(phy);
+    count ++;
 
-        vTaskDelay(configTICK_RATE_HZ / 25);
+    soft_timer_delay_ms(50);
 
-        // SLEEP
-        t_a = soft_timer_time();
-        phy_sleep(phy);
-        t_b = soft_timer_time();
+    uint16_t t_a, t_b;
 
-        // Compute sleep time
-        t_sleep = t_b - t_a;
-        t_sleep_total += t_sleep;
+    // SLEEP
+    t_a = soft_timer_time();
+    phy_sleep(phy);
+    t_b = soft_timer_time();
 
-        vTaskDelay(configTICK_RATE_HZ / 25);
-        // WAKEUP
-        t_a = soft_timer_time();
-        phy_idle(phy);
-        t_b = soft_timer_time();
+    // Compute sleep time
+    t_sleep = t_b - t_a;
+    t_sleep_total += t_sleep;
 
-        // Compute wakeup time
-        t_wakeup = t_b - t_a;
-        t_wakeup_total += t_wakeup;
+    soft_timer_delay_ms(50);
 
-        vTaskDelay(configTICK_RATE_HZ / 25);
-        // CCA
-        t_a = soft_timer_time();
-        phy_cca(phy);
-        t_b = soft_timer_time();
+    // WAKEUP
+    t_a = soft_timer_time();
+    phy_idle(phy);
+    t_b = soft_timer_time();
 
-        // Compute cca time
-        t_cca = t_b - t_a;
-        t_cca_total += t_cca;
-        phy_idle(phy);
+    // Compute wakeup time
+    t_wakeup = t_b - t_a;
+    t_wakeup_total += t_wakeup;
 
-        vTaskDelay(configTICK_RATE_HZ / 25);
-        // RX
-        t_a = soft_timer_time();
-        phy_rx(phy, 0, 0, &my_pkt, NULL);
-        t_b = soft_timer_time();
+    soft_timer_delay_ms(50);
 
-        // Compute RX time
-        t_rx = t_b - t_a;
-        t_rx_total += t_rx;
+    // RX
+    t_a = soft_timer_time();
+    phy_rx(phy, 0, 0, &my_pkt, NULL );
+    t_b = soft_timer_time();
+    phy_idle(phy);
 
-        count++;
+    // Compute RX time
+    t_rx = t_b - t_a;
+    t_rx_total += t_rx;
 
-        // Print results
-        printf("[%u]\t%u(%u)\t%u(%u)\t%u(%u)\t%u(%u)\n", count, t_sleep_total
-               / count, t_sleep, t_wakeup_total / count, t_wakeup, t_cca_total
-               / count, t_cca, t_rx_total / count, t_rx);
-    }
+    soft_timer_delay_ms(50);
 
-    while (1)
-    {
-        asm volatile("nop");
-    }
+    // CCA
+    int32_t cca;
+    t_a = soft_timer_time();
+    phy_cca(phy, &cca);
+    t_b = soft_timer_time();
 
-    return;
+    soft_timer_delay_ms(50);
+
+    // Compute cca time
+    t_cca = t_b - t_a;
+    t_cca_total += t_cca;
+    phy_idle(phy);
+
+    // Print results
+    printf("[%u]\t%u(%u)\t%u(%u)\t%u(%u)\t%u(%u)\n", count,
+            t_sleep_total / count, t_sleep, t_wakeup_total / count, t_wakeup,
+            t_cca_total / count, t_cca, t_rx_total / count, t_rx);
+
+    // Schedule next
+    soft_timer_set_handler(&stim, test_start, NULL );
+    soft_timer_start(&stim, soft_timer_ms_to_ticks(100), 0);
 }
 

@@ -17,18 +17,36 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * unique_id.h
+/**
+ * \file unique_id.h
  *
- *  Created on: Jul 28, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Jul 28, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef UNIQUE_ID_H_
 #define UNIQUE_ID_H_
 
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup UID Unique ID
+ *
+ * This driver is an interface to the STM32 unique ID registers, offering a
+ * factory guaranteed unique 96bit number.
+ *
+ *@{
+ */
+
 #include <stdint.h>
 
+/**
+ * Union defining the Unique ID in several formats: either as words, half words
+ * or bytes array.
+ */
 typedef union
 {
     uint32_t uid32[3];
@@ -36,8 +54,19 @@ typedef union
     uint8_t  uid8 [12];
 } uid_t;
 
+/**
+ * Pointer to the Unique ID.
+ */
 extern const uid_t const *uid;
 
-void uid_print(void);
+/**
+ * Print the unique ID using printf on the configured serial output.
+ */
+void uid_print();
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* UNIQUE_ID_H_ */

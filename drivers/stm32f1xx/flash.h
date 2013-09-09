@@ -27,6 +27,8 @@
 #ifndef FLASH_H_
 #define FLASH_H_
 
+#include <stdint.h>
+
 enum
 {
     FLASH_SIZE_PAGE = 2048,

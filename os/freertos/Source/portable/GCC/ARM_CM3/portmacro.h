@@ -148,6 +148,10 @@ extern void vPortExitCritical( void );
 
 #define portNOP()
 
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
+#include "soft_timer.h"
+#define portGET_RUN_TIME_COUNTER_VALUE() soft_timer_time()
+
 #ifdef __cplusplus
 }
 #endif

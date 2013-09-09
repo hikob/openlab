@@ -17,18 +17,22 @@
  * Copyright (C) 2011 HiKoB.
  */
 
-/*
- * platform.h
+/**
+ * \file platform_leds.h
  *
- *  Created on: Jul 6, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ *  \date Jul 6, 2011
+ *  \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ *  \author Christophe Braillon <christophe.braillon.at.hikob.com>
  */
 
 #ifndef PLATFORM_LEDS_H_
 #define PLATFORM_LEDS_H_
 
-
+/**
+ * Enumeration of the available LEDs.
+ *
+ * They may be used as a bitmask for the LEDs control functions.
+ */
 enum
 {
     LED_0 = 0x1,
@@ -42,19 +46,19 @@ enum
 /**
  * Turn on some LEDs.
  *
- * \param leds a bitmap selecting the LEDs
+ * \param leds a bitmask selecting the LEDs
  */
 void leds_on(uint8_t leds);
 /**
  * Turn off some LEDs.
  *
- * \param leds a bitmap selecting the LEDs
+ * \param leds a bitmask selecting the LEDs
  */
 void leds_off(uint8_t leds);
 /**
  * Toggle on some LEDs.
  *
- * \param leds a bitmap selecting the LEDs
+ * \param leds a bitmask selecting the LEDs
  */
 void leds_toggle(uint8_t leds);
 

@@ -35,8 +35,21 @@
 #include "rcc.h"
 #include "nvic.h"
 #include "gpio_.h"
-#include "dma_.h"
+#include "dma.h"
 #include "handler.h"
+
+typedef struct
+{
+    // For ISR based asynchronous transfer, record the tx pointer and length
+    const uint8_t *isr_tx;
+    uint16_t isr_count;
+
+    uart_handler_t rx_handler;
+    handler_t tx_handler;
+    handler_arg_t rx_handler_arg, tx_handler_arg;
+
+    dma_t dma_channel_tx;
+} _uart_data_t;
 
 typedef struct
 {
@@ -45,40 +58,27 @@ typedef struct
     rcc_apb_bit_t apb_bit;
     nvic_irq_line_t irq_line;
 
-    _dma_t *dma_channel_tx;
 
-    // For ISR based asynchronous transfer, record the tx pointer and length
-    const uint8_t *isr_tx;
-    uint16_t isr_count;
-
-    uart_handler_t rx_handler;
-    handler_t tx_handler;
-    handler_arg_t rx_handler_arg, tx_handler_arg;
+    _uart_data_t *data;
 } _uart_t;
 
-static inline void uart_init(_uart_t *_uart, uint32_t base_address,
-                             rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line,
-                             gpio_t gpio, gpio_pin_t pin_rx, gpio_pin_t pin_tx,
-                             _dma_t *dma_channel_tx)
-{
-    _uart->base_address = base_address;
 
-    _uart->apb_bus = apb_bus;
-    _uart->apb_bit = apb_bit;
-    _uart->irq_line = irq_line;
-
-    // Configure the IOs
-    gpio_enable(gpio);
-    gpio_set_uart_rx(gpio, pin_rx);
-    gpio_set_uart_tx(gpio, pin_tx);
-
-
-    _uart->dma_channel_tx = dma_channel_tx;
-
-    _uart->rx_handler = NULL;
-    _uart->tx_handler = NULL;
+#define UART_INIT(name, addr, bus, bit, line) \
+    static _uart_data_t name##_data; \
+    const _uart_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line = line, \
+    .data = &name##_data \
 }
 
-void uart_handle_interrupt(_uart_t *_uart);
+static inline void uart_set_dma(const _uart_t* _uart, dma_t dma_tx)
+{
+    _uart->data->dma_channel_tx = dma_tx;
+}
+
+
+void uart_handle_interrupt(const _uart_t *_uart);
 
 #endif /* UART__H_ */

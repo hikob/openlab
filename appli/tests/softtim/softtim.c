@@ -26,9 +26,9 @@
 
 #include <stdint.h>
 #include "platform.h"
-#include "printf.h"
-
 #include "soft_timer.h"
+#include "printf.h"
+#include "debug.h"
 
 static void do_test(handler_arg_t arg);
 

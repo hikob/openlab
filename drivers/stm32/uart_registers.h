@@ -30,31 +30,31 @@
 #include "uart_.h"
 #include "memmap.h"
 
-static inline volatile uint16_t *uart_get_SR(_uart_t *uart)
+static inline volatile uint16_t *uart_get_SR(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_SR_OFFSET);
 }
-static inline volatile uint16_t *uart_get_DR(_uart_t *uart)
+static inline volatile uint16_t *uart_get_DR(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_DR_OFFSET);
 }
-static inline volatile uint16_t *uart_get_BRR(_uart_t *uart)
+static inline volatile uint16_t *uart_get_BRR(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_BRR_OFFSET);
 }
-static inline volatile uint16_t *uart_get_CR1(_uart_t *uart)
+static inline volatile uint16_t *uart_get_CR1(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_CR1_OFFSET);
 }
-static inline volatile uint16_t *uart_get_CR2(_uart_t *uart)
+static inline volatile uint16_t *uart_get_CR2(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_CR2_OFFSET);
 }
-static inline volatile uint16_t *uart_get_CR3(_uart_t *uart)
+static inline volatile uint16_t *uart_get_CR3(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_CR3_OFFSET);
 }
-static inline volatile uint16_t *uart_get_GTPR(_uart_t *uart)
+static inline volatile uint16_t *uart_get_GTPR(const _uart_t *uart)
 {
     return mem_get_reg16(uart->base_address + USARTx_GTPR_OFFSET);
 }

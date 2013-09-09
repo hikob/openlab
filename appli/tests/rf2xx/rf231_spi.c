@@ -27,10 +27,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "platform.h"
-#include "printf.h"
-
 #include "rf2xx.h"
 #include "rf2xx/rf2xx_regs.h"
+#include "printf.h"
+#include "debug.h"
 
 extern rf2xx_t rf231;
 
@@ -53,7 +53,6 @@ int main()
     leds_off(LED_1);
 
     // Init. the radio
-    rf2xx_init(rf231);
     rf2xx_wakeup(rf231);
     rf2xx_set_state(rf231, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 

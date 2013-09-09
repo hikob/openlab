@@ -1,0 +1,89 @@
+/*!
+
+\mainpage HiKoB OpenLab documentation
+
+\section intro Introduction
+
+Welcome to HiKoB Openlab.
+
+HiKoB Openlab source code repository is dedicated to support HiKoB Openlab hardware
+modules. The present documentation covers the full source code present in this
+release. The Openlab code can be used as a fundation for building embedded applications either using a very simple interrupt driven programming model or more sophisticated 
+operating system based developments.
+
+Two operating systems are currently supported within the Openlab code base
+
+- [FreeRTOS](http://www.freertos.org/ "FreeRTOS website"). FreeRTOS is
+  the main operating system used in Openlab. FreeRTOS is used
+  throughout the examples to demonstrate the use of all Openlab
+  components and building blocks. A dedicated documentation page can
+  be found in Openlab for the part of FreeRTOS and its integration in
+  Openlab. 
+  + [FreeRTOS / OpenLab documentation](../freertos/html/index.html "FreeRTOS / OpenLab
+  documentation")
+
+- [Contiki OS](http://www.contiki-os.org/ "Contiki OS"). Support for the Contiki OS can be found in the OpenLab git dedicated to Contiki support.
+  + [OpenLab Contiki](https://github.com/hikob/contiki/ "Openlab Contiki OS support")
+  + [OpenLab Contiki - Wiki](https://github.com/hikob/contiki/wiki/ "Openlab Contiki OS Wiki")
+  + [OpenLab Contiki - Issues](https://github.com/hikob/contiki/issues/ "Openlab Contiki Issues")
+
+\section install Installation / Configuration
+
+Installation notes are available on the
+[GitHub](https://github.com/hikob/ "Github") Openlab Wiki
+located here :
+
+ - [Openlab wiki page on Github](https://github.com/hikob/openlab/wiki/Installation)
+
+
+\section feeback Feedback and support
+
+Feedback is very welcome. You can send us support request and bug reports using 
+the [Github tracker](https://github.com/hikob/openlab/issues) for Openlab or 
+send Contiki/Openlab related inquiries on the 
+[Contiki/Openlab tracker](https://github.com/hikob/contiki/issues).
+
+*/
+
+/* ************************************************** */
+/* ************************************************** */
+/**
+
+ @defgroup appli Applications
+	Openlab applications and examples
+ @{ @}
+
+
+ @defgroup drivers Drivers
+	STM32 internal devices drivers
+ @{ @}
+
+
+ @defgroup periph
+	Peripherals code and software driversxs
+ @{ @}
+
+
+ @defgroup platform Openlab Platforms
+        Platform specific code and definitions
+ @{ @}
+
+
+ @defgroup net Networking code
+        Networking code blocks
+ @{ @}
+
+
+ @defgroup os Operating Systems
+        Operating Systems
+ @{ @}
+
+
+ @defgroup lib Lib
+	HiKoB libs
+ @{ @}
+
+
+*/
+/* ************************************************** */
+/* ************************************************** */

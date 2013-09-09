@@ -29,14 +29,14 @@
 
 void adc_enable(adc_t adc)
 {
-    _adc_t *_adc = (_adc_t *) adc;
+    const _adc_t *_adc = adc;
 
     // Enable the ADC in the APB
     rcc_apb_enable(_adc->apb_bus, _adc->apb_bit);
 
     // Clear the handlers
-    _adc->handler = NULL;
-    _adc->handler_arg = NULL;
+    _adc->data->handler = NULL;
+    _adc->data->handler_arg = NULL;
 
     // Set the ADON bit to wake it up
     *adc_get_CR2(_adc) |= ADCx_CR2__ADON;
@@ -64,16 +64,16 @@ void adc_enable(adc_t adc)
 
 void adc_set_handler(adc_t adc, adc_handler_t handler, handler_arg_t arg)
 {
-    _adc_t *_adc = (_adc_t *) adc;
+    const _adc_t *_adc = adc;
 
     // Store handlers
-    _adc->handler = handler;
-    _adc->handler_arg = arg;
+    _adc->data->handler = handler;
+    _adc->data->handler_arg = arg;
 }
 
 void adc_prepare_single(adc_t adc, uint8_t channel)
 {
-    _adc_t *_adc = (_adc_t *) adc;
+    const _adc_t *_adc = adc;
 
     // Clear the sequences length and channel selections
     *adc_get_JSQR(_adc) = 0;
@@ -102,13 +102,13 @@ void adc_prepare_single(adc_t adc, uint8_t channel)
 
 void adc_sample_single(adc_t adc)
 {
-    _adc_t *_adc = (_adc_t *) adc;
+    const _adc_t *_adc = adc;
 
     // Start ADC sampling
     *adc_get_CR2(_adc) |= ADCx_CR2__ADON;
 }
 
-void adc_handle_interrupt(_adc_t *_adc)
+void adc_handle_interrupt(const _adc_t *_adc)
 {
     // Read the SR register
     uint16_t sr = *adc_get_SR(_adc);
@@ -123,9 +123,9 @@ void adc_handle_interrupt(_adc_t *_adc)
         uint16_t value = *adc_get_DR(_adc);
 
         // Call handler if any
-        if (_adc->handler)
+        if (_adc->data->handler)
         {
-            _adc->handler(_adc->handler_arg, value);
+            _adc->data->handler(_adc->data->handler_arg, value);
         }
     }
 }

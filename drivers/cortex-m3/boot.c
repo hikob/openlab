@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include "boot.h"
 #include "printf.h"
+#include "debug.h"
 #include "cm3_scb_registers.h"
 
 /* We need from the linker the top of stack */
@@ -45,7 +46,9 @@ extern int _end;
 
 /* Extern function needed */
 extern int main();
+#ifdef __cplusplus
 extern void __libc_init_array();
+#endif
 
 /**
  * Define the Reset handler.
@@ -100,6 +103,7 @@ void debug_handler(const char *name)
 
 void hardfault_debug(uint32_t *hardfault_args)
 {
+#if RELEASE == 0
     volatile uint32_t stacked_r0;
     volatile uint32_t stacked_r1;
     volatile uint32_t stacked_r2;
@@ -200,6 +204,7 @@ void hardfault_debug(uint32_t *hardfault_args)
     log_printf("done!\n");
 
     log_printf("*****************************\n");
+#endif // RELEASE == 0
     HALT();
 }
 

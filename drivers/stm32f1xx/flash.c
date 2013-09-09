@@ -148,44 +148,7 @@ flash_status_t flash_write_memory_half_word(uint32_t address, uint16_t half_word
 
 void flash_copy_upper_to_lower()
 {
-    // TODO: implement this function :)
-    /*    // Disable interrupts
-        asm volatile ("cpsid i");
-
-        // Unlock program memory
-        unlock_program_memory();
-
-        // Clear PECR
-        *flash_get_PECR() = 0;
-
-        // Set the ERASE bit in PECR
-        *flash_get_PECR() |= FLASH_PECR__ERASE;
-
-        // Set the PROG bit in PECR
-        *flash_get_PECR() |= FLASH_PECR__PROG;
-
-        // Wait for BSY to be cleared
-        while (*flash_get_SR() & FLASH_SR__BSY)
-        {
-        }
-
-    #define RAM_CODE_LENGTH ((uint32_t) flash_do_copy_end - (uint32_t) flash_do_copy)
-        uint8_t ram_code[RAM_CODE_LENGTH + 3];
-
-        void (*ram_func)() = (void(*)()) (((uint32_t) ram_code + 3) & ~0x3);
-
-        uint32_t func_i, copy_i;
-        func_i = ((uint32_t) ram_func) & ~0x3;
-        copy_i = ((uint32_t) flash_do_copy) & ~0x3;
-
-        // Copy
-        memcpy((void*) func_i, (void*) copy_i, RAM_CODE_LENGTH);
-
-        // Set pointer
-        ram_func = (void(*)()) (func_i | 0x1);
-
-        // Call
-        ram_func();*/
+    //! \todo implement copy from upper to lower flash area
 }
 
 static void unlock_program_memory()

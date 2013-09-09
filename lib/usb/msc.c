@@ -36,6 +36,9 @@
  * http://www.usb.org/developers/devclass_docs/usb_msc_cbi_1.1.pdf
  * http://www.usb.org/developers/devclass_docs/usbmass-ufi10.pdf
  *
+ * USB and SCSI data
+ * http://www.shakthimaan.com/downloads/usb/usb-msc-0.2.pdf
+ *
  * Over these wire protocols it handles the following command protocols
  *   - SCSI
  *
@@ -54,12 +57,17 @@
 #define LOG_LEVEL LOG_LEVEL_WARNING
 //#define LOG_LEVEL LOG_LEVEL_DEBUG-1
 #include "printf.h"
+#include "debug.h"
 
 #if (LOG_LEVEL < LOG_LEVEL_DEBUG)
 #define DBG(x...)   printf(x)
 #else
 #define DBG(x...)   do { } while(0)
 #endif // LOG_LEVEL
+
+/* ************************************************************ */
+/* ************************************************************ */
+/* ************************************************************ */
 
 /* ************************************************************ */
 /* ************************************************************ */
@@ -81,6 +89,43 @@
 /* ************************************************************ */
 /* ************************************************************ */
 
+/* Override string descriptors to fit Win#$*!@ requirement */
+#define usb_VendorId   0x058f
+#define usb_ProductId  0x6387
+#define usb_BcdDevice  0x102
+static const uint16_t usb_langid_string[]    = { 0x0409 };
+static const uint16_t usb_vendor_string[]    = { 'G','e','n','e','r','i','c'};
+static const uint16_t usb_product_string[]   = { 'M', 'a', 's','s',' ','S','t','o','r','a','g','e'};
+static const uint16_t usb_serial_string[]  = { 'H','i','K','o','B'};
+static const uint8_t usb_msc_string_desc_size = 4;
+static const usb_string_desc_t usb_msc_string_desc[] =
+{
+    // Lang ID
+    {
+        .bLength = 2 + sizeof(usb_langid_string),
+        .bDescriptorType = USB_DESC_STRING,
+        .wData = usb_langid_string
+    },
+    // Manufacturer
+    {
+        .bLength = 2 + sizeof(usb_vendor_string),
+        .bDescriptorType = USB_DESC_STRING,
+        .wData = usb_vendor_string
+    },
+    // Product
+    {
+        .bLength = 2 + sizeof(usb_product_string),
+        .bDescriptorType = USB_DESC_STRING,
+        .wData = usb_product_string
+    },
+    // Serial
+    {
+        .bLength = 2 + sizeof(usb_serial_string),
+        .bDescriptorType = USB_DESC_STRING,
+        .wData = usb_serial_string
+    },
+};
+
 typedef enum 
 {
     MSC_ADSC                     = 0x00,
@@ -94,7 +139,6 @@ typedef enum {
 
 
 /***** Descriptors *****/
-
 
 /* endpoints handler forward declarations */
 static void usb_msc_data_in (uint8_t endp, bool rx, bool tx);
@@ -132,8 +176,11 @@ static const usb_endp_desc_t usb_msc_endp_desc[] =
 };
 
 /* ************************************************** */
-/* INTERFACES                                         */
+/* INTERFACES (MSC + DFU)                             */
 /* ************************************************** */
+
+#define DFU_INTERFACE        1
+#define DFU_INTERFACE_STRING 4
 
 static const usb_iface_desc_t usb_msc_iface_desc[] =
 {
@@ -151,6 +198,8 @@ static const usb_iface_desc_t usb_msc_iface_desc[] =
         .class_specific_len    = 0,    // sizeof func_desc
         .endpoint_descriptors  = usb_msc_endp_desc
     }, 
+    // DFU Interface (bInterfaceNumber, iInterface)
+    //DFU_RUNTIME_INTERFACE(DFU_INTERFACE, DFU_INTERFACE_STRING)
 };
 
 /* ************************************************** */
@@ -187,7 +236,7 @@ static const usb_dev_desc_t usb_msc_dev_desc =
     .bMaxPacketSize0           = ENDPOINT_0_SIZE,
     .idVendor                  = usb_VendorId,
     .idProduct                 = usb_ProductId,
-    .bcdDevice                 = 0x0200,
+    .bcdDevice                 = usb_BcdDevice,
     .iManufacturer             = 1,
     .iProduct                  = 2,
     .iSerialNumber             = 3,
@@ -218,8 +267,8 @@ const usb_profile_t usb_msc =
 {
     .device_descriptor            = &usb_msc_dev_desc,
     .device_qualifier_descriptor  = &usb_msc_dev_qual_desc,
-    .number_of_string_descriptors = &usb_string_desc_size,
-    .string_descriptors           =  usb_string_desc,
+    .number_of_string_descriptors = &usb_msc_string_desc_size,
+    .string_descriptors           =  usb_msc_string_desc,
 
     .standard_interface = usb_default_process_standard_interface,
     .standard_endpoint  = usb_msc_standard_endpoint,
@@ -508,6 +557,25 @@ void usb_msc_build_csw(uint8_t *b, uint32_t t, msc_csw_status_t s)
 /* ********************************************************************** */
 /* ********************************************************************** */
 
+scsi_params_t usb_msc_build_scsi_params(uint8_t count, int8_t msc_buff_direction, uint32_t datamax, uint32_t *datalen, scsi_status_t *status)
+{
+    scsi_params_t scsi_params = {
+        .cont    =  count,
+        .lun     =  cbw.dCBWLun,
+        .cmd     =  (uint8_t*)cbw.CBWCB,
+        .data    =  msc_buff[msc_buff_direction].data,
+        .datamax =  datamax,
+        .datalen =  datalen,
+        .status  =  status,
+    };
+    return scsi_params;
+}
+
+/* ********************************************************************** */
+/* ********************************************************************** */
+/* ********************************************************************** */
+
+
 #define MSC_EV     ((void*)0)
 #define MSC_EV_IN  ((void*)1)
 #define MSC_EV_OUT ((void*)2)
@@ -541,12 +609,12 @@ int usb_msc_scsi_handler(bool firstcall)
     switch (msc_state)
     {
     case MSC_STATE_DATA_OUT:
-	ret = scsi_process_command(cnum, cbw.dCBWLun, (uint8_t*) cbw.CBWCB, cbw.dCBWCBLength, 
-				   msc_buff[msc_buff_read].data, msc_buff[msc_buff_read].len, &datalen, &status);
+	params = usb_msc_build_scsi_params(cnum, msc_buff_read, msc_buff[msc_buff_read].len, &datalen, &status);
+	ret = scsi_process_command(params);
 	break;
     default:
-	ret = scsi_process_command(cnum, cbw.dCBWLun, (uint8_t*) cbw.CBWCB, cbw.dCBWCBLength, 
-				   msc_buff[msc_buff_write].data, MSC_BUFFER_SIZE, &datalen, &status);
+	params = usb_msc_build_scsi_params(cnum, msc_buff_write, MSC_BUFFER_SIZE, &datalen, &status);
+	ret = scsi_process_command(params);
 	break;
     }
 
@@ -854,6 +922,11 @@ static void usb_msc_class_interface(usb_device_request_t *req)
     uint16_t alternate;
 
     usb_get_interface(&interface, &alternate);
+    if (interface == DFU_INTERFACE)
+    {
+        usb_dfu_class_interface(req);
+        return;
+    }
 
     switch (req->bRequest)
     {

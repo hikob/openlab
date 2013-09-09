@@ -25,6 +25,7 @@ include_directories(
 
 # Add the platform library
 add_library(platform STATIC
+	${PROJECT_SOURCE_DIR}/platform/platform
 	agilefox 
 	agilefox_leds
 	agilefox_button
@@ -32,8 +33,18 @@ add_library(platform STATIC
 	agilefox_periph
 	agilefox_lib
 	agilefox_net
+    )
+
+add_library(platform_usb STATIC
+	${PROJECT_SOURCE_DIR}/platform/platform
+	agilefox 
+	agilefox_leds
+	agilefox_button
+	agilefox_drivers
+	agilefox_periph
+	agilefox_lib
+    agilefox_net
 	agilefox_usb
-	agilefox_freertos
 	)
 
 # Allow for some more cyclic deps in libraries
@@ -41,16 +52,46 @@ set_property(TARGET platform APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
 
 # Link the library to the drivers and peripherals
 target_link_libraries(platform
-	phy_rf2xx
-	rf2xx
+# Driver
 	drivers_stm32f1xx
+	
+# Periph
+	rf2xx
+	lsm303dlhc
+	l3g4200d
+	lps331ap
+	
+# Lib
 	freertos
 	random
 	printf
-	lsm303dlhc
-	l3g4200d
+	event
 	softtimer
-	usb
-	lps331
+	
+# Net
+	phy_rf2xx
+	
 	)
 
+target_link_libraries(platform_usb
+# Driver
+	drivers_stm32f1xx
+	
+# Periph
+	rf2xx
+	lsm303dlhc
+	l3g4200d
+	lps331ap
+	
+# Lib
+	freertos
+	random
+	printf
+	event
+	softtimer
+	usb
+	
+# Net
+	phy_rf2xx
+	
+	)

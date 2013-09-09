@@ -22,6 +22,7 @@
  *
  *  Created on: Aug 19, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #include <stdint.h>
@@ -34,7 +35,7 @@
 
 void dma_enable(dma_t dma)
 {
-    _dma_t *_dma = dma;
+    const _dma_t *_dma = dma;
 
     // Enable the DMA in the RCC
     rcc_ahb_enable(_dma->dma_bit);
@@ -45,7 +46,7 @@ void dma_enable(dma_t dma)
 
 void dma_disable(dma_t dma)
 {
-    _dma_t *_dma = dma;
+    const _dma_t *_dma = dma;
 
     // Disable the DMA in the RCC
     rcc_ahb_disable(_dma->dma_bit);
@@ -59,7 +60,7 @@ void dma_config(dma_t dma, uint32_t peripheral_address,
                 dma_size_t transfer_size, dma_direction_t direction,
                 dma_increment_t memory_increment)
 {
-    _dma_t *_dma = dma;
+    const _dma_t *_dma = dma;
 
     // Disable the DMA channel and clear all flags
     *dma_get_CCRx(_dma) = 0;
@@ -85,11 +86,11 @@ void dma_config(dma_t dma, uint32_t peripheral_address,
 
 void dma_start(dma_t dma, handler_t handler, handler_arg_t handler_arg)
 {
-    _dma_t *_dma = dma;
+    const _dma_t *_dma = dma;
 
     // Store the handlers
-    _dma->handler = handler;
-    _dma->handler_arg = handler_arg;
+    _dma->data->handler = handler;
+    _dma->data->handler_arg = handler_arg;
 
     // Enable the transfer complete interrupt
     *dma_get_CCRx(_dma) |= DMA_CCR__TCIE;
@@ -100,12 +101,12 @@ void dma_start(dma_t dma, handler_t handler, handler_arg_t handler_arg)
 
 int32_t dma_cancel(dma_t dma)
 {
-    _dma_t *_dma = dma;
+    const _dma_t *_dma = dma;
 
     int32_t canceled = 0;
 
     // Disable interrupts
-    asm volatile("cpsid i");
+    platform_enter_critical();
 
     // Check if the transfer is finished (still enabled)
     if (*dma_get_CCRx(_dma) & DMA_CCR__EN)
@@ -120,14 +121,13 @@ int32_t dma_cancel(dma_t dma)
                            | DMA_IFCR__CTCIFx | DMA_IFCR__CTEIFx) << (_dma->channel
                                    * DMA_IFCR__CHANNEL_OFFSET);
 
-    asm volatile("cpsie i");
+    platform_exit_critical();
 
     return canceled;
 }
 
-void dma_handle_interrupt(dma_t dma)
+void dma_handle_interrupt(const _dma_t *_dma)
 {
-    _dma_t *_dma = dma;
     uint32_t isr;
 
     isr = *dma_get_ISR(_dma);
@@ -144,9 +144,9 @@ void dma_handle_interrupt(dma_t dma)
         *dma_get_CCRx(_dma) &= ~DMA_CCR__EN;
 
         // Call the handler if any
-        if (_dma->handler)
+        if (_dma->data->handler)
         {
-            _dma->handler(_dma->handler_arg);
+            _dma->data->handler(_dma->data->handler_arg);
         }
     }
 }

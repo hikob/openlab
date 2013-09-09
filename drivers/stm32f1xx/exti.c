@@ -70,7 +70,7 @@ void exti_enable_interrupt_line(exti_line_t line, exti_trigger_t trigger)
     *exti_get_IMR() |= BV(line);
 
     // Write a 1 to PR to clear its value
-    *exti_get_PR() |= BV(line);
+    *exti_get_PR() = BV(line);
 }
 
 void exti_disable_interrupt_line(exti_line_t line)
@@ -79,14 +79,14 @@ void exti_disable_interrupt_line(exti_line_t line)
     *exti_get_IMR() &= ~BV(line);
 
     // Write a 1 to PR to clear its value
-    *exti_get_PR() |= BV(line);
+    *exti_get_PR() = BV(line);
 }
 
 inline static void handle_interrupt(exti_line_t line)
 {
     // Clear interrupt bit
     // Write a 1 to PR to clear its value
-    *exti_get_PR() |= BV(line);
+    *exti_get_PR() = BV(line);
 
     // Check Handler
     if (line_handlers[line])
@@ -95,9 +95,9 @@ inline static void handle_interrupt(exti_line_t line)
     }
 }
 
-void rtc_wkup_isr()
+void rtc_alarm_isr()
 {
-    handle_interrupt(EXTI_LINE_RTC_WAKEUP);
+    handle_interrupt(EXTI_LINE_RTC_ALARM);
 }
 
 void exti0_isr()

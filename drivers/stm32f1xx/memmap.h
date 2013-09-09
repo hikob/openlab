@@ -48,8 +48,15 @@ extern "C" {
 #define RCC_APB1ENR_OFFSET      0x1C
 #define RCC_BDCR_OFFSET         0x20
 #define RCC_CSR_OFFSET          0x24
-#define RCC_AHBRSTR_OFFSET              0x28
+#define RCC_AHBRSTR_OFFSET      0x28
 #define RCC_CFGR2_OFFSET        0x2C
+
+/* PWR section */
+#define PWR_BASE_ADDRESS        0x40007000
+
+// Offsets
+#define PWR_CR_OFFSET           0x0
+#define PWR_CSR_OFFSET          0x4
 
     /* AFIO section */
 #define AFIO_BASE_ADDRESS               0x40010000
@@ -169,24 +176,20 @@ extern "C" {
 #define DMA_CPARx_OFFSET        0x8
 #define DMA_CMARx_OFFSET        0xC
 
-    /* RTC section */
-    //#define RTC_BASE_ADDRESS      0x40002800
+/* RTC section */
+#define RTC_BASE_ADDRESS      0x40002800
 
-    // Offsets
-    //#define RTC_TR_OFFSET         0x0
-    //#define RTC_DR_OFFSET         0x4
-    //#define RTC_CR_OFFSET         0x8
-    //#define RTC_ISR_OFFSET            0xC
-    //#define RTC_PRER_OFFSET           0x10
-    //#define RTC_WUTR_OFFSET           0x14
-    //#define RTC_CALIBR_OFFSET     0x18
-    //#define RTC_ALRMAR_OFFSET     0x1C
-    //#define RTC_ALRMBR_OFFSET     0x20
-    //#define RTC_WPR_OFFSET            0x24
-    //#define RTC_TSTR_OFFSET           0x30
-    //#define RTC_TSDR_OFFSET           0x34
-    //#define RTC_TAFCR_OFFSET      0x40
-    //#define RTC_BK0R_OFFSET           0x50
+// Offsets
+#define RTC_CRH_OFFSET          0x00
+#define RTC_CRL_OFFSET          0x04
+#define RTC_PRLH_OFFSET         0x08
+#define RTC_PRLL_OFFSET         0x0C
+#define RTC_DIVH_OFFSET         0x10
+#define RTC_DIVL_OFFSET         0x14
+#define RTC_CNTH_OFFSET         0x18
+#define RTC_CNTL_OFFSET         0x1C
+#define RTC_ALRH_OFFSET         0x20
+#define RTC_ALRL_OFFSET         0x24
 
     /* SDIO section */
 #define SDIO_BASE_ADDRESS               0x40018000

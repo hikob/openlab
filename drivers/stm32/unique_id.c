@@ -27,6 +27,7 @@
 #include "unique_id.h"
 #include "memmap.h"
 #include "printf.h"
+#include "debug.h"
 
 const uid_t const *uid = (const uid_t *const) UNIQUE_ID_BASE_ADDRESS;
 

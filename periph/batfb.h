@@ -31,12 +31,27 @@
 #include "gpio.h"
 #include "adc.h"
 
-extern uint16_t batfb_vbat;
+typedef enum
+{
+    BATFB_TYPE_NONE = 0,
+    BATFB_TYPE_PRIMARY = 1,
+    BATFB_TYPE_SECONDARY = 2,
+} batfb_type_t;
 
-/**
- * Initialize the battery feedback , and put every thing in off mode.
- */
-void batfb_init();
+typedef enum
+{
+    BATFB_SOLAR_OFF = 0,
+    BATFB_SOLAR_LITTLE = 1,
+    BATFB_SOLAR_POWERING = 2,
+} batfb_solar_status_t;
+
+/** Last measured value of Vcc, in volts */
+extern float batfb_vcc;
+/** Last measured value of Vbat, in volts */
+extern float batfb_vbat;
+
+/** Get the power source type */
+batfb_type_t batfb_get_type();
 
 /**
  * Sample the battery voltage.
@@ -53,5 +68,17 @@ void batfb_sample(handler_t handler, handler_arg_t arg);
  *
  */
 void batfb_sample_sync();
+
+/**
+ * Check if the battery feedback has a solar capability
+ *
+ * \return 1 if it has, 0 otherwise
+ */
+int32_t batfb_has_solar();
+
+/**
+ * Read the solar state
+ */
+batfb_solar_status_t batfb_get_solar_state();
 
 #endif /* BATFB_H_ */

@@ -23,6 +23,9 @@ add_subdirectory(drivers)
 # Add the printf directory
 add_subdirectory(printf)
 
+# Add the printf directory
+add_subdirectory(scanf)
+
 # Add the rtos directory
 add_subdirectory(os)
 
@@ -50,14 +53,29 @@ add_subdirectory(lps331)
 # Add the batfb directory
 add_subdirectory(batfb)
 
-# Add the triled directory
-add_subdirectory(triled)
-
 # Add the PCA9685 directory
 add_subdirectory(pca9685)
 
 # Add the pga308 directory
 add_subdirectory(pga308)
 
+# Add the n25xxx directory
+add_subdirectory(n25xxx)
 
+# Add the ina226 directory
+add_subdirectory(ina226)
 
+# Add the fat32 directory
+add_subdirectory(fat32)
+
+# Add the lowpower directory
+add_subdirectory(lowpower)
+
+# Add the ublox_max6 directory
+add_subdirectory(ublox_max6)
+
+# Add the imu
+add_subdirectory(imu)
+
+# Add the lwip tests
+add_subdirectory(lwip)

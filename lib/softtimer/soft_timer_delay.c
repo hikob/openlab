@@ -23,6 +23,7 @@
  *  Created on: Jan 13, 2012
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
+#include "FreeRTOS.h"
 
 #include "soft_timer_.h"
 #include "timer.h"
@@ -35,6 +36,8 @@ softtim_t softtim;
 void soft_timer_config(timer_t timer, timer_channel_t channel)
 {
     // Store parameters
+    softtim.mutex = NULL;
+    softtim.priority = EVENT_QUEUE_APPLI;
     softtim.timer = timer;
     softtim.channel = channel;
     softtim.first = NULL;
@@ -44,7 +47,7 @@ void soft_timer_config(timer_t timer, timer_channel_t channel)
 
 uint32_t soft_timer_time()
 {
-    /**
+    /*
      * To prevent having the remainder being incremented while computing,
      * do the following:
      *
@@ -64,7 +67,7 @@ uint32_t soft_timer_time()
     uint32_t t, update = 0;
 
     // Mask interrupts
-    asm volatile("cpsid i");
+    vPortEnterCritical();
 
     t = softtim.update_count << 16;
     t_a = timer_time(softtim.timer);
@@ -72,7 +75,7 @@ uint32_t soft_timer_time()
     t_b = timer_time(softtim.timer);
 
     // Unmask interrupts
-    asm volatile("cpsie i");
+    vPortExitCritical();
 
     // Compute result as the base time plus the measured time, plus an update
     return t + ((update || (t_b < t_a)) ? 0x10000 : 0) + t_b;
@@ -124,34 +127,27 @@ int32_t soft_timer_a_is_before_b(uint32_t a, uint32_t b)
     return delta > 0;
 }
 
-void soft_timer_delay_us(uint32_t us)
+void soft_timer_delay(uint32_t d)
 {
-    uint32_t t_end = soft_timer_time() + soft_timer_us_to_ticks(us);
+    uint32_t t_end = soft_timer_time() + d;
 
     // Loop until delay elapsed
     while (soft_timer_a_is_before_b(soft_timer_time(), t_end))
     {
     }
+}
+
+void soft_timer_delay_us(uint32_t us)
+{
+    soft_timer_delay(soft_timer_us_to_ticks(us));
 }
 
 void soft_timer_delay_ms(uint32_t ms)
 {
-    uint32_t t_end = soft_timer_time() + soft_timer_ms_to_ticks(ms);
-
-    // Loop until delay elapsed
-    while (soft_timer_a_is_before_b(soft_timer_time(), t_end))
-    {
-    }
+    soft_timer_delay(soft_timer_ms_to_ticks(ms));
 }
 
 void soft_timer_delay_s(uint32_t s)
 {
-    uint32_t t_end = soft_timer_time() + soft_timer_s_to_ticks(s);
-
-    // Loop until delay elapsed
-    while (soft_timer_a_is_before_b(soft_timer_time(), t_end))
-    {
-    }
+    soft_timer_delay(soft_timer_s_to_ticks(s));
 }
-
-

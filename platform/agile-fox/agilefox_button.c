@@ -33,7 +33,7 @@
 #include "exti.h"
 #include "nvic_.h"
 
-#define BUTTON_GPIO_PORT   gpioC
+#define BUTTON_GPIO_PORT   GPIO_C
 #define BUTTON_GPIO_PIN    GPIO_PIN_13
 #define BUTTON_AFIO_PORT   AFIO_PORT_C
 

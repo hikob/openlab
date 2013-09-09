@@ -24,43 +24,62 @@
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 #include "phy_rf2xx.h"
 #include "rf2xx.h"
 
 // Global lib
 #include "event.h"
 #include "printf.h"
+#include "debug.h"
 
 // Net lib
 #include "soft_timer_delay.h"
 
 /* Private Functions */
 // Interrupt handlers
-static void dig2_capture_handler(handler_arg_t phy, uint16_t timer_value);
-static void rx_start_handler(handler_arg_t phy, uint16_t timer_value);
-static void rx_timeout_handler(handler_arg_t phy, uint16_t timer_value);
-static void tx_start_handler(handler_arg_t phy, uint16_t timer_value);
-static void irq_handler(handler_arg_t phy);
-static void fifo_read_done_handler(handler_arg_t phy);
+static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value);
+static void rx_start_handler(handler_arg_t arg, uint16_t timer_value);
+static void rx_timeout_handler(handler_arg_t arg, uint16_t timer_value);
+static void tx_start_handler(handler_arg_t arg, uint16_t timer_value);
+static void irq_handler(handler_arg_t arg);
+static void fifo_read_done_handler(handler_arg_t arg);
 
-// API implementations
+// API implementations (mutex must be taken)
 static void reset(phy_rf2xx_t *_phy);
 static void sleep(phy_rf2xx_t *_phy);
 static void idle(phy_rf2xx_t *_phy);
 
-// Functions
+// Functions posted (must include protection)
 static void handle_irq(handler_arg_t arg);
-static void handle_rx_start(handler_arg_t arg);
 static void handle_rx_end(handler_arg_t arg);
 static void handle_rx_timeout(handler_arg_t arg);
-static void handle_tx_end(handler_arg_t arg);
 static void start_rx(handler_arg_t arg);
 
+// Handy function (mutex must be taken)
+static phy_status_t handle_rx_start(phy_rf2xx_t *_phy);
+
 #define RF_MAX_WAIT soft_timer_ms_to_ticks(1)
+
+static xSemaphoreHandle mutex = NULL;
+static inline void take(){xSemaphoreTake(mutex, configTICK_RATE_HZ);}
+static inline void give(){xSemaphoreGive(mutex);}
+
+// ******************** API methods ************************** //
 
 void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, timer_t timer,
                     timer_channel_t channel)
 {
+    // Create mutex if required
+    if (mutex == NULL)
+    {
+        mutex = xSemaphoreCreateMutex();
+    }
+
+    take();
+
     // Store the pointers
     _phy->radio = radio;
     _phy->timer = timer;
@@ -69,38 +88,56 @@ void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, timer_t timer,
     // Initialize the packet pointer
     _phy->pkt = NULL;
 
+
     // Do a reset
     reset(_phy);
+
+    give();
 }
 
 void phy_reset(phy_t phy)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
     // Do the real reset
     reset(_phy);
+
+    give();
 }
 
 void phy_sleep(phy_t phy)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
     // Do the real sleep
     sleep(_phy);
+
+    give();
 }
 
 void phy_idle(phy_t phy)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
     // Do the real idle
     idle(_phy);
+
+    give();
 }
+
 phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
@@ -116,18 +153,27 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
             break;
         default:
             log_error("Invalid state %u", _phy->state);
+
+            give();
             // State is invalid for channel setting, return error
             return PHY_ERR_INVALID_STATE;
     }
 
     // Check min and max value
-    if (channel < PHY_MIN_CHANNEL)
+    if (rf2xx_get_type(_phy->radio) == RF2XX_TYPE_2_4GHz)
     {
-        channel = PHY_MIN_CHANNEL;
+        if (channel < PHY_2400_MIN_CHANNEL)
+        {
+            channel = PHY_2400_MIN_CHANNEL;
+        }
+        else if (channel > PHY_2400_MAX_CHANNEL)
+        {
+            channel = PHY_2400_MAX_CHANNEL;
+        }
     }
-    else if (channel > PHY_MAX_CHANNEL)
+    else
     {
-        channel = PHY_MAX_CHANNEL;
+        channel = PHY_868_MIN_CHANNEL;
     }
 
     // Write new data to register
@@ -140,11 +186,15 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
         rf2xx_sleep(_phy->radio);
     }
 
+
+    give();
     return PHY_SUCCESS;
 }
 
 phy_status_t phy_set_power(phy_t phy, phy_power_t power)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
@@ -161,43 +211,105 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
         default:
             log_error("Invalid state %u", _phy->state);
 
+            give();
+
             // State is invalid for channel setting, return error
             return PHY_ERR_INVALID_STATE;
     }
 
-    // Convert power value to register value
-    switch (power)
+    if (rf2xx_get_type(_phy->radio) == RF2XX_TYPE_2_4GHz)
     {
-        case PHY_POWER_m30dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
-            break;
-        case PHY_POWER_m20dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
-            break;
-        case PHY_POWER_m10dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m9dBm;
-            break;
-        case PHY_POWER_m5dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m5dBm;
-            break;
-        case PHY_POWER_0dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
-            break;
-        case PHY_POWER_3dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
-            break;
-        case PHY_POWER_5dBm:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
-            break;
-        default:
-            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
-            break;
-    }
+        // Convert power value to register value
+        switch (power)
+        {
+            case PHY_POWER_m30dBm:
+            case PHY_POWER_m29dBm:
+            case PHY_POWER_m28dBm:
+            case PHY_POWER_m27dBm:
+            case PHY_POWER_m26dBm:
+            case PHY_POWER_m25dBm:
+            case PHY_POWER_m24dBm:
+            case PHY_POWER_m23dBm:
+            case PHY_POWER_m22dBm:
+            case PHY_POWER_m21dBm:
+            case PHY_POWER_m20dBm:
+            case PHY_POWER_m19dBm:
+            case PHY_POWER_m18dBm:
+            case PHY_POWER_m17dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
+                break;
+            case PHY_POWER_m16dBm:
+            case PHY_POWER_m15dBm:
+            case PHY_POWER_m14dBm:
+            case PHY_POWER_m13dBm:
+            case PHY_POWER_m12dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m12dBm;
+                break;
+            case PHY_POWER_m11dBm:
+            case PHY_POWER_m10dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m9dBm;
+                break;
+            case PHY_POWER_m9dBm:
+            case PHY_POWER_m8dBm:
+            case PHY_POWER_m7dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m7dBm;
+                break;
+            case PHY_POWER_m6dBm:
+            case PHY_POWER_m5dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m5dBm;
+                break;
+            case PHY_POWER_m4dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m4dBm;
+                break;
+            case PHY_POWER_m3dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m3dBm;
+                break;
+            case PHY_POWER_m2dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m2dBm;
+                break;
+            case PHY_POWER_m1dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m1dBm;
+                break;
+            case PHY_POWER_0dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
+                break;
+            case PHY_POWER_0_7dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0_7dBm;
+                break;
+            case PHY_POWER_1dBm:
+            case PHY_POWER_1_3dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_3dBm;
+                break;
+            case PHY_POWER_1_8dBm:
+            case PHY_POWER_2dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_8dBm;
+                break;
+            case PHY_POWER_2_3dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_3dBm;
+                break;
+            case PHY_POWER_2_8dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_8dBm;
+                break;
+            case PHY_POWER_3dBm:
+            case PHY_POWER_4dBm:
+            case PHY_POWER_5dBm:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
+                break;
+            default:
+                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
+                break;
+        }
 
-    // Write new data to register
-    rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR,
-                    RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT
-                    | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT | power);
+        // Write new data to register
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR,
+                        RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT
+                        | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT | power);
+    }
+    else
+    {
+        //! \todo set TX power for 868MHz, for now set -1dBm, max tolerated (cf p 107)
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, 0x47);
+    }
 
     // Go back to sleep if it was in this state
     if (_phy->state == PHY_STATE_SLEEP)
@@ -205,11 +317,14 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
         rf2xx_sleep(_phy->radio);
     }
 
+    give();
     return PHY_SUCCESS;
 }
 
-uint8_t phy_cca(phy_t phy)
+static phy_status_t phy_ed_cca_measure(phy_t phy, int32_t *result, int32_t ed)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
@@ -226,7 +341,9 @@ uint8_t phy_cca(phy_t phy)
         default:
             // Invalid state!
             log_error("Invalid state %u", _phy->state);
-            return 0;
+
+            give();
+            return PHY_ERR_INVALID_STATE;
     }
 
     // Disable interrupt
@@ -249,31 +366,70 @@ uint8_t phy_cca(phy_t phy)
         if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
         {
             log_error("RF delay expired #0");
-            return 0;
+
+            give();
+            return PHY_ERR_INTERNAL;
         }
     }
     while ((reg & RF2XX_TRX_STATUS__RX_ON) == 0);
 
-    // Request a CCA
-    reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_CC_CCA);
-    reg |= RF2XX_PHY_CC_CCA_MASK__CCA_REQUEST;
-    rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_CC_CCA, reg);
-
-    // Wait until CCA is performed
-    t_end = soft_timer_time() + RF_MAX_WAIT;
-
-    do
+    if (ed)
     {
-        reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_STATUS);
+        // Enable ED END IRQ
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK, RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE);
 
-        // Check for block
-        if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+        // Request a ED measurement
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_ED_LEVEL, 0xAA);
+
+        // Wait until ED is performed
+        t_end = soft_timer_time() + RF_MAX_WAIT;
+
+        do
         {
-            log_error("RF delay expired #1");
-            return 0;
+            reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
+
+            // Check for block
+            if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+            {
+                log_error("RF delay expired #1");
+
+                give();
+                return PHY_ERR_INTERNAL;
+            }
         }
+        while ((reg & RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE) == 0);
+
+        // Set ED value
+        *result =  -91 + rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_ED_LEVEL);
     }
-    while ((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
+    else
+    {
+        // Request a CCA
+        reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_CC_CCA);
+        reg |= RF2XX_PHY_CC_CCA_MASK__CCA_REQUEST;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_CC_CCA, reg);
+
+        // Wait until CCA is performed
+        t_end = soft_timer_time() + RF_MAX_WAIT;
+
+        do
+        {
+            reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_STATUS);
+
+            // Check for block
+            if (!soft_timer_a_is_before_b(soft_timer_time(), t_end))
+            {
+                log_error("RF delay expired #1");
+
+                give();
+                return PHY_ERR_INTERNAL;
+            }
+        }
+        while ((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
+
+        // Set CCA STATUS
+        *result =  !!(reg & RF2XX_TRX_STATUS_MASK__CCA_STATUS);
+    }
 
     // Stop RX
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
@@ -285,12 +441,27 @@ uint8_t phy_cca(phy_t phy)
         rf2xx_sleep(_phy->radio);
     }
 
-    // Return CCA STATUS
-    return !!(reg & RF2XX_TRX_STATUS_MASK__CCA_STATUS);
+
+    give();
+
+    // Return success
+    return PHY_SUCCESS;
+}
+
+phy_status_t phy_ed(phy_t phy, int32_t *ed)
+{
+    return phy_ed_cca_measure(phy, ed, 1);
+}
+
+phy_status_t phy_cca(phy_t phy, int32_t *cca)
+{
+    return phy_ed_cca_measure(phy, cca, 0);
 }
 phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
                     phy_packet_t *pkt, phy_handler_t handler)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
@@ -314,6 +485,8 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
         default:
             // Invalid state!
             log_error("Invalid state %u", _phy->state);
+
+            give();
             return PHY_ERR_INVALID_STATE;
     }
 
@@ -354,6 +527,7 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
                 break;
         }
 
+        give();
         return PHY_ERR_TOO_LATE;
     }
 
@@ -365,9 +539,14 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
         // Set RX start time
         timer_set_channel_compare(_phy->timer, _phy->channel, rx_time & 0xFFFF,
                                   (timer_handler_t) rx_start_handler, _phy);
+
+        give();
     }
     else
     {
+        // Release mutex before
+        give();
+
         // Set RX now
         start_rx(_phy);
     }
@@ -378,6 +557,8 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
 phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
                     phy_handler_t handler)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = phy;
 
@@ -392,6 +573,8 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     if (pkt->length > PHY_MAX_TX_LENGTH)
     {
         log_error("length too big: %u", pkt->length);
+
+        give();
         return PHY_ERR_INVALID_LENGTH;
     }
 
@@ -407,6 +590,8 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
             break;
         default:
             log_error("Invalid state %u", _phy->state);
+
+            give();
             return PHY_ERR_INVALID_STATE;
     }
 
@@ -422,12 +607,24 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     // Disable interrupt
     rf2xx_irq_disable(_phy->radio);
 
-    // Set IRQ to refect TRX END (end of TX) only
+    // Set IRQ to reflect TRX END (end of TX) only
     rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
                     RF2XX_IRQ_STATUS_MASK__TRX_END);
 
     // Read IRQ to clear it
     rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
+
+    // If radio has external PA, enable DIG3/4
+    if (rf2xx_has_pa(_phy->radio))
+    {
+        // Enable the PA
+        rf2xx_pa_enable(_phy->radio);
+
+        // Activate DIG3/4 pins
+        uint8_t reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
+        reg |= RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    }
 
     // Enable IRQ interrupt
     rf2xx_irq_enable(_phy->radio);
@@ -451,7 +648,14 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
         {
             // Set timer
             timer_set_channel_compare(_phy->timer, _phy->channel, tx_time
-                                      & 0xFFFF, (timer_handler_t) tx_start_handler, _phy);
+                                      & 0xFFFF, tx_start_handler, _phy);
+
+            // Set output compare pin if available
+            if (_phy->timer_is_slptr)
+            {
+                timer_activate_channel_output(_phy->timer, _phy->channel, TIMER_OUTPUT_MODE_SET_ACTIVE);
+                rf2xx_slp_tr_config_timer(_phy->radio);
+            }
         }
         else
         {
@@ -472,6 +676,7 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
                     break;
             }
 
+            give();
             return PHY_ERR_TOO_LATE;
         }
     }
@@ -495,6 +700,8 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
             log_error("RF delay expired #2");
             // Go back to IDLE
             idle(_phy);
+
+            give();
             return PHY_ERR_INVALID_STATE;
         }
     }
@@ -511,11 +718,13 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
         tx_start_handler(_phy, timer_time(_phy->timer));
     }
 
+    give();
+
     // Return Success
     return PHY_SUCCESS;
 }
 
-/* Private Functions, the lock must be taken before calling them */
+// ***************** Internal methods (mutex taken before) ******************* //
 
 static void reset(phy_rf2xx_t *_phy)
 {
@@ -530,8 +739,14 @@ static void reset(phy_rf2xx_t *_phy)
     rf2xx_irq_configure(_phy->radio, irq_handler, _phy);
 
     // Configure DIG2 pin
-    rf2xx_dig2_disable(_phy->radio);
-    rf2xx_dig2_configure(_phy->radio, dig2_capture_handler, _phy);
+    if (rf2xx_has_dig2(_phy->radio))
+    {
+        rf2xx_dig2_disable(_phy->radio);
+        rf2xx_dig2_configure(_phy->radio, dig2_capture_handler, _phy);
+    }
+
+    // Reset the SLP_TR output
+    rf2xx_slp_tr_clear(_phy->radio);
 
     // Reset the radio chip
     rf2xx_reset(_phy->radio);
@@ -539,19 +754,35 @@ static void reset(phy_rf2xx_t *_phy)
     // Set default register values
     uint8_t reg;
 
-    // Set DIG2 as output for RX_START
-    reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
-    reg |= RF2XX_TRX_CTRL_1_MASK__IRQ_2_EXT_EN;
-    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    // Set DIG2 as output for RX_START if enabled
+    if (rf2xx_has_dig2(_phy->radio))
+    {
+        reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
+        reg |= RF2XX_TRX_CTRL_1_MASK__IRQ_2_EXT_EN;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    }
 
-    // Enable Dynamic Frame Buffer Protection
-    reg = RF2XX_TRX_CTRL_2_MASK__RX_SAFE_MODE;
-    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_2, reg);
+    if (rf2xx_get_type(_phy->radio) == RF2XX_TYPE_2_4GHz)
+    {
+        // Enable Dynamic Frame Buffer Protection, standard data rate (250kbps)
+        reg = RF2XX_TRX_CTRL_2_MASK__RX_SAFE_MODE;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_2, reg);
 
-    // Set stored TX power
-    reg = RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT
-          | RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
-    rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, reg);
+        // Set max TX power
+        reg = RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT
+              | RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, reg);
+    }
+    else
+    {
+        // Enable Dynamic Frame Buffer Protection, OQPSK-200
+        reg = RF2XX_TRX_CTRL_2_MASK__RX_SAFE_MODE | RF2XX_TRX_CTRL_2_MASK__BPSK_OQPSK
+                | RF2XX_TRX_CTRL_2_OQPSK_DATA_RATE__200_500;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_2, reg);
+
+        // -1dBm to match EU rules (cf p107 of datasheet) => 0x47
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, 0x47);
+    }
 
     // Disable CLKM signal
     reg = RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO
@@ -560,7 +791,9 @@ static void reset(phy_rf2xx_t *_phy)
           | RF2XX_TRX_CTRL_0_CLKM_CTRL__OFF;
     rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_0, reg);
 
-    // Set XCLK TRIM TODO: this highly depends on the board
+    /** Set XCLK TRIM
+     * \todo this highly depends on the board
+     */
     reg = RF2XX_XOSC_CTRL__XTAL_MODE_CRYSTAL | 0x0;
     rf2xx_reg_write(_phy->radio, RF2XX_REG__XOSC_CTRL, reg);
 
@@ -610,14 +843,31 @@ static void idle(phy_rf2xx_t *_phy)
     // Force IDLE
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
+    // If radio has external PA, disable DIG3/4
+    if (rf2xx_has_pa(_phy->radio))
+    {
+        // Enable the PA
+        rf2xx_pa_disable(_phy->radio);
+
+        // De-activate DIG3/4 pins
+        uint8_t reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
+        reg &= ~RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    }
+
     // Clear pkt pointer
     _phy->pkt = NULL;
 
     // Save state
     _phy->state = PHY_STATE_IDLE;
 }
+
+// *********************** INPUT handlers (posted from ISR) ************************ //
+
 static void start_rx(handler_arg_t arg)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = arg;
 
@@ -625,6 +875,8 @@ static void start_rx(handler_arg_t arg)
     if (_phy->state != PHY_STATE_RX_WAIT)
     {
         log_error("start_rx but state not RX wait: %x", _phy->state);
+
+        give();
         return;
     }
 
@@ -643,18 +895,35 @@ static void start_rx(handler_arg_t arg)
     // Restart RX: force TRX_OFF
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__FORCE_TRX_OFF);
 
-    // Reset IRQ to TRX END only
+    // Reset IRQ to TRX END and RX_START if no DIG2 available
     rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
-                    RF2XX_IRQ_STATUS_MASK__TRX_END);
+                    RF2XX_IRQ_STATUS_MASK__TRX_END
+                    | (rf2xx_has_dig2(_phy->radio) ? 0 :
+                            RF2XX_IRQ_STATUS_MASK__RX_START));
 
     // Read IRQ to clear it
     rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
+
+    // If radio has external PA, enable DIG3/4
+    if (rf2xx_has_pa(_phy->radio))
+    {
+        // Enable the PA
+        rf2xx_pa_enable(_phy->radio);
+
+        // Activate DIG3/4 pins
+        uint8_t reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
+        reg |= RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    }
 
     // Enable IRQ interrupt
     rf2xx_irq_enable(_phy->radio);
 
     // Enable DIG2 time-stamping
-    rf2xx_dig2_enable(_phy->radio);
+    if (rf2xx_has_dig2(_phy->radio))
+    {
+        rf2xx_dig2_enable(_phy->radio);
+    }
 
     // Start RX
     rf2xx_set_state(_phy->radio, RF2XX_TRX_STATE__RX_ON);
@@ -688,13 +957,12 @@ static void start_rx(handler_arg_t arg)
         // Disable timer
         timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
     }
+
+    give();
 }
 
-static void handle_rx_start(handler_arg_t arg)
+static phy_status_t handle_rx_start(phy_rf2xx_t *_phy)
 {
-    // Cast to RF2XX PHY
-    phy_rf2xx_t *_phy = arg;
-
     // Check state and pkt
     if (_phy->state != PHY_STATE_RX)
     {
@@ -721,13 +989,8 @@ static void handle_rx_start(handler_arg_t arg)
         // Force Idle
         idle(_phy);
 
-        // Call handler
-        if (_phy->handler)
-        {
-            _phy->handler(PHY_RX_CRC_ERROR);
-        }
-
-        return;
+        // Request handler call
+        return PHY_RX_CRC_ERROR;
     }
 
     // Read length byte (first byte)
@@ -743,13 +1006,7 @@ static void handle_rx_start(handler_arg_t arg)
         // Force Idle
         idle(_phy);
 
-        // Call handler
-        if (_phy->handler)
-        {
-            _phy->handler(PHY_RX_LENGTH_ERROR);
-        }
-
-        return;
+        return PHY_RX_LENGTH_ERROR;
     }
 
     // Store RX start time
@@ -760,10 +1017,16 @@ static void handle_rx_start(handler_arg_t arg)
 
     rf2xx_fifo_read_remaining_async(_phy->radio, _phy->pkt->data, length,
                                     fifo_read_done_handler, _phy);
+
+    return PHY_SUCCESS;
 }
+
+// *********************** INPUT handlers (posted from ISR) ************************ //
 
 static void handle_rx_end(handler_arg_t arg)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = arg;
 
@@ -771,6 +1034,8 @@ static void handle_rx_end(handler_arg_t arg)
     if (_phy->state != PHY_STATE_RX)
     {
         log_error("handle_rx_end but state not RX: %x", _phy->state);
+
+        give();
         return;
     }
 
@@ -804,6 +1069,8 @@ static void handle_rx_end(handler_arg_t arg)
     // Go to idle
     idle(_phy);
 
+    give();
+
     // Call RX handler if any
     if (_phy->handler)
     {
@@ -812,6 +1079,8 @@ static void handle_rx_end(handler_arg_t arg)
 }
 static void handle_rx_timeout(handler_arg_t arg)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = arg;
 
@@ -820,11 +1089,15 @@ static void handle_rx_timeout(handler_arg_t arg)
     {
         // Interrupt may have slipped, discard
         log_warning("invalid state for phy handle_rx_timeout: %x", _phy->state);
+
+        give();
         return;
     }
 
     // Set Idle
     idle(_phy);
+
+    give();
 
     // Notify receiving failed
     if (_phy->handler)
@@ -833,23 +1106,10 @@ static void handle_rx_timeout(handler_arg_t arg)
     }
 }
 
-static void handle_tx_end(handler_arg_t arg)
-{
-    // Cast to RF2XX PHY
-    phy_rf2xx_t *_phy = arg;
-
-    // Go to Idle
-    idle(_phy);
-
-    // Notify sending is done if handler is not null
-    if (_phy->handler)
-    {
-        _phy->handler(PHY_SUCCESS);
-    }
-}
-
 static void handle_irq(handler_arg_t arg)
 {
+    take();
+
     // Cast to RF2XX PHY
     phy_rf2xx_t *_phy = arg;
 
@@ -860,12 +1120,30 @@ static void handle_irq(handler_arg_t arg)
     switch (_phy->state)
     {
         case PHY_STATE_RX:
-
+            // Check if RX_START happened
+            if (irq_status == RF2XX_IRQ_STATUS_MASK__RX_START)
+            {
+                // Store IRQ timestamp in SFD
+                if (!rf2xx_has_dig2(_phy->radio))
+                {
+                    _phy->pkt->timestamp = _phy->pkt->eop_time;
+                }
+            }
             // Check if TRX_END happened
-            if (irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
+            else if (irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
             {
                 // Start processing
-                handle_rx_start(_phy);
+                phy_status_t status = handle_rx_start(_phy);
+                // Call handler on error
+                if (status != PHY_SUCCESS)
+                {
+                    give();
+                    if (_phy->handler)
+                    {
+                        _phy->handler(status);
+                    }
+                    return;
+                }
             }
             else
             {
@@ -873,15 +1151,23 @@ static void handle_irq(handler_arg_t arg)
                 log_error("invalid handle_irq %x in RX state (radio state %x)",
                           irq_status, rf2xx_get_status(_phy->radio));
             }
-
             break;
-        case PHY_STATE_TX:
 
+        case PHY_STATE_TX:
             // Check if TRX_END happened
             if (irq_status == RF2XX_IRQ_STATUS_MASK__TRX_END)
             {
-                // Start processing
-                handle_tx_end(_phy);
+                // Go to Idle
+                idle(_phy);
+
+                give();
+
+                // Notify sending is done if handler is not null
+                if (_phy->handler)
+                {
+                    _phy->handler(PHY_SUCCESS);
+                }
+                return;
             }
             else
             {
@@ -889,15 +1175,19 @@ static void handle_irq(handler_arg_t arg)
                 log_error("invalid handle_irq %x in TX state (radio state %x)",
                           irq_status, rf2xx_get_status(_phy->radio));
             }
-
             break;
+
         default:
             // Weird state
             log_error("handle_irq %x in state %x (radio state %x)", irq_status,
                       _phy->state, rf2xx_get_status(_phy->radio));
-            return;
+            break;
     }
+
+    give();
 }
+
+// ************************** Interrupt Routines ************************** //
 
 /* Those are called from interrupt service routines */
 static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value)
@@ -934,11 +1224,22 @@ static void tx_start_handler(handler_arg_t arg, uint16_t timer_value)
 
     if (_phy->state == PHY_STATE_TX_WAIT)
     {
-        // Start TX by setting SLP_TR
+        // Start TX by setting SLP_TR if it wasn't set
         rf2xx_slp_tr_set(_phy->radio);
 
-        // Store time
-        _phy->pkt->timestamp = soft_timer_time() + PHY_TIMING__TX_OFFSET;
+        if (_phy->timer_is_slptr)
+        {
+            // Disable timer output
+            timer_activate_channel_output(_phy->timer, _phy->channel, TIMER_OUTPUT_MODE_FORCE_INACTIVE);
+
+            // Store time
+            _phy->pkt->timestamp = soft_timer_convert_time(timer_value) + PHY_TIMING__TX_OFFSET;
+        }
+        else
+        {
+            // Store time
+            _phy->pkt->timestamp = soft_timer_time() + PHY_TIMING__TX_OFFSET;
+        }
 
         // Store State
         _phy->state = PHY_STATE_TX;
@@ -968,7 +1269,7 @@ static void irq_handler(handler_arg_t arg)
     // Cast to PHY
     phy_rf2xx_t *_phy = arg;
 
-    // Store IRQ time
+    // Store IRQ time in EOP
     _phy->pkt->eop_time = soft_timer_time();
 
     // Call IRQ handler from event task

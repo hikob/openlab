@@ -21,8 +21,10 @@
 add_executable(test_leds leds)
 target_link_libraries(test_leds platform)
 
+if("${DRIVERS}" STREQUAL "stm32l1xx" OR "${DRIVERS}" STREQUAL "stm32f1xx")
 add_executable(test_uart uart)
 target_link_libraries(test_uart platform)
+endif("${DRIVERS}" STREQUAL "stm32l1xx" OR "${DRIVERS}" STREQUAL "stm32f1xx")
 
 if(${PLATFORM_HAS_BUTTON})
     add_executable(test_buttons buttons)
@@ -39,4 +41,20 @@ if(${PLATFORM_HAS_SD})
 	target_link_libraries(test_sdio platform)
 endif(${PLATFORM_HAS_SD})
 
+if("${DRIVERS}" STREQUAL "stm32f1xx")
+	add_executable(test_flash flash_stm32f1xx)
+	target_link_libraries(test_flash platform)
+endif("${DRIVERS}" STREQUAL "stm32f1xx")
 
+if("${DRIVERS}" STREQUAL "stm32l1xx")
+	add_executable(test_rtc rtc)
+	target_link_libraries(test_rtc platform)
+
+	add_executable(test_flash flash)
+	target_link_libraries(test_flash platform)
+endif("${DRIVERS}" STREQUAL "stm32l1xx")
+
+if(${PLATFORM_HAS_ETHERNET})
+	add_executable(test_ethernet ethernet)
+	target_link_libraries(test_ethernet platform)
+endif(${PLATFORM_HAS_ETHERNET})

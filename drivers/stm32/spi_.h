@@ -34,18 +34,13 @@
 #include "rcc.h"
 #include "nvic.h"
 #include "gpio.h"
-#include "dma_.h"
+#include "dma.h"
 #include "handler.h"
 
 typedef struct
 {
-    uint32_t base_address;
-    rcc_apb_bus_t apb_bus;
-    rcc_apb_bit_t apb_bit;
-    nvic_irq_line_t irq_line;
-
     // For DMA based asynchronous transfer, record the DMAs.
-    _dma_t *dma_channel_rx, *dma_channel_tx;
+    dma_t dma_channel_rx, dma_channel_tx;
 
     // For ISR based asynchronous transfer, record the rx&tx pointers, and length
     uint8_t *isr_rx;
@@ -55,32 +50,38 @@ typedef struct
     // Handler for asynchronous transfer
     handler_t transfer_handler;
     handler_arg_t transfer_handler_arg;
+
+} _spi_data_t;
+
+typedef struct
+{
+    uint32_t base_address;
+    rcc_apb_bus_t apb_bus;
+    rcc_apb_bit_t apb_bit;
+    nvic_irq_line_t irq_line;
+
+    _spi_data_t *data;
 } _spi_t;
 
 /**
  * Initialize the SPI object, with all the required parameters.
- *
- * If there is no DMA channels for RX or TX, set them both to NULL
  */
-static inline void spi_init(_spi_t *_spi, uint32_t base_address,
-                            rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line,
-                            gpio_t gpio, gpio_pin_t pin_clk, gpio_pin_t pin_mosi,
-                            gpio_pin_t pin_miso, _dma_t *dma_channel_rx, _dma_t *dma_channel_tx)
-{
-    _spi->base_address = base_address;
-    _spi->apb_bus = apb_bus;
-    _spi->apb_bit = apb_bit;
-    _spi->irq_line = irq_line;
-    _spi->dma_channel_rx = dma_channel_rx;
-    _spi->dma_channel_tx = dma_channel_tx;
-
-    // Configure the IOs
-    gpio_enable(gpio);
-    gpio_set_spi_clk(gpio, pin_clk);
-    gpio_set_spi_miso(gpio, pin_miso);
-    gpio_set_spi_mosi(gpio, pin_mosi);
+#define SPI_INIT(name, addr, bus, bit, line) \
+    static _spi_data_t name##_data; \
+    const _spi_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line = line, \
+    .data = &name##_data \
 }
 
-void spi_handle_interrupt(_spi_t *_spi);
+static inline void spi_set_dma(const _spi_t* _spi, dma_t dma_rx, dma_t dma_tx)
+{
+    _spi->data->dma_channel_rx = dma_rx;
+    _spi->data->dma_channel_tx = dma_tx;
+}
+
+void spi_handle_interrupt(const _spi_t *_spi);
 
 #endif /* SPI__H_ */

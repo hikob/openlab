@@ -27,47 +27,47 @@
 #ifndef I2C_REGISTERS_H_
 #define I2C_REGISTERS_H_
 
-static inline volatile uint16_t *i2c_get_CR1(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_CR1(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_CR1_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_CR2(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_CR2(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_CR2_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_OAR1(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_OAR1(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_OAR1_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_OAR2(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_OAR2(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_OAR2_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_DR(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_DR(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_DR_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_SR1(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_SR1(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_SR1_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_SR2(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_SR2(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_SR2_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_CCR(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_CCR(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_CCR_OFFSET);
 }
 
-static inline volatile uint16_t *i2c_get_TRISE(_i2c_t *_i2c)
+static inline volatile uint16_t *i2c_get_TRISE(const _i2c_t *_i2c)
 {
     return mem_get_reg16(_i2c->base_address + I2Cx_TRISE_OFFSET);
 }

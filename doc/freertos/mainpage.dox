@@ -1,0 +1,46 @@
+/*! 
+
+\mainpage FreeRTOS 7.0.2 for HiKoB OpenLab documentation
+
+\section intro Introduction
+
+HiKoB Openlab uses the [FreeRTOS](http://freertos.org/ "FreeRTOS") Real Time Scheduler as 
+a core component in its software stack.
+
+
+These pages are the Doxygen generated pages extracted from the FreeRTOS sources 
+used in the OpenLab project. The complete and official FreeRTOS documentation is
+available on the web at 
+[http://www.freertos.org/Documentation](http://www.freertos.org/Documentation "http://www.freertos.org/Documentation").
+
+Please note that OpenLab is currently using FreeRTOS sources at the 7.0.2 revision level.
+
+Back to [OpenLab API documentation](../../html/index.html "OpenLab main API documentation")
+
+*/
+
+/* ************************************************** */
+/* ************************************************** */
+/**
+
+ @defgroup Tasks Task Creation
+ @{ @}
+
+ @defgroup TaskCtrl Task Control
+ @{ @}
+
+ @defgroup TaskUtils Task Utilities
+ @{ @}
+
+ @defgroup QueueManagement Queues
+ @{ @}
+
+ @defgroup Semaphores Semaphores / Mutexe
+ @{ @}
+
+ @defgroup SchedulerControl RTOS Kernel Control
+ @{ @}
+
+*/
+/* ************************************************** */
+/* ************************************************** */

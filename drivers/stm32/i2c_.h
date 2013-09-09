@@ -22,6 +22,7 @@
  *
  *  Created on: Jul 27, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+ *      Author: Damien Hedde <damien.hedde.at.hikob.com>
  */
 
 #ifndef I2C__H_
@@ -34,34 +35,57 @@
 #include "gpio.h"
 #include "handler.h"
 
+typedef enum
+{
+    I2C_IDLE = 0,
+    I2C_SENDING_START = 1,
+    I2C_SENDING_ADDRESS = 2,
+    I2C_SENDING_DATA = 3,
+    I2C_RECEIVING_DATA = 4,
+    I2C_SENDING_RESTART = 5,
+    I2C_ERROR = 6
+} i2c_state_t;
+
+typedef struct
+{
+    // State
+    volatile i2c_state_t state;
+    // Address to send or receive
+    uint8_t address;
+    // Send buffer
+    uint32_t len_send;
+    uint32_t cpt_send;
+    const uint8_t *buf_send;
+    // Receive buffer
+    uint32_t len_recv;
+    uint32_t cpt_recv;
+    uint8_t *buf_recv;
+    // Non-blocking end-transfer handler
+    result_handler_t transfer_handler;
+    handler_arg_t transfer_handler_arg;
+} _i2c_data_t;
+
 typedef struct
 {
     uint32_t base_address;
     rcc_apb_bus_t apb_bus;
     rcc_apb_bit_t apb_bit;
     nvic_irq_line_t irq_line_ev, irq_line_er;
-
-    handler_t transfer_handler;
-    handler_arg_t transfer_handler_arg;
+    _i2c_data_t *data;
 } _i2c_t;
 
-static inline void i2c_init(_i2c_t *_i2c, uint32_t base_address,
-                            rcc_apb_bus_t apb_bus, rcc_apb_bit_t apb_bit, nvic_irq_line_t irq_line_ev,
-                            nvic_irq_line_t irq_line_er, gpio_t gpio, gpio_pin_t pin_sda, gpio_pin_t pin_scl)
-{
-    _i2c->base_address = base_address;
-    _i2c->apb_bus = apb_bus;
-    _i2c->apb_bit = apb_bit;
-    _i2c->irq_line_ev = irq_line_ev;
-    _i2c->irq_line_er = irq_line_er;
-
-    // Configure SDA pin
-    gpio_set_i2c_sda(gpio, pin_sda);
-    // Configure SCL pin
-    gpio_set_i2c_scl(gpio, pin_scl);
+#define I2C_INIT(name, addr, bus, bit, ev_line, er_line) \
+    static _i2c_data_t name##_data; \
+    const _i2c_t name = { \
+    .base_address = addr, \
+    .apb_bus = bus, \
+    .apb_bit = bit, \
+    .irq_line_ev = ev_line, \
+    .irq_line_er = er_line, \
+    .data = &name##_data \
 }
 
-void i2c_handle_ev_interrupt(_i2c_t *_i2c);
-void i2c_handle_er_interrupt(_i2c_t *_i2c);
+void i2c_handle_ev_interrupt(const _i2c_t *_i2c);
+void i2c_handle_er_interrupt(const _i2c_t *_i2c);
 
 #endif

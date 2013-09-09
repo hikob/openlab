@@ -27,18 +27,39 @@
 #ifndef SOFT_TIMER__H_
 #define SOFT_TIMER__H_
 
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 #include "soft_timer.h"
 #include "timer.h"
 
 
 typedef struct
 {
+    /** Mutex for protection */
+    xSemaphoreHandle mutex;
+
+    /** Event priority on which to run the soft timer process */
+    event_queue_t priority;
+
+    /** Linked list of scheduled soft_timers */
     soft_timer_t *first;
+
+    /** Timer information */
     timer_t timer;
     timer_channel_t channel;
 
+    /** Flag indicating if the timer alarm is set */
+    int alarm_scheduled;
+
+    /** Flag indicating the timer alarm has posted an event */
+    int alarm_posted;
+
+    /** Flag indicating the process method is posted */
+    int process_posted;
+
     /** Number of timer updates before first alarm is scheduled */
-    uint8_t remainder;
+    int32_t remainder;
 
     /** The number of timer updates */
     uint32_t update_count;
@@ -50,6 +71,14 @@ extern softtim_t softtim;
  * Configure the software timer, specifying its timer and channel to use
  */
 void soft_timer_config(timer_t timer, timer_channel_t channel);
+
+/**
+ * Specify the priority on which to run the soft_timer process
+ */
+static inline void soft_timer_config_priority(event_queue_t priority)
+{
+    softtim.priority = priority;
+}
 
 /**
  * Function to call by the platform at each timer update.

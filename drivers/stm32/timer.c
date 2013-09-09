@@ -28,12 +28,13 @@
 #include "timer_.h"
 #include "timer_registers.h"
 #include "rcc.h"
+#include "nvic_.h"
 
 #include "printf.h"
 
 void timer_enable(timer_t timer)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Enable the clock for TIMx in the RCC registers
     rcc_apb_enable(_timer->apb_bus, _timer->apb_bit);
@@ -54,7 +55,7 @@ void timer_enable(timer_t timer)
 }
 void timer_disable(timer_t timer)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Clear the TIMx_CR1 register (to stop it)
     *timer_get_CR1(_timer) = 0;
@@ -68,7 +69,7 @@ void timer_disable(timer_t timer)
 
 void timer_select_internal_clock(timer_t timer, uint16_t prescaler)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Disable slave mode
     *timer_get_SMCR(_timer) &= ~TIMER_SMCR__SMS_MASK;
@@ -93,12 +94,12 @@ void timer_select_internal_clock(timer_t timer, uint16_t prescaler)
     freq /= (prescaler + 1);
 
     // Store
-    _timer->frequency = freq;
+    _timer->data->frequency = freq;
 }
 
 void timer_select_external_clock(timer_t timer, uint16_t prescaler)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Write ETF = 0 in SMCR
     *timer_get_SMCR(_timer) &= ~TIMER_SMCR__ETF_MASK;
@@ -123,20 +124,23 @@ void timer_select_external_clock(timer_t timer, uint16_t prescaler)
     freq /= (prescaler + 1);
 
     // Store
-    _timer->frequency = freq;
+    _timer->data->frequency = freq;
 }
 
 void timer_start(timer_t timer, uint16_t update_value,
                  timer_handler_t update_handler, handler_arg_t update_arg)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
+
+    // Disable interrupt generation
+    *timer_get_DIER_bitband(_timer, TIMER_DIER__UIE_bit) = 0;
 
     // Clear DIR, CMS, CKD
     *timer_get_CR1(timer) = 0;
 
     // Store the handler
-    _timer->update_handler = update_handler;
-    _timer->update_handler_arg = update_arg;
+    _timer->data->update_handler = update_handler;
+    _timer->data->update_handler_arg = update_arg;
 
     // Set the auto reload value
     *timer_get_ARR(_timer) = update_value;
@@ -151,12 +155,7 @@ void timer_start(timer_t timer, uint16_t update_value,
     if (update_handler)
     {
         // Enable interrupt generation for update event
-        *timer_get_DIER(_timer) |= TIMER_DIER__UIE;
-    }
-    else
-    {
-        // Disable interrupt generation
-        *timer_get_DIER(_timer) &= ~TIMER_DIER__UIE;
+        *timer_get_DIER_bitband(_timer, TIMER_DIER__UIE_bit) = 1;
     }
 
     // Enable CR1 ARPE
@@ -168,7 +167,7 @@ void timer_start(timer_t timer, uint16_t update_value,
 
 void timer_stop(timer_t timer)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Disable the counter
     *timer_get_CR1(_timer) &= ~TIMER_CR1__CEN;
@@ -185,12 +184,12 @@ void timer_tick_update(timer_t timer, int16_t dt)
 
 uint32_t timer_get_frequency(timer_t timer)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
-    if (_timer->frequency != 0)
+    if (_timer->data->frequency != 0)
     {
         // Return the estimated frequency
-        return _timer->frequency;
+        return _timer->data->frequency;
     }
     else
     {
@@ -213,19 +212,22 @@ uint32_t timer_get_frequency(timer_t timer)
 
 uint16_t timer_get_number_of_channels(timer_t timer)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
     return _timer->number_of_channels;
 }
 
 uint32_t timer_get_update_flag(timer_t timer)
 {
-    _timer_t *_timer = timer;
-    return (*timer_get_SR(_timer) & TIMER_SR__UIF) != 0;
+    const _timer_t *_timer = timer;
+    return *timer_get_SR_bitband(_timer, TIMER_SR__UIF_bit);
 }
 void timer_set_channel_compare(timer_t timer, timer_channel_t channel,
                                uint16_t compare_value, timer_handler_t handler, handler_arg_t arg)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
+
+    // Disable the interrupt
+    *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 0;
 
     // Get CCMR register
     volatile uint16_t *ccmr;
@@ -251,23 +253,19 @@ void timer_set_channel_compare(timer_t timer, timer_channel_t channel,
     _timer->channel_handler_args[channel] = arg;
 
     // clear the interrupt flag
-    *timer_get_SR(_timer) &= ~(TIMER_SR__CC1IF << channel);
+    *timer_get_SR(_timer) = ~(TIMER_SR__CC1IF << channel);
 
     // Enable interrupt if required
     if (handler)
     {
-        *timer_get_DIER(_timer) |= TIMER_DIER__CC1IE << channel;
-    }
-    else
-    {
-        *timer_get_DIER(_timer) &= ~(TIMER_DIER__CC1IE << channel);
+        *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 1;
     }
 }
 
 void timer_activate_channel_output(timer_t timer, timer_channel_t channel,
                                    timer_output_mode_t mode)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
     // Get CCMR register
     volatile uint16_t *ccmr;
@@ -277,34 +275,41 @@ void timer_activate_channel_output(timer_t timer, timer_channel_t channel,
     uint8_t ccmr_offset;
     ccmr_offset = (channel & 1) ? 8 : 0;
 
-    // Enable output state
-    *timer_get_CCER(timer) |= TIMER_CCER__CC1E << (4 * channel);
-
     // Set output compare mode
-    *ccmr |= mode << (4 + ccmr_offset);
+    *ccmr &= ~(0x7 << (4 + ccmr_offset));
 
-    switch (mode)
+    if (mode)
     {
-        case TIMER_OUTPUT_MODE_PWM1:
-        case TIMER_OUTPUT_MODE_PWM2:
-            // Enable preload for PWM only!
-            *ccmr |= (TIMER_CCMRx__OCxPE << ccmr_offset);
-            break;
-        default:
-            break;
+        *ccmr |= mode << (4 + ccmr_offset);
+
+        switch (mode)
+        {
+            case TIMER_OUTPUT_MODE_PWM1:
+            case TIMER_OUTPUT_MODE_PWM2:
+                // Enable preload for PWM only!
+                *ccmr |= (TIMER_CCMRx__OCxPE << ccmr_offset);
+                break;
+            default:
+                // Otherwise disable preload
+                *ccmr &= ~(TIMER_CCMRx__OCxPE << ccmr_offset);
+                break;
+        }
+
+        // Enable output state
+        *timer_get_CCER(timer) |= TIMER_CCER__CC1E << (4 * channel);
+    }
+    else
+    {
+        // Disable output state
+        *timer_get_CCER(timer) &= ~(TIMER_CCER__CC1E << (4 * channel));
+        *ccmr &= ~(TIMER_CCMRx__OCxPE << ccmr_offset);
     }
 }
 
 void timer_update_channel_compare(timer_t timer, timer_channel_t channel,
                                   uint16_t value)
 {
-    _timer_t *_timer = timer;
-
-    // Check channel
-    if (channel >= _timer->number_of_channels)
-    {
-        return;
-    }
+    const _timer_t *_timer = timer;
 
     // Store the new compare match value
     *timer_get_CCRx(_timer, channel) = value;
@@ -314,13 +319,10 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
                                timer_capture_edge_t signal_edge, timer_handler_t handler,
                                handler_arg_t arg)
 {
-    _timer_t *_timer = timer;
+    const _timer_t *_timer = timer;
 
-    // Check channel
-    if (channel >= _timer->number_of_channels)
-    {
-        return;
-    }
+    // Disable the interruption
+    *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 0;
 
     // Select Capture, Set 01 to CCxS in CCMRx register (no filter, no prescaler)
 
@@ -337,12 +339,6 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
 
     // Clear the CCMR register
     *ccmr &= ~(0xF << ccmr_offset);
-
-    // clear the interrupt flag
-    *timer_get_SR(_timer) &= ~(TIMER_SR__CC1IF << channel);
-
-    // Disable the interruption
-    *timer_get_DIER(_timer) &= ~(TIMER_DIER__CC1IE << channel);
 
     // If handler is NULL, stop here
     if (handler == NULL)
@@ -366,9 +362,7 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
         case TIMER_CAPTURE_EDGE_BOTH:
             value = TIMER_CCER__CC1P | TIMER_CCER__CC1NP;
             break;
-
     }
-
     *timer_get_CCER(_timer) |= value << (4 * channel);
 
     // Enable the the capture, setting CCxIE in the CCER register
@@ -378,46 +372,42 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
     _timer->channel_handlers[channel] = handler;
     _timer->channel_handler_args[channel] = arg;
 
+    // Clear the interrupt flag
+    *timer_get_SR(_timer) = ~(TIMER_SR__CC1IF << channel);
+
     // Enable the interrupt
-    *timer_get_DIER(_timer) |= TIMER_DIER__CC1IE << channel;
+    *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 1;
 }
 
-void timer_handle_interrupt(_timer_t *_timer)
+void timer_handle_interrupt(const _timer_t *_timer)
 {
     // Check source of interrupt
+    uint16_t sr_dier = *timer_get_SR(_timer) & *timer_get_DIER(_timer);
+
     // Update event
-    if (*timer_get_SR(_timer) & TIMER_SR__UIF)
+    if (sr_dier & TIMER_SR__UIF)
     {
         // Clear flag
-        *timer_get_SR(_timer) &= ~TIMER_SR__UIF;
+        *timer_get_SR(_timer) = ~TIMER_SR__UIF;
 
-        // Call handler if any
-        if (_timer->update_handler)
-        {
-            _timer->update_handler(_timer->update_handler_arg, *timer_get_ARR(
+        // Call handler
+        _timer->data->update_handler(_timer->data->update_handler_arg, *timer_get_ARR(
                                        _timer));
-        }
     }
 
     // Channel event
     int i;
-
     for (i = 0; i < _timer->number_of_channels; i++)
     {
-        uint16_t ccif = (TIMER_SR__CC1IF << i);
-
         // Channel i capture/compare event
-        if ((*timer_get_SR(_timer) & ccif) && (*timer_get_DIER(_timer) & ccif))
+        if (sr_dier & (TIMER_SR__CC1IF << i))
         {
             // Clear flag
-            *timer_get_SR(_timer) &= ~ccif;
+            *timer_get_SR(_timer) = ~(TIMER_SR__CC1IF << i);
 
-            // Call handler if any
-            if (_timer->channel_handlers[i])
-            {
-                _timer->channel_handlers[i](_timer->channel_handler_args[i],
-                                            *timer_get_CCRx(_timer, i));
-            }
+            // Call handler
+            _timer->channel_handlers[i](_timer->channel_handler_args[i],
+                                        *timer_get_CCRx(_timer, i));
         }
     }
 }

@@ -27,6 +27,7 @@
 #ifndef RF2XX__H_
 #define RF2XX__H_
 
+#include "rf2xx.h"
 #include "rf2xx_timing.h"
 #include "rf2xx_regs.h"
 #include "spi.h"
@@ -54,6 +55,7 @@ typedef struct
     // We need to know the SLP_TR pin
     gpio_t slp_tr_gpio;
     gpio_pin_t slp_tr_pin;
+    uint32_t slp_tr_af;
 
     // We need the IRQ pin EXTI line
     exti_line_t irq_exti_line;
@@ -61,6 +63,20 @@ typedef struct
     // We need to know the DIG2 pin Timer and Timer channel
     timer_t dig2_timer;
     uint8_t dig2_channel;
+
+    // The external PA enable pin
+    gpio_t pa_enable_gpio;
+    gpio_pin_t pa_enable_pin;
+
+    // The type of radio
+    rf2xx_type_t type;
+
+} _rf2xx_config_t;
+
+typedef struct
+{
+    /** A pointer to the configuration structure */
+    const _rf2xx_config_t *config;
 
     // We need a handler for a transfer done event
     handler_t transfer_handler;
@@ -72,22 +88,6 @@ typedef struct
 
 } _rf2xx_t;
 
-/* Configuration */
-static inline void rf2xx_config(_rf2xx_t *radio, spi_t spi, gpio_t csn_gpio,
-                                gpio_pin_t csn_pin, gpio_t rstn_gpio, gpio_pin_t rstn_pin,
-                                gpio_t slp_tr_gpio, gpio_pin_t slp_tr_pin, exti_line_t irq_exti_line,
-                                timer_t dig2_timer, uint8_t dig2_channel)
-{
-    radio->spi = spi;
-    radio->csn_gpio = csn_gpio;
-    radio->csn_pin = csn_pin;
-    radio->rstn_gpio = rstn_gpio;
-    radio->rstn_pin = rstn_pin;
-    radio->slp_tr_gpio = slp_tr_gpio;
-    radio->slp_tr_pin = slp_tr_pin;
-    radio->irq_exti_line = irq_exti_line;
-    radio->dig2_timer = dig2_timer;
-    radio->dig2_channel = dig2_channel;
-}
+void rf2xx_init(rf2xx_t radio);
 
 #endif /* RF2XX__H_ */

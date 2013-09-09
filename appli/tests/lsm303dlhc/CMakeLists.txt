@@ -16,8 +16,15 @@
 #
 # Copyright (C) 2011 HiKoB.
 #
-
+include_directories(
+	${PROJECT_SOURCE_DIR}/drivers/cortex-m3
+	${PROJECT_SOURCE_DIR}/drivers/stm32
+	${PROJECT_SOURCE_DIR}/drivers/stm32f1xx)
+	
 if(${PLATFORM_HAS_LSM303DLHC})
-	add_executable(test_lsm303dlhc lsm303dlhc)
+	add_executable(test_lsm303dlhc test_lsm303dlhc)
 	target_link_libraries(test_lsm303dlhc platform lsm303dlhc printf)
+	
+	add_executable(test_lsm303dlhc_int lsm303dlhc_int)
+	target_link_libraries(test_lsm303dlhc_int platform lsm303dlhc printf)
 endif(${PLATFORM_HAS_LSM303DLHC})

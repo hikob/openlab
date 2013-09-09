@@ -64,6 +64,13 @@
 
 typedef struct
 {
+    // The handler for transfer done
+    handler_t handler;
+    handler_arg_t handler_arg;
+} _dma_data_t;
+
+typedef struct
+{
     // DMA base address
     uint32_t base_address;
 
@@ -76,9 +83,8 @@ typedef struct
     // DMA channel IRQ line
     nvic_irq_line_t irq_line;
 
-    // The handler for transfer done
-    handler_t handler;
-    handler_arg_t handler_arg;
+    // The data
+    _dma_data_t *data;
 } _dma_t;
 
 /**
@@ -87,19 +93,19 @@ typedef struct
  * \param dma the DMA object to initialize.
  * \param channel the DMA channel of this object.
  */
-static inline void dma_init(_dma_t *_dma, uint32_t base_address, rcc_ahb_bit_t dma_bit, dma_channel_t channel, nvic_irq_line_t irq_line)
-{
-    _dma->base_address = base_address;
-    _dma->dma_bit = dma_bit;
-    _dma->channel = channel;
-    _dma->irq_line = irq_line;
-    _dma->handler = NULL;
-    _dma->handler_arg = NULL;
+#define DMA_INIT(name, addr, bit, chan, line) \
+    static _dma_data_t name##_data; \
+    const _dma_t name = { \
+    .base_address = addr, \
+    .dma_bit = bit, \
+    .channel = chan, \
+    .irq_line = line, \
+    .data = &name##_data \
 }
 
 /**
  * Handle a DMA channel interrupt.
  */
-void dma_handle_interrupt(dma_t dma);
+void dma_handle_interrupt(const _dma_t *_dma);
 
 #endif /* DMA__H_ */

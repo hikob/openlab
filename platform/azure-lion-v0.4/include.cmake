@@ -1,0 +1,38 @@
+set(OOCD_TARGET stm32l)
+set(PLATFORM_OOCD_ITF ${PROJECT_SOURCE_DIR}/platform/scripts/mysticjtag.cfg)
+
+set(LINKSCRIPT ../scripts/stm32l151rbt6.ld)
+
+set(DRIVERS stm32l1xx)
+
+set(MY_C_FLAGS "${MY_C_FLAGS} -DAZURE_LION")
+set(PLATFORM_TYPE    SERIAL_TYPE_AZURELION)
+set(PLATFORM_VERSION 0x04)
+
+set(PLATFORM_RAM_KB 16)
+
+# Set the flags to select the application that may be compiled
+set(PLATFORM_HAS_RF231 1)
+set(PLATFORM_HAS_RF212 1)
+set(PLATFORM_HAS_SYSTICK 1)
+set(PLATFORM_HAS_PHY 1)
+set(PLATFORM_HAS_TSCH 1)
+set(PLATFORM_HAS_ADC 1)
+set(PLATFORM_HAS_BATFB 1)
+set(PLATFORM_HAS_PGA308 1)
+set(PLATFORM_HAS_TRILED 1)
+set(PLATFORM_HAS_SOFTTIM 1)
+set(PLATFORM_HAS_USB 1)
+set(PLATFORM_HAS_FWUPDATE 1)
+set(PLATFORM_HAS_EEPROM 1)
+
+# In case of daughter board
+if ( ${DAUGHTER_SHT25} )
+    set(PLATFORM_HAS_SHT25 1)
+endif ( ${DAUGHTER_SHT25} )
+
+if ( ${DAUGHTER_SYNCHRO} )
+    set(PLATFORM_HAS_EXTSYNC 1)
+endif ( ${DAUGHTER_SYNCHRO} )
+
+include(${PROJECT_SOURCE_DIR}/platform/include-cm3.cmake)

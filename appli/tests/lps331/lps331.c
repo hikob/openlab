@@ -27,7 +27,7 @@
 #include "platform.h"
 #include "printf.h"
 
-#include "lps331.h"
+#include "lps331ap.h"
 
 int main()
 {
@@ -39,13 +39,13 @@ int main()
 	printf("# Testing LPS331\n");
 
 	printf("# Setting LPS331 datarate...\n");
-	lps331_set_datarate( LPS331_P_12_5HZ_T_12_5HZ);
+	lps331ap_set_datarate(LPS331AP_P_12_5HZ_T_12_5HZ);
 
-	printf("# Reading LPS331 WHOAMI register: 0xBB == 0x%02X\n", lps331_read_whoami());
+	printf("# Reading LPS331 WHOAMI register: 0xBB == 0x%02X\n", lps331ap_read_whoami());
 
 	for(i = 1; i <= 2; i++)
 	{
-		printf("# CTRL_REG%d = 0x%02X\n", i, lps331_read_crtl_reg(i));
+		printf("# CTRL_REG%d = 0x%02X\n", i, lps331ap_read_crtl_reg(i));
 	}
 
 	while (1)
@@ -53,8 +53,8 @@ int main()
 		uint32_t pres;
         int16_t temp;
 
-		lps331_read_pres(&pres);
-		lps331_read_temp(&temp);
+		lps331ap_read_pres(&pres);
+		lps331ap_read_temp(&temp);
 
 		printf("%x %f %f\n", pres, pres / 4096.0, 22.5 + temp / 480.0);
 

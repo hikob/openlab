@@ -32,8 +32,9 @@
 #include "event.h"
 #include "soft_timer.h"
 
-#define LOG_LEVEL 3
+#define LOG_LEVEL LOG_LEVEL_ERROR
 #include "printf.h"
+#include "debug.h"
 
 enum
 {
@@ -61,21 +62,20 @@ static void process(handler_arg_t arg);
 /** Handler for timer alarm */
 static void timer_alarm(handler_arg_t arg, uint16_t count);
 
-#if LOG_LEVEL <= LOG_LEVEL_DEBUG
-static void print_list_();
-#define print_list() print_list_()
-#else // LOG_LEVEL <= LOG_LEVEL_DEBUG
-#define print_list()
-#endif // LOG_LEVEL <= LOG_LEVEL_DEBUG
-
 xSemaphoreHandle softtim_mutex = NULL;
 
 void soft_timer_init()
 {
     // Create mutex if required
-    if (softtim_mutex == NULL)
+    if (softtim_mutex == NULL )
     {
         softtim_mutex = xSemaphoreCreateMutex();
+        softtim.alarm_posted = 0;
+        softtim.alarm_scheduled = 0;
+        softtim.process_posted = 0;
+
+        timer_set_channel_compare(softtim.timer, softtim.channel, 0,
+                timer_alarm, NULL );
     }
 }
 
@@ -85,7 +85,7 @@ void soft_timer_update(handler_arg_t arg, uint16_t count)
     softtim.update_count += 1;
 
     // Check if mutex is created, i.e. lib is started
-    if (softtim_mutex == NULL)
+    if (softtim_mutex == NULL )
     {
         return;
     }
@@ -98,13 +98,20 @@ void soft_timer_update(handler_arg_t arg, uint16_t count)
 
     if (softtim.remainder == 0)
     {
-        event_post_from_isr(EVENT_QUEUE_APPLI, process, NULL);
+        softtim.process_posted = 1;
+        event_post_from_isr(softtim.priority, process, NULL );
     }
 }
 
 void soft_timer_start(soft_timer_t *timer, uint32_t ticks, uint32_t periodic)
 {
     uint32_t now = soft_timer_time();
+
+    if (ticks == 0 && periodic)
+    {
+        log_error("Can't have a periodic timer with no tick!");
+        return;
+    }
 
     if (xSemaphoreTake(softtim_mutex, configTICK_RATE_HZ) != pdTRUE)
     {
@@ -121,9 +128,10 @@ void soft_timer_start(soft_timer_t *timer, uint32_t ticks, uint32_t periodic)
     timer->period = ticks | (periodic ? SOFT_TIMER_PERIODIC : 0);
 
     // Insert in list
-    if (insert(timer))
+    if (insert(timer) && !softtim.process_posted)
     {
-        event_post(EVENT_QUEUE_APPLI, process, NULL);
+        event_post(softtim.priority, process, NULL );
+        softtim.process_posted = 1;
     }
 
     // Release mutex
@@ -147,10 +155,11 @@ void soft_timer_start_at(soft_timer_t *timer, uint32_t alarm_time)
     timer->period = (alarm_time - soft_timer_time());
 
     // Insert in list
-    if (insert(timer))
+    if (insert(timer) && !softtim.process_posted)
     {
         // Process
-        event_post(EVENT_QUEUE_APPLI, process, NULL);
+        event_post(softtim.priority, process, NULL );
+        softtim.process_posted = 1;
     }
 
     // Release mutex
@@ -166,10 +175,11 @@ void soft_timer_stop(soft_timer_t *timer)
     }
 
     // Use remove algorithm and process if required
-    if (remove(timer))
+    if (remove(timer) && !softtim.process_posted)
     {
         // Process
-        event_post(EVENT_QUEUE_APPLI, process, NULL);
+        event_post(softtim.priority, process, NULL );
+        softtim.process_posted = 1;
     }
 
     // Release mutex
@@ -192,10 +202,11 @@ void soft_timer_reset(soft_timer_t *timer)
     timer->alarm = soft_timer_time() + (timer->period & SOFT_TIMER_PERIOD_MASK);
 
     // Insert in list
-    if (insert(timer))
+    if (insert(timer) && !softtim.process_posted)
     {
         // Process
-        event_post(EVENT_QUEUE_APPLI, process, NULL);
+        event_post(softtim.priority, process, NULL );
+        softtim.process_posted = 1;
     }
 
     // Release mutex
@@ -214,7 +225,7 @@ int32_t soft_timer_is_active(soft_timer_t *timer)
     int32_t found = 0;
 
     // Loop to find the timer
-    for (x = softtim.first; x != NULL; x = x->next)
+    for (x = softtim.first; x != NULL ; x = x->next)
     {
         if (x == timer)
         {
@@ -232,13 +243,14 @@ int32_t soft_timer_is_active(soft_timer_t *timer)
 
 void soft_timer_debug()
 {
-    log_printf("Debugging soft timer:\n");
+    log_printf("Debugging soft timer (now: %u):\n", soft_timer_time());
     log_printf("\tFIRST->\n");
     soft_timer_t *x = softtim.first;
 
-    while (x != NULL)
+    while (x != NULL )
     {
-        log_printf("\t%x(%u)->\n", x, x->alarm);
+        log_printf(
+                "\t%x(%u)->%08x(%08x)\n", x, x->alarm, x->handler, x->handler_arg);
         x = x->next;
     }
 
@@ -255,15 +267,14 @@ static int32_t insert(soft_timer_t *timer)
      * Otherwise loop for the timer whose next is after
      */
     log_debug("*** Inserting %x(%u) ***", timer, timer->alarm);
-    print_list();
 
-    if (softtim.first == NULL)
+    if (softtim.first == NULL )
     {
         log_debug("Inserting %x(%u) first", timer, timer->alarm);
         softtim.first = timer;
         timer->next = NULL;
+
         // Process required
-        print_list();
         return 1;
     }
 
@@ -273,8 +284,8 @@ static int32_t insert(soft_timer_t *timer)
         // Insert before first
         timer->next = softtim.first;
         softtim.first = timer;
+
         // Process required
-        print_list();
         return 1;
     }
 
@@ -283,16 +294,14 @@ static int32_t insert(soft_timer_t *timer)
     log_debug("Inserting %x(%u) later", timer, timer->alarm);
 
     // Loop while timer is before x->next
-    for (x = softtim.first; (x->next != NULL) && soft_timer_a_is_before_b(
-                x->next->alarm, timer->alarm); x = x->next)
-    {
-    }
+    for (x = softtim.first; (x->next != NULL )&& soft_timer_a_is_before_b(
+            x->next->alarm, timer->alarm); x = x->next){
+}
 
     // x is the timer before the new one
     timer->next = x->next;
     x->next = timer;
 
-    print_list();
     // Process not required
     return 0;
 }
@@ -310,24 +319,23 @@ static int32_t remove(soft_timer_t *timer)
     }
 
     log_debug("*** Removing %x(%u) ***", timer, timer->alarm);
-    print_list();
 
     if (softtim.first == timer)
     {
-        log_debug("Removing first: %x(%u)", softtim.first, softtim.first->alarm);
+        log_debug(
+                "Removing first: %x(%u)", softtim.first, softtim.first->alarm);
         softtim.first = timer->next;
+
         // Process required
-        print_list();
         return 1;
     }
 
     soft_timer_t *x;
 
     // Loop to find the previous one
-    for (x = softtim.first; (x->next != NULL) && (x->next != timer); x
-            = x->next)
-    {
-    }
+    for (x = softtim.first; (x->next != NULL )&& (x->next != timer); x
+    = x->next){
+}
 
     // Check if found
     if (x->next == timer)
@@ -335,7 +343,6 @@ static int32_t remove(soft_timer_t *timer)
         log_debug("Removing other: %x(%u)", x, x->alarm);
         // Remove
         x->next = timer->next;
-        print_list();
     }
 
     // Process not required
@@ -344,93 +351,84 @@ static int32_t remove(soft_timer_t *timer)
 
 static void process(handler_arg_t arg)
 {
-    // If first is null, nothing to do
-    if (softtim.first == NULL)
-    {
-        timer_set_channel_compare(softtim.timer, softtim.channel, 0, NULL, NULL);
-        return;
-    }
-
     if (xSemaphoreTake(softtim_mutex, configTICK_RATE_HZ) != pdTRUE)
     {
         log_error("Failed to get soft timer mutex");
         HALT();
     }
+    
+    // Clear posted flag (having the mutex)
+    softtim.alarm_posted = 0;
+    softtim.alarm_scheduled = 0;
+    softtim.process_posted = 0;
 
     // Loop while first event has triggered (first is before now)
-    while (softtim.first && !soft_timer_a_is_before_b(soft_timer_time(),
-            softtim.first->alarm))
+    uint32_t now;
+    while (softtim.first)
     {
-        // Store event that has triggered, and time
-        soft_timer_t *x = softtim.first;
-
-        log_debug("*** Processing %x(%u) ***", x, x->alarm);
-        print_list();
-
-        // Increment first
-        softtim.first = softtim.first->next;
-
-        // Re-insert event if it is periodic
-        if (x->period & SOFT_TIMER_PERIODIC)
+        if (soft_timer_a_is_before_b(softtim.first->alarm + 2, (now =
+                soft_timer_time())))
         {
+            // Store triggered event
+            soft_timer_t *x = softtim.first;
 
-            // Compute next timer
-            x->alarm += x->period & SOFT_TIMER_PERIOD_MASK;
-
-            log_debug("Rescheduling %x(%u/%x)", x, x->alarm, x->period);
-
-            // Call insert
-            insert(x);
-        }
-
-        print_list();
-
-        // Call timer handler
-        if (x->handler)
-        {
-            event_post(EVENT_QUEUE_APPLI, x->handler, x->handler_arg);
-        }
-    }
-
-    // Check if there is a timer to schedule
-    if (softtim.first)
-    {
-        vPortEnterCritical();
-
-        // Check if next timer is in less than 2 seconds
-        uint32_t delta = softtim.first->alarm - soft_timer_time();
-        // Set remainder
-        softtim.remainder = delta / 0x10000;
-
-        vPortExitCritical();
-
-        if (delta < 0x10000)
-        {
-            // Set timer for first event
-            timer_set_channel_compare(softtim.timer, softtim.channel,
-                                      (softtim.first->alarm & 0xFFFF), timer_alarm, NULL);
-
-            // Check if we didn't miss a tick
-            if (soft_timer_a_is_before_b(softtim.first->alarm,
-                                         soft_timer_time()))
+            int32_t dt = now - softtim.first->alarm;
+            if (dt > soft_timer_ms_to_ticks(1))
             {
-                // Timer missed, request process
-                event_post(EVENT_QUEUE_APPLI, process, NULL);
+                log_printf("ST Late %d (now %08x)\n", dt, now);
+            }
+
+            log_debug("*** Processing %x(%u) ***", x, x->alarm);
+
+            // Increment first
+            softtim.first = softtim.first->next;
+
+            // Re-insert event if it is periodic
+            if (x->period & SOFT_TIMER_PERIODIC)
+            {
+
+                // Compute next timer
+                x->alarm += x->period & SOFT_TIMER_PERIOD_MASK;
+
+                log_debug("Rescheduling %x(%u/%x)", x, x->alarm, x->period);
+
+                // Call insert
+                insert(x);
+            }
+
+            // Call timer handler
+            if (x->handler)
+            {
+                event_post(x->priority, x->handler, x->handler_arg);
             }
         }
         else
         {
-            timer_set_channel_compare(softtim.timer, softtim.channel, 0, NULL,
-                                      NULL);
+            // Test if schedule is over 0x10000 ticks
+            vPortEnterCritical();
+            int32_t delta = softtim.first->alarm - soft_timer_time();
+            softtim.remainder = delta > 0 ? delta >> 16 : 0;
+            vPortExitCritical();
+
+            // Schedule alarm if no remainder
+            if (softtim.remainder == 0)
+            {
+                // Set timer for first event
+                timer_update_channel_compare(softtim.timer, softtim.channel,
+                        softtim.first->alarm & 0xFFFF);
+                softtim.alarm_scheduled = 1;
+
+                // Check if late
+                if (((int32_t) (softtim.first->alarm - soft_timer_time()) < 1)
+                        && (softtim.alarm_posted == 0))
+                {
+                    // Timer missed, request process
+                    event_post(softtim.priority, process, NULL );
+                }
+            }
+            break;
         }
     }
-    else
-    {
-        timer_set_channel_compare(softtim.timer, softtim.channel, 0, NULL, NULL);
-    }
-
-    log_debug("After process");
-    print_list();
 
     // Release mutex
     xSemaphoreGive(softtim_mutex);
@@ -438,24 +436,14 @@ static void process(handler_arg_t arg)
 
 static void timer_alarm(handler_arg_t arg, uint16_t count)
 {
-    // Post an event to process this timer
-    event_post_from_isr(EVENT_QUEUE_APPLI, process, NULL);
-}
-
-/********** DEBUG ******************/
-
-#if LOG_LEVEL <= LOG_LEVEL_DEBUG
-static void print_list_()
-{
-    log_printf("\t\tFIRST->");
-    soft_timer_t *x = softtim.first;
-
-    while (x != NULL)
+    if (!softtim.alarm_scheduled)
     {
-        log_printf("%x(%u)->", x, x->alarm);
-        x = x->next;
+        return;
     }
 
-    log_printf("NULL\n");
+    // Post an event to process this timer
+    softtim.process_posted = 1;
+    event_post_from_isr(softtim.priority, process, NULL);
+    softtim.alarm_posted = 1;
 }
-#endif // LOG_LEVEL <= LOG_LEVEL_DEBUG
+

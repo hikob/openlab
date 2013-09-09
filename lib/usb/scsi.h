@@ -30,7 +30,6 @@
 #if defined(__BIG_ENDIAN__)
 #define _swab16(x) x
 #define _swab32(x) x
-#define 
 #else
 #define _swab16(x)						\
     ((uint16_t)((((uint16_t)(x) & (uint16_t)0x00ffU) << 8) |	\
@@ -96,7 +95,17 @@ typedef struct
  * SCSI Low level drivers.
  */
 
-#define SCSI_PARAMS  uint8_t cont, uint8_t lun, uint8_t* cmd, uint8_t* data, uint32_t datamax, uint32_t* datalen, scsi_status_t* status
+typedef struct{
+    uint8_t        cont;
+    uint8_t        lun;
+    uint8_t       *cmd;
+    uint8_t       *data;
+    uint32_t       datamax;
+    uint32_t      *datalen;
+    scsi_status_t *status;
+}scsi_params_t;
+
+static scsi_params_t params;
 
 typedef enum {
     USB_MSC_NONE,
@@ -106,8 +115,8 @@ typedef enum {
 
 typedef void          (*lun_init)          (uint8_t lun);
 typedef void          (*lun_read_capacity) (uint8_t lun, uint32_t *bcount, uint16_t *bsize);
-typedef scsi_cmdret_t (*lun_read10)        ( SCSI_PARAMS );
-typedef scsi_cmdret_t (*lun_write10)       ( SCSI_PARAMS );
+typedef scsi_cmdret_t (*lun_read10)        (scsi_params_t scsi_params);	//scsi_params modif
+typedef scsi_cmdret_t (*lun_write10)       (scsi_params_t scsi_params);
 
 typedef struct {
     scsi_lun_type_t     type;
@@ -134,10 +143,9 @@ extern const scsi_lun_t scsi_lun[];
 /**
  * Process a SCSI command on a given Logical Unit (Lun)
  * Command parameter cmd is modified if needed for next request
+ * See scsi.c for initial arguments
  **/
-
-scsi_cmdret_t scsi_process_command(uint8_t cont, uint8_t lun, uint8_t* cmd, uint8_t cmdlen, uint8_t *data, 
-				   uint32_t datamax, uint32_t *datalen, scsi_status_t *status);
+scsi_cmdret_t scsi_process_command(scsi_params_t scsi_params);
 
 /**
  * SCSI layer init

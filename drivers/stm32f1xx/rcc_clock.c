@@ -24,10 +24,10 @@
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
  */
 
+#include "rcc.h"
 #include "rcc_registers.h"
+#include "pwr.h"
 #include "rcc_clock.h"
-// TODO: uncomment this (if needed)
-//#include "pwr.h"
 
 /* HSI section */
 void rcc_hsi_enable()
@@ -84,13 +84,46 @@ uint32_t rcc_hse_get_frequency()
     return hse_freq;
 }
 
+/* LSE section */
+void rcc_lse_enable()
+{
+    if  (*rcc_get_BDCR() & RCC_BDCR__LSERDY)
+    {
+        // Already running
+        return;
+    }
+
+    pwr_enable_backup_write_protection();
+
+    // Set LSE ON
+    *rcc_get_BDCR() |= RCC_BDCR__LSEON;
+
+    // Wait for LSERDY to be set
+    while (!(*rcc_get_BDCR() & RCC_BDCR__LSERDY))
+    {
+        asm("nop");
+    }
+
+    pwr_disable_backup_write_protection();
+}
+
+void rcc_lse_disable()
+{
+    pwr_enable_backup_write_protection();
+
+    // Clear LSE ON
+    *rcc_get_BDCR() &= ~RCC_BDCR__LSEON;
+
+    pwr_disable_backup_write_protection();
+}
+
 /* LSI section */
 void rcc_lsi_enable()
 {
     //Set LSI ON
     *rcc_get_CSR() |= RCC_CSR__LSION_MASK;
 
-    // Wait for LSERDY to be set
+    // Wait for LSIRDY to be set
     while (!(*rcc_get_CSR() & RCC_CSR__LSIRDY_MASK))
     {
         asm("nop");

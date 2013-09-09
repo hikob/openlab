@@ -17,153 +17,98 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * printf.h
- *
- *  Created on: Jul 8, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
- *              Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+/**
+ * \file printf.h
+ * \date Jul 8, 2011
+ * \author Christophe Braillon <christophe.braillon.at.hikob.com>
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef PRINTF_H_
 #define PRINTF_H_
 
+/**
+ * \addtogroup lib
+ * @{
+ */
+
+/**
+ * \defgroup printf Light-weight printf
+ *
+ *
+ * @{
+ */
+
 #include <stdarg.h>
-#include "nvic.h"
 
-void printf(char *format, ...);
-void sprintf(char *out, const char *format, ...);
-void snprintf(char *buf, unsigned int count, const char *format, ...);
+#define USE_PRINTFLOAT
 
-static inline void ansi_clear_screen()
+/** Format and print data
+ * This light-weight version of printf allows only a subset of formats. The allowed formats are:
+ *   - %u: display an unsigned int, padding with zeros or spaces is allowed (e.g. %05u or %2u)
+ *   - %d: display a signed int, padding with zeros or spaces is allowed (e.g. %04d or %5d)
+ *   - %x and %X: display an int in hexadecimal form padding with zeros or spaces is allowed (e.g. %4X or %06x)
+ *   - %c: display a character
+ *   - %s: display a string padding with spaces is allowed (e.g. %4s)
+ *   - %f: display a float, no padding is allowed, NaN and Inf values are allowed
+ * \param format the string to be printed with special control sequences that are listed above.
+ * \param ... the list of variables to be displayed. The number of variable must be consistent with the format string
+ * \return the number of written characters excluding the terminating zero
+ * \see \ref example_printf.c
+ */
+int printf(const char *format, ...);
+
+/** Format and print data in a string
+ * This function act as printf but instead of writing to the "standard output", writes the
+ * output to a buffer regardless of its size.
+ * \warning The function does not check the size of the output buffer. For safer behaviour
+ * snprintf should be prefered.
+ * \param out the output buffer
+ * \param format the string to be printed with special control sequences that are listed above.
+ * \param ... the list of variables to be displayed. The number of variable must be consistent with the format string
+ * \return the number of written characters excluding the terminating zero
+ * \see printf() for allowed formats
+ * \see \ref example_sprintf.c
+ */
+int sprintf(char *out, const char *format, ...);
+
+/** Format and print data in a string with limited size
+ * This function act as sprintf but do not write more than "count" bytes (including
+ * the terminating null byte ('\0')). If the output was truncated due to this limit
+ * then the return value is the number of characters (excluding the terminating null byte)
+ * which would have been written to the final string if enough space had  been  available.
+ * Thus, a return value of "count" or more means that the output was truncated.
+ * \param out the output buffer
+ * \param count the maximum number of character that can be written in the output buffer (including the terminating zero)
+ * \param format the string to be printed with special control sequences that are listed above.
+ * \param ... the list of variables to be displayed. The number of variable must be consistent with the format string
+ * \return the number of characters in the output buffer if it had enough space (excluding the terminating zero)
+ * \see printf() for allowed formats
+ * \see \ref example_snprintf.c
+ */
+int snprintf(char *out, unsigned int count, const char *format, ...);
+
+struct fprintf_stream
 {
-    printf("\x1b[2J");
-}
+    /** Function called for each character to output */
+    void (*putc)(char c, void*);
+};
 
-static inline void ansi_goto(uint8_t x, uint8_t y)
-{
-    printf("\x1b[%u;%uH", y, x);
-}
+/** Format and print to a custom outout stream
+ * \param stream the output stream
+ * \param format the string to be printed with special control sequences that are listed above.
+ * \param ... the list of variables to be displayed. The number of variable must be consistent with the format string
+ * \return the number of characters in the output buffer if it had enough space (excluding the terminating zero)
+ * \see printf() for allowed formats
+ */
+int fprintf(const struct fprintf_stream *stream, const char *format, ...);
 
-#define ANSI_RED     (1)
-#define ANSI_GREEN   (2)
-#define ANSI_YELLOW  (3)
-#define ANSI_BLUE    (4)
-#define ANSI_MAGENTA (5)
-#define ANSI_CYAN    (6)
-#define ANSI_WHITE   (7)
+/**
+ * @}
+ */
 
-static inline void ansi_set_text_color(uint8_t c)
-{
-    printf("\x1b[%02um", 30 + c);
-}
-
-static inline void ansi_set_background_color(uint8_t c)
-{
-    printf("\x1b[%02um", 40 + c);
-}
-
-
-#ifndef RELEASE
-#define RELEASE 0
-#endif // RELEASE
-
-#if RELEASE > 0
-// Undefine the log level to set it at very high level
-#ifdef LOG_LEVEL
-#undef LOG_LEVEL
-#endif // LOG_LEVEL
-
-#define LOG_LEVEL 4
-#endif // RELEASE > 0
-
-#define LOG_LEVEL_DEBUG 0
-#define LOG_LEVEL_INFO 1
-#define LOG_LEVEL_WARNING 2
-#define LOG_LEVEL_ERROR 3
-#define LOG_LEVEL_DISABLED 4
-
-#ifndef NO_DEBUG_HEADER
-#define DEBUG_HEADER()             printf("\x1b[32m[in %s() DEBUG] ", __FUNCTION__)
-#define INFO_HEADER()              printf("\x1b[33m[in %s() INFO] ", __FUNCTION__)
-#define WARNING_HEADER()           printf("\x1b[35m[in %s() WARNING] ", __FUNCTION__)
-#define ERROR_HEADER()             printf("\x1b[31m[in %s() ERROR] ", __FUNCTION__)
-#define NOT_IMPLEMENTED_HEADER()   printf("\x1b[36m[in %s() NOT IMPLEMENTED] ", __FUNCTION__)
-#else
-#define DEBUG_HEADER()             printf("\x1b[32m")
-#define INFO_HEADER()              printf("\x1b[33m")
-#define WARNING_HEADER()           printf("\x1b[35m")
-#define ERROR_HEADER()             printf("\x1b[31m")
-#define NOT_IMPLEMENTED_HEADER()   printf("\x1b[36m")
-#endif
-
-#ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_DEBUG
-#endif // LOG_LEVEL
-#if (LOG_LEVEL <= LOG_LEVEL_DEBUG)
-#define log_debug(...) do {DEBUG_HEADER(); printf(__VA_ARGS__);printf("\x1b[0m\n");}while(0)
-#else // (LOG_LEVEL <= LOG_LEVEL_DEBUG)
-#define log_debug(...)
-#endif // (LOG_LEVEL <= LOG_LEVEL_DEBUG)
-#if (LOG_LEVEL <= LOG_LEVEL_INFO)
-#define log_info(...) do {INFO_HEADER(); printf(__VA_ARGS__);printf("\x1b[0m\n");}while(0)
-#else // (LOG_LEVEL <= LOG_LEVEL_INFO)
-#define log_info(...)
-#endif // (LOG_LEVEL <= LOG_LEVEL_INFO)
-#if (LOG_LEVEL <= LOG_LEVEL_WARNING)
-#define log_warning(...) do {WARNING_HEADER(); printf(__VA_ARGS__);printf("\x1b[0m\n");}while(0)
-#else // (LOG_LEVEL <= LOG_LEVEL_INFO)
-#define log_warning(...)
-#endif // (LOG_LEVEL <= LOG_LEVEL_INFO)
-#if (LOG_LEVEL <= LOG_LEVEL_ERROR)
-#define log_error(...) do {ERROR_HEADER(); printf(__VA_ARGS__);printf("\x1b[0m\n");}while(0)
-#define log_not_implemented(...) do {NOT_IMPLEMENTED_HEADER(); printf(__VA_ARGS__);printf("\x1b[0m\n");}while(0)
-#else // (LOG_LEVEL <= LOG_LEVEL_ERROR)
-#define log_error(...)
-#define log_not_implemented(...)
-#endif // (LOG_LEVEL <= LOG_LEVEL_ERROR)
-
-#if RELEASE == 0
-#define log_printf(...) printf(__VA_ARGS__)
-#else
-#define log_printf(...)
-#endif
-
-#include "event.h"
-#include "soft_timer.h"
-
-#if defined(NATIVE)
-inline static void HALT()
-{
-    while (1)
-    {
-    }
-}
-#else // defined(NATIVE)
-static volatile int block_me;
-static void inline HALT()
-{
-#if RELEASE || (defined(AUTO_RESET) && AUTO_RESET)
-    // Reset the chip through the NVIC
-    NVIC_RESET();
-#else // RELEASE > 0
-    // Deactivate interrupts
-    asm volatile("cpsid i");
-
-    event_debug();
-    soft_timer_debug();
-
-    block_me = 1;
-
-    while (block_me)
-    {
-        asm volatile("bkpt 0");
-    }
-
-    // Re activate
-    asm volatile("cpsie i");
-#endif // RELEASE > 0
-}
-#endif // defined(NATIVE)
+/**
+ * @}
+ */
 
 #endif // PRINTF_H_

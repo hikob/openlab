@@ -27,18 +27,24 @@
 #include "platform.h"
 #include "agilefox.h"
 
+#include "packet.h"
 
 #include "stm32/timer_.h"
 #include "rf2xx.h"
 #include "phy_rf2xx/phy_rf2xx.h"
+#include "mac_csma.h"
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231;
 phy_t phy = &phy_rf231;
 
+const mac_csma_config_t mac_csma_config =
+{
+    .phy = &phy_rf231,
+};
 
 void platform_net_setup()
 {
     // Setup the PHY libraries
-    phy_rf2xx_init(&phy_rf231, rf231, tim3, TIMER_CHANNEL_3);
+    phy_rf2xx_init(&phy_rf231, rf231, TIM_3, TIMER_CHANNEL_3);
 }

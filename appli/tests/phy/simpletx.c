@@ -27,84 +27,66 @@
 #include <stdint.h>
 #include <string.h>
 #include "platform.h"
-#include "printf.h"
-
 #include "phy.h"
+
 #include "soft_timer.h"
+#include "debug.h"
 
 // Task function
-static void test_task(void *);
+static void tx(handler_arg_t arg);
 static void tx_done(phy_status_t status);
 
-static const uint8_t msg[] = "Hello World From Azure Lion 000";
+static const uint8_t msg[] = "Hello World 000";
 static phy_packet_t pkt;
-static xSemaphoreHandle tx_sem;
+static soft_timer_t tim;
+
+#if 1
+#define PHY phy
+#else
+extern phy_t phy_868;
+#define PHY phy_868
+#endif
 
 int main()
 {
     // Initialize the platform
     platform_init();
 
-    // Create a test task
-    xTaskCreate(test_task, (const signed char * const)"test",
-                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+    // Configure periodic sending
+    soft_timer_init();
+    soft_timer_set_handler(&tim, tx, NULL);
+    soft_timer_start(&tim, soft_timer_s_to_ticks(1), 1);
 
-    // Create a semaphore and take it
-    vSemaphoreCreateBinary(tx_sem);
-    xSemaphoreTake(tx_sem, 0);
+    printf("PHY SimpleTX test\n");
+    phy_reset(PHY);
+    phy_set_channel(PHY, 15);
 
     platform_run();
     return 0;
 }
 
-void test_task(void *arg)
+static void tx(handler_arg_t arg)
 {
-    // Debug
-    printf("PHY SimpleTX test\n");
+    static uint8_t count = 0;
 
-    // Reset PHY
-    phy_reset(phy);
+    phy_idle(PHY);
 
-    // Set channel
-    phy_set_channel(phy, 15);
+    // Prepare packet
+    pkt.data = pkt.raw_data;
+    pkt.length = sizeof(msg);
+    memcpy(pkt.data, msg, pkt.length);
 
-    uint8_t count = 0;
+    pkt.data[pkt.length - 4] = '0' + ((count / 100) % 10);
+    pkt.data[pkt.length - 3] = '0' + ((count / 10) % 10);
+    pkt.data[pkt.length - 2] = '0' + ((count / 1) % 10);
 
-    while (1)
-    {
-        // Prepare packet
-        pkt.data = pkt.raw_data;
-        pkt.length = sizeof(msg);
-        memcpy(pkt.data, msg, pkt.length);
+    count ++;
 
-        pkt.data[pkt.length - 4] = '0' + ((count / 100) % 10);
-        pkt.data[pkt.length - 3] = '0' + ((count / 10) % 10);
-        pkt.data[pkt.length - 2] = '0' + ((count / 1) % 10);
-
-        count ++;
-
-        // Send in 10ms, no handler
-        printf("Sending a Radio Packet, length: %u, data: %s\n", pkt.length,
-               pkt.data);
-        uint32_t t = soft_timer_time() + soft_timer_ms_to_ticks(10);
-        phy_tx(phy, t, &pkt, tx_done);
-
-        // Take the semaphore, to wait until taken
-        while (xSemaphoreTake(tx_sem, configTICK_RATE_HZ) != pdTRUE)
-        {
-            leds_toggle(LED_1);
-        }
-
-        // Go to sleep
-        phy_sleep(phy);
-
-        // Wait a little
-        vTaskDelay(configTICK_RATE_HZ * 4);
-
-        // Toggle
-        leds_toggle(LED_0);
-    }
-
+    // Send in 10ms, no handler
+    printf("Sending a Radio Packet, length: %u, data: %s\n", pkt.length,
+           pkt.data);
+    uint32_t t = soft_timer_time() + soft_timer_ms_to_ticks(10);
+    phy_tx(PHY, t, &pkt, tx_done);
 }
 
 static void tx_done(phy_status_t status)
@@ -117,7 +99,4 @@ static void tx_done(phy_status_t status)
     {
         log_debug("Error while sending %x", status);
     }
-
-    xSemaphoreGive(tx_sem);
-
 }

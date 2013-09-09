@@ -20,12 +20,18 @@
 if(${PLATFORM_HAS_USB})
   
   add_executable(test_usb_cdc_acm usb_cdc_acm)
-  target_link_libraries(test_usb_cdc_acm platform usb)
+  target_link_libraries(test_usb_cdc_acm usb platform_usb)
 	
   add_executable(test_usb_hid usb_hid)
-  target_link_libraries(test_usb_hid platform usb)
+  target_link_libraries(test_usb_hid usb platform_usb)
+
+  add_executable(test_usb_hid_kbd usb_hid_kbd)
+  target_link_libraries(test_usb_hid_kbd usb platform_usb)
 
   add_executable(test_usb_msc usb_msc)
-  target_link_libraries(test_usb_msc platform usb)
+  target_link_libraries(test_usb_msc usb platform_usb)
 
+  add_executable(test_usb_led usb_led)
+  target_link_libraries(test_usb_led usb platform_usb)
+  
 endif(${PLATFORM_HAS_USB})

@@ -32,7 +32,8 @@
 #include "exti.h"
 
 /* Configuration */
-void l3g4200d_config(i2c_t i2c);
-void l3g4200d_enable_drdy(exti_line_t data_ready_line);
+uint8_t l3g4200d_config(i2c_t i2c, exti_line_t data_ready_line,
+                       gpio_t drdy_gpio,
+                       gpio_pin_t drdy_gpio_pin);
 
 #endif /* L3G4200D__H_ */

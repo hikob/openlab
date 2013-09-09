@@ -224,7 +224,7 @@ static sd_error_t sd_send_command(_sdio_t *_sdio, sd_command_t cmd, uint32_t dat
 
         if (resp != NO_RESPONSE)
         {
-            tmp |= 1 << 6;    // TODO: name these two bits
+            tmp |= 1 << 6;    //! \todo name these two bits
         }
 
         if (resp == LONG_RESPONSE)
@@ -652,7 +652,7 @@ sd_error_t sd_read_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     // Reset DPSM configuration
     *sdio_get_DCTRL()  = 0;
     *sdio_get_DLEN()   = 0;
-    *sdio_get_DTIMER() = 0xFFFF; // TODO: compute the best data timeout value
+    *sdio_get_DTIMER() = 0xFFFF; //! \todo compute the best data timeout value
 
     *sdio_get_DLEN() = 512;
 
@@ -719,7 +719,7 @@ sd_error_t sd_read_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
 
 sd_error_t sd_read_multiple_blocks(sdio_t sdio_, uint32_t addr, uint8_t **buf, uint32_t nb_blocks)
 {
-    //TODO: implement it
+    //! \todo implement multiple blocks reading
 
     return SD_NO_ERROR;
 }
@@ -732,7 +732,7 @@ sd_error_t sd_write_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
     // Reset DPSM configuration
     *sdio_get_DCTRL()  = 0;
     *sdio_get_DLEN()   = 0;
-    *sdio_get_DTIMER() = 0xFFFF; // TODO: compute the best data timeout
+    *sdio_get_DTIMER() = 0xFFFF; //! \todo compute the best data timeout
 
     *sdio_get_DLEN() = 512;
 
@@ -799,7 +799,7 @@ sd_error_t sd_write_single_block(sdio_t sdio_, uint32_t addr, uint8_t *buf)
 
 sd_error_t sd_write_multiple_blocks(sdio_t sdio_, uint32_t addr, uint8_t **buf, uint32_t nb_blocks)
 {
-    // TODO: implement it
+    //! \todo implement multiple blocks writing
 
     return SD_NO_ERROR;
 }

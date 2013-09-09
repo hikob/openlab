@@ -26,12 +26,13 @@
 
 #include <stdbool.h>
 #include "platform.h"
-#define NO_DEBUG_HEADER
-#define LOG_LEVEL LOG_LEVEL_DEBUG
-#include "printf.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "libusb.h"
+#define NO_DEBUG_HEADER
+//#define LOG_LEVEL LOG_LEVEL_DEBUG
+#include "printf.h"
+#include "debug.h"
 
 static xTaskHandle vLEDTaskHandle;
 

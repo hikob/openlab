@@ -17,15 +17,29 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * usb.h
- *
- *  Created on: Aug 30, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+/**
+ * \file usb.h
+ * \date Aug 30, 2011
+ * \author Christophe Braillon <christophe.braillon.at.hikob.com>
+ * \author Antoine Fraboulet <antoine.fraboulet.at.hikob.com>
  */
 
 #ifndef USB_H_
 #define USB_H_
+
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup USB USB driver
+ *
+ * This driver provides all functions required to perform low level USB 
+ * transfers, either synchronously or asynchronously.
+ *
+ *@{
+ */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -47,6 +61,7 @@ enum
     USB_CLASS_CDC                      = 0x02,
     USB_CLASS_HID                      = 0x03,
     USB_CLASS_MSC                      = 0x08,
+    USB_CLASS_HUB                      = 0x09,
     USB_CLASS_APP_SPEC                 = 0xfe,
     USB_CLASS_VENDOR_SPEC              = 0xff
 };
@@ -247,6 +262,12 @@ typedef enum
 
 
 /**
+ * Enable the platform USB, MUST be implemented by the platform
+ */
+extern void platform_usb_enable();
+
+
+/**
  * USB Driver init 
  */
 
@@ -290,4 +311,9 @@ void     usb_set_next_data_callback(uint8_t endp, usb_data_callback_t cb);
 void     usb_start_stage(uint8_t endp, bool in);
 void     usb_send_status(uint8_t endp, bool in);
 
-#endif
+/**
+ * @}
+ * @}
+ */
+
+#endif /* USB_H_ */

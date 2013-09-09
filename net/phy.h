@@ -17,48 +17,135 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * phy.h
+/**
+ * \file phy.h
  *
- *  Created on: Jul 11, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Jul 11, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef PHY_H_
 #define PHY_H_
 
+/**
+ * \addtogroup net
+ * @{
+ *
+ * \defgroup phy Physical Layer
+ * @{
+ *
+ * The PHY network layer provides a flexible API to control the underlying
+ * radio chip driver in a packet oriented way. This allows the most advanced
+ * features such as switching between the different operating modes (SLEEP, IDLE,
+ * RX, TX), configuring the output power or the radio channel, sending and
+ * receiving packets with precise frame timestamping.
+ *
+ * \note All time values are expressed in 32kHz ticks based on the \ref soft_timer time
+ * values.
+ *
+ * \see \ref example_phy_tx_rx.c for an example of using this library.
+ */
+
 #include <stdint.h>
 
+/**
+ * Abstract type defining a PHY implementation.
+ *
+ * This is used as the first argument of any API method call, allowing a platform
+ * to have several radio chip and independent PHY implementations.
+ */
 typedef void *phy_t;
 
+/**
+ * Enumeration of the possible return values. Most API methods return a phy_status_t
+ * value to indicate the success or any error encountered during its execution.
+ */
 typedef enum
 {
+    /** Operation was successful */
     PHY_SUCCESS = 0x0,
 
+    /** Requested operation was not permitted in current state */
     PHY_ERR_INVALID_STATE = 0x1,
+    /** Packet to send is too big */
     PHY_ERR_INVALID_LENGTH = 0x2,
-    PHY_ERR_ALREADY_TAKEN = 0x3,
-    PHY_ERR_TOO_LATE = 0x4,
+    /** RX was requested at a time already passed */
+    PHY_ERR_TOO_LATE = 0x3,
+    /** Internal error while communicating with the chip */
+    PHY_ERR_INTERNAL = 0x4,
 
-    PHY_RX_ERROR = 0x10,
+    /** Packet received had an invalid length */
     PHY_RX_LENGTH_ERROR = 0x11,
+    /** Packet received had an invalid CRC */
     PHY_RX_CRC_ERROR = 0x12,
+    /** No packet received before timeout */
     PHY_RX_TIMEOUT_ERROR = 0x13,
 } phy_status_t;
 
+/**
+ * Enumeration of possible output TX power values.
+ *
+ * \note Not all output power values are available on all underlying radio chips,
+ * therefore real configured output power will be approximated. See \ref phy_set_power
+ * for details.
+ */
 typedef enum
 {
     PHY_POWER_m30dBm,
+    PHY_POWER_m29dBm,
+    PHY_POWER_m28dBm,
+    PHY_POWER_m27dBm,
+    PHY_POWER_m26dBm,
+    PHY_POWER_m25dBm,
+    PHY_POWER_m24dBm,
+    PHY_POWER_m23dBm,
+    PHY_POWER_m22dBm,
+    PHY_POWER_m21dBm,
     PHY_POWER_m20dBm,
+    PHY_POWER_m19dBm,
+    PHY_POWER_m18dBm,
+    PHY_POWER_m17dBm,
+    PHY_POWER_m16dBm,
+    PHY_POWER_m15dBm,
+    PHY_POWER_m14dBm,
+    PHY_POWER_m13dBm,
+    PHY_POWER_m12dBm,
+    PHY_POWER_m11dBm,
     PHY_POWER_m10dBm,
+    PHY_POWER_m9dBm,
+    PHY_POWER_m8dBm,
+    PHY_POWER_m7dBm,
+    PHY_POWER_m6dBm,
     PHY_POWER_m5dBm,
+    PHY_POWER_m4dBm,
+    PHY_POWER_m3dBm,
+    PHY_POWER_m2dBm,
+    PHY_POWER_m1dBm,
     PHY_POWER_0dBm,
+    PHY_POWER_0_7dBm,
+    PHY_POWER_1dBm,
+    PHY_POWER_1_3dBm,
+    PHY_POWER_1_8dBm,
+    PHY_POWER_2dBm,
+    PHY_POWER_2_3dBm,
+    PHY_POWER_2_8dBm,
     PHY_POWER_3dBm,
+    PHY_POWER_4dBm,
     PHY_POWER_5dBm
 } phy_power_t;
 
+/**
+ * List of available radio channels.
+ *
+ * \note Not all channels are available on all radio chip. 868Mhz chips provide only
+ * channel #0, whereas 2.4GHz chips provide channels 11 to 26 included. See
+ * \ref phy_set_channel for details.
+ */
 typedef enum
 {
+    /** Channel 0 only for 868MHz chips */
+    PHY_MAP_CHANNEL_0 = (1 << 0),
+
     PHY_MAP_CHANNEL_11 = (1 << 11),
     PHY_MAP_CHANNEL_12 = (1 << 12),
     PHY_MAP_CHANNEL_13 = (1 << 13),
@@ -76,23 +163,39 @@ typedef enum
     PHY_MAP_CHANNEL_25 = (1 << 25),
     PHY_MAP_CHANNEL_26 = (1 << 26),
 
-    PHY_MAP_CHANNEL_ALL = 0x7FFF800
+    /** Map of all 868MHz-chip channels (i.e. only channel 0) */
+    PHY_MAP_CHANNEL_868_ALL = 0x00000001,
+
+    /** Map of all 2.5GHz-chip channels (i.e. from 11 to 26) */
+    PHY_MAP_CHANNEL_2400_ALL = 0x07FFF800
 } phy_map_channel_t;
 
+/**
+ * Handy constants.
+ */
 enum
 {
     PHY_MAX_TX_LENGTH = 125,
     PHY_MAX_RX_LENGTH = 127,
-    PHY_MIN_CHANNEL = 11,
-    PHY_MAX_CHANNEL = 26
-};
 
+    PHY_868_MIN_CHANNEL = 0,
+    PHY_868_MAX_CHANNEL = 0,
+
+    PHY_2400_MIN_CHANNEL = 11,
+    PHY_2400_MAX_CHANNEL = 26
+};
+/**
+ * Structure defining a PHY packet.
+ *
+ * This contains storage for the real frame, plus additional fields providing
+ * extra information about the received packet.
+ */
 typedef struct
 {
-    /** A pointer of the beginning of the data of interest in raw_data */
+    /** A pointer of the beginning of the data of interest in \ref raw_data */
     uint8_t *data;
 
-    /** The length of the data of interest, starting at data */
+    /** The length of the data of interest, starting at \ref data */
     uint8_t length;
 
     /** The buffer holding the maximum PHY packet size */
@@ -110,93 +213,155 @@ typedef struct
     /** The end of packet time, for both RX and TX */
     uint32_t eop_time;
 
-    /** Internal times for begin and end of RX */
+    /** Internal time values used for scheduled RX, see \ref phy_rx */
     uint32_t t_rx_start, t_rx_end;
-
 } phy_packet_t;
 
+/**
+ * Function pointer type used to notify the upper layer of the end of RX state.
+ *
+ * \param status the status of the RX.
+ */
 typedef void (*phy_handler_t)(phy_status_t status);
 
 /**
- * Reset the PHY layer, and the corresponding radio chip.
- * Set everything to sleep.
+ * Reset the PHY layer.
  *
- * \param phy the PHY to reset
+ * This method reset the underlying radio chip, and all states to SLEEP mode.
+ * It can be called from any state, ongoing RX or TX will be interrupted.
+ *
+ * \param phy the PHY
  */
 void phy_reset(phy_t phy);
 
 /**
  * Force the PHY layer in IDLE mode.
+ *
+ * This stops any ongoing RX or TX and put the underlying radio chip in IDLE mode.
+ * It can be called from any state.
+ *
  * \param phy the PHY
  */
 void phy_idle(phy_t phy);
 
 /**
- * Force the PHY layer in sleep mode.
+ * Force the PHY layer in SLEEP mode.
+ *
+ * This method stops any ongoing RX or TX and put the underlying radio chip in SLEEP mode.
+ * It can be called from any state.
+ *
  * \param phy the PHY
  */
 void phy_sleep(phy_t phy);
 
 /**
- * Select the radio channel to use for the next communications.
+ * Select the radio channel to use.
  *
- * \param phy the PHY.
- * \param channel the radio channel to use.
- * \return the status of the operation, SUCCESS if channel taken into account,
- * or ERR_INVALID_STATE if the radio was in TX or RX already.
+ * Depending on the type of the underlying radio chip, the available radio channels
+ * differ.
+ *
+ * \note This may only be called when in SLEEP or IDLE state.
+ * \note If the requested channel is not available, it will be rounded to the
+ * closest valid.
+ *
+ * \param phy the PHY
+ * \param channel the radio channel to use, valid values are 0 for 868MHz chips
+ * and 11-26 for 2.4GHz chips
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
 phy_status_t phy_set_channel(phy_t phy, uint8_t channel);
 
 /**
  * Set the TX power of the PHY.
  *
+ * \note Not all values are possible an all radio chips, therefore the closest value
+ * will be applied.
+ *
  * \param phy the PHY
- * \param power the TX power value to use.
- * \return the status of the operation, SUCCESS if channel taken into account,
- * or ERR_INVALID_STATE if the radio was in TX or RX already.
+ * \param power the TX power value to use
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
 phy_status_t phy_set_power(phy_t phy, phy_power_t power);
 
 /**
- * Perform a CCA measurement, and return the result.
+ * Perform a CCA measurement.
  *
- * The chip must be in Idle STATE to do this.
+ * This method enters RX for the minimum required time to get a CCA information
+ * and stores in a given pointer.
  *
- * \param phy the PHY;
- * \return 1 if the channel is clear, 0 if not.
+ * \note The PHY must be in SLEEP or IDLE state to perform a CCA.
+ *
+ * \param phy the PHY
+ * \param cca a pointer to get the CCA result, which will be set to 1 if channel
+ * is free, and 0 if channel is busy
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
-uint8_t phy_cca(phy_t phy);
+phy_status_t phy_cca(phy_t phy, int32_t *cca);
 
 /**
- * Set the radio chip in RX mode, listening for incoming packets, with a given
- * window.
+ * Perform a Energy Detection measurement.
  *
- * The radio will go in RX mode at start_time, and stop searching for a packet
- * at timeout_time. If a beginning of a packet is detected, the timeout is
+ * This method enters RX for the minimum required time to get an ED measurement
+ * and stores in a given pointer.
+ *
+ * \note The PHY must be in SLEEP or IDLE state to perform a ED measurement.
+ *
+ * \param phy the PHY
+ * \param ed a pointer to get the ED result, which will be set to the energy
+ *          value in dBm
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
+ */
+phy_status_t phy_ed(phy_t phy, int32_t *ed);
+
+/**
+ * Set the PHY in RX state, at a given time.
+ *
+ * This methods set the radio chip in RX mode, listening for incoming packets,
+ * with an optional time window for starting to listen and a stopping to listen
+ * if no packet was received.
+ *
+ * The radio will go in RX mode at \ref rx_time if not zero, and stop searching for a packet
+ * at \ref timeout_time if not zero. If a beginning of a packet is detected, the timeout is
  * removed.
  *
- * \param phy the PHY;
- * \param rx_time the time at which to start receiving;
+ * If \ref rx_time is zero, RX is entered right away. If \ref timout_time is zero,
+ * RX will end only on reception of a packet.
+ *
+ * \note The PHY must be in SLEEP or IDLE state to enter RX.
+ * \note At the end of RX, the PHY goes in IDLE state.
+ * \note The handler is posted with the \ref event, using the
+ *          \ref EVENT_QUEUE_NETWORK priority.
+ *
+ * \param phy the PHY
+ * \param rx_time the time at which to start receiving
  * \param timeout_time the time at which to stop receiving, if no packet
- * has been received;
- * \param pkt a pointer to the packet to send;
- * \param handler the handler to be called on operation success or failure
- * \return the status of the operation, SUCCESS if RX started,
- * or ERR_INVALID_STATE if state was not IDLE or SLEEP.
+ * has been received
+ * \param pkt a pointer to a \ref phy_packet_t structure to hold the received
+ * packet (if any) and associated timing information
+ * \param handler a handler function pointer to be called on end of RX, either
+ * if a packet was received or timeout elapsed
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
 phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
                     phy_packet_t *pkt, phy_handler_t handler);
 
 /**
- * Set the radio chip in RX mode, listening for incoming packets.
+ * Set the PHY in RX mode, without timeout.
  *
- * After receiving a valid packet, the radio chip will go in IDLE mode.
+ * Same as \ref phy_rx where RX starts as soon as possible without any timeout.
  *
  * \param phy the PHY;
- * \param pkt a pointer to the packet to send;
- * \param handler the handler to be called on operation success or failure;
- * \return the status of the operation, SUCCESS if RX started,
- * or ERR_INVALID_STATE if state was not IDLE or SLEEP.
+ * \param pkt a pointer to a \ref phy_packet_t structure to hold the received
+ * packet (if any) and associated timing information
+ * \param handler a handler function pointer to be called on end of RX, either
+ * if a packet was received or timeout elapsed
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
 static inline phy_status_t phy_rx_now(phy_t phy, phy_packet_t *pkt,
                                       phy_handler_t handler)
@@ -205,24 +370,36 @@ static inline phy_status_t phy_rx_now(phy_t phy, phy_packet_t *pkt,
 }
 
 /**
- * Send a frame at a given time.
+ * Send a packet at a given time.
+ *
+ * This methods set the radio chip in TX mode to send a packet. The \ref tx_time
+ * parameter, if not zero, is the time at which the transmission should start,
+ * of right away if zero.
+ *
+ * \note The PHY must be in SLEEP or IDLE state to start sending.
+ * \note At the end of TX, the PHY goes in IDLE state.
+ * \note The handler is posted with the \ref event, using the
+ *          \ref EVENT_QUEUE_NETWORK priority.
  *
  * \param phy the PHY;
- * \param start_time the time at which to start the transmission;
- * \param pkt a pointer to packet to send;
- * \param handler the function to call on TX end;
- * \return the status of the operation, SUCCESS if RX started,
- * or ERR_INVALID_STATE if state was not IDLE or SLEEP.
+ * \param tx_time the desired time of the start of TX
+ * \param pkt a pointer to packet to send
+ * \param handler the handler function pointer to call on TX end
+ * \return the status of the operation, \ref PHY_SUCCESS on success,
+ * or \ref PHY_ERR_INVALID_STATE if the radio was an invalid state
  */
 phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
                     phy_handler_t handler);
 
 /**
- * Send a frame as soon as possible.
+ * Send a packet now.
  *
- * \param phy the PHY;
- * \param pkt a pointer to packet to send;
- * \param handler the function to call on TX end;
+ * Same as \ref phy_tx but sends the packet as soon as possible instead of waiting
+ * for a precise date.
+ *
+ * \param phy the PHY
+ * \param pkt a pointer to packet to send
+ * \param handler the function to call on TX end
  * \return the status of the operation, SUCCESS if RX started,
  * or ERR_INVALID_STATE if state was not IDLE or SLEEP.
  */
@@ -231,5 +408,20 @@ static inline phy_status_t phy_tx_now(phy_t phy, phy_packet_t *pkt,
 {
     return phy_tx(phy, 0, pkt, handler);
 }
+
+/**
+ * Prepare a PHY packet, should be used before filling its data field.
+ *
+ * \param pkt the packet to prepare
+ */
+static inline void phy_prepare_packet(phy_packet_t *pkt)
+{
+    pkt->data = pkt->raw_data;
+}
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* PHY_H_ */

@@ -17,15 +17,29 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
+/**
  * watchdog.h
  *
- *  Created on: Nov 25, 2011
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Nov 25, 2011
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef WATCHDOG_H_
 #define WATCHDOG_H_
+
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup Watchdoog Watchdog Timer
+ *
+ * This hardware watchdog timer executes a hardware reset if not cleared for a given period.
+ * This allows do reset the system in case of a software lock.
+ *
+ *@{
+ */
 
 #include <stdint.h>
 
@@ -55,5 +69,10 @@ void watchdog_enable(watchdog_divider_t div, uint16_t reload);
  * Clear the watchdog.
  */
 void watchdog_clear();
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* WATCHDOG_H_ */

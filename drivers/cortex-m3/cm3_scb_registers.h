@@ -61,6 +61,11 @@ static inline volatile uint32_t *cm3_scb_get_MMFAR()
 {
     return mem_get_reg32(CM3_SCB_BASE_ADDRESS + CM3_SCB_MMFAR_OFFSET);
 }
+static inline volatile uint32_t *cm3_scb_get_CPACR()
+{
+    return mem_get_reg32(CM3_SCB_BASE_ADDRESS + CM3_SCB_CPACR_OFFSET);
+}
+
 
 enum
 {

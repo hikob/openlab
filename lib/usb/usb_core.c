@@ -45,6 +45,7 @@ void usb_init(const usb_profile_t *profile)
     usb_driver_init( profile );
 
     usb_msc_init();
+    usb_dfu_init();
 
     platform_usb_enable();
 }

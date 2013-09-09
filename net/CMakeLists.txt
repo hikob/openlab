@@ -21,3 +21,8 @@
 # Add the Phy directory
 add_subdirectory(phy_rf2xx)
 
+# Add the lwIP directory
+add_subdirectory(lwip)
+
+# Add the MAC-CSMA directory
+add_subdirectory(mac_csma)

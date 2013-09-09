@@ -33,7 +33,9 @@
 #include "task.h"
 
 #include "event.h"
+#include "event_priorities.h"
 #include "printf.h"
+#include "debug.h"
 
 #include "soft_timer.h"
 
@@ -41,81 +43,69 @@
 #define EVENT_QUEUE_LENGTH 12
 #endif
 
-#ifndef TRACE_EVENT
-#define TRACE_EVENT 0
-#endif // TRACE_EVENT
-#define TRACE_LENGTH 16
-
 // typedef
 typedef struct
 {
     handler_t event;
     handler_arg_t event_arg;
-#if TRACE_EVENT
-    uint32_t t_in, t_out;
-#endif
 } queue_entry_t;
 
-#if TRACE_EVENT
-typedef struct
-{
-    uint32_t queue;
-    handler_t event;
-    handler_arg_t arg;
-    uint32_t t_in, t_out;
-} trace_entry_t;
-static trace_entry_t trace[TRACE_LENGTH];
-static uint32_t trace_next = 0;
-#endif
 
 // prototypes
 static void event_task(void *param);
 
 // data
-static xTaskHandle tasks[2];
-static xQueueHandle queues[2];
+static xTaskHandle tasks[2] = {NULL, NULL};
+static xQueueHandle queues[2] = {NULL, NULL};
 static queue_entry_t current_entries[2];
 
 void event_init(void)
 {
-    // Create the 1st Queue
-    queues[0] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
-
     if (queues[0] == NULL)
     {
-        log_error("Failed to create the event queue #0!");
-        HALT();
+        // Create the 1st Queue
+        queues[0] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
+
+        if (queues[0] == NULL)
+        {
+            log_error("Failed to create the event queue #0!");
+            HALT();
+        }
+
+        // Create the 1st task, plate its number in the param variable
+        xTaskCreate(event_task, (const signed char *) "evt0",
+                    configMINIMAL_STACK_SIZE, (void *) 0,
+                    event_priorities[0], tasks);
+        log_info("Priority of event task #0: %u/%u", event_priorities[0], configMAX_PRIORITIES - 1);
+
+        if (tasks[0] == NULL)
+        {
+            log_error("Failed to create the event task #0!");
+            HALT();
+        }
     }
-
-    // Create the 1st task, plate its number in the param variable
-    xTaskCreate(event_task, (const signed char *) "evt0",
-                configMINIMAL_STACK_SIZE, (void *) 0,
-                configMAX_PRIORITIES - 2, tasks);
-
-    if (tasks[0] == NULL)
-    {
-        log_error("Failed to create the event task #0!");
-        HALT();
-    }
-
-    // Create the 2nd Queue
-    queues[1] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
-
     if (queues[1] == NULL)
     {
-        log_error("Failed to create the event queue #1!");
-        HALT();
-    }
+        // Create the 2nd Queue
+        queues[1] = xQueueCreate(EVENT_QUEUE_LENGTH, sizeof(queue_entry_t));
 
-    // Create the 2nd task, plate its number in the param variable
-    xTaskCreate(event_task, (const signed char *) "evt1",
-                configMINIMAL_STACK_SIZE, (void *) 1,
-                configMAX_PRIORITIES - 1, tasks + 1);
+        if (queues[1] == NULL)
+        {
+            log_error("Failed to create the event queue #1!");
+            HALT();
+        }
 
-    if (tasks[1] == NULL)
-    {
-        log_error("Failed to create the event task #1!");
-        HALT();
+        // Create the 2nd task, plate its number in the param variable
+        xTaskCreate(event_task, (const signed char *) "evt1",
+                    configMINIMAL_STACK_SIZE, (void *) 1,
+                    event_priorities[1], tasks + 1);
+        log_info("Priority of event task #1: %u/%u", event_priorities[1], configMAX_PRIORITIES - 1);
+
+        if (tasks[1] == NULL)
+        {
+            log_error("Failed to create the event task #1!");
+            HALT();
+        }
     }
 }
 
@@ -190,23 +180,7 @@ static void event_task(void *param)
         if (xQueueReceive(queue, entry, portMAX_DELAY) == pdTRUE)
         {
             // Call the event
-#if TRACE_EVENT
-            entry->t_in = soft_timer_time();
-#endif // TRACE_EVENT
             entry->event(entry->event_arg);
-#if TRACE_EVENT
-            entry->t_out = soft_timer_time();
-
-            asm volatile("cpsid i");
-            trace[trace_next].queue = num;
-            trace[trace_next].event = entry->event;
-            trace[trace_next].arg = entry->event_arg;
-            trace[trace_next].t_in = entry->t_in;
-            trace[trace_next].t_out = entry->t_out;
-
-            trace_next = (trace_next + 1) % TRACE_LENGTH;
-            asm volatile("cpsie i");
-#endif // TRACE_EVENT
         }
         else
         {
@@ -218,38 +192,21 @@ static void event_task(void *param)
 
 void event_debug()
 {
+#if RELEASE == 0
     uint32_t i;
     log_printf("Debugging Queues...\n");
 
     for (i = EVENT_QUEUE_APPLI; i <= EVENT_QUEUE_NETWORK; i++)
     {
-        log_printf("\tQueue #%u Current event:  %x", i,
-                   current_entries[i].event);
-
-        if (current_entries[i].event)
+        log_printf("Queue #%u Current event:  %08x (%08x)", i,
+                current_entries[i].event, current_entries[i].event_arg);
+        int count = uxQueueMessagesWaiting(queues[i]);
+        log_printf(", %u waiting:\n", count);
+        queue_entry_t e;
+        while ((xQueueReceive(queues[i], &e, 0) == pdTRUE))
         {
-            log_printf("(arg: %x", current_entries[i].event_arg);
-#if TRACE_EVENT
-            log_printf(", t_in: %u", current_entries[i].t_in);
-#endif // TRACE_EVENT
-            log_printf(")");
+            log_printf("\tevt: %08x (%08x)\n", e.event, e.event_arg);
         }
-
-        log_printf(", %u waiting\n", uxQueueMessagesWaiting(queues[i]));
     }
-
-#if TRACE_EVENT
-    log_printf("Event Backtrace:\n");
-    log_printf("ID\tQueue\tEvent\t\tArg\t\tT_in\tT_out\tDuration\n");
-
-    for (i = 1; i <= TRACE_LENGTH; i++)
-    {
-        trace_entry_t *entry = trace + ((trace_next + TRACE_LENGTH - i)
-                                        % TRACE_LENGTH);
-        log_printf("-%u\t%u\t%8x\t%8x\t%5u\t%5u\t%u\n", i, entry->queue,
-                   entry->event, entry->arg, entry->t_in, entry->t_out,
-                   entry->t_out - entry->t_in);
-    }
-
-#endif // TRACE_EVENT
+#endif
 }

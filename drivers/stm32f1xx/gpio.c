@@ -32,7 +32,7 @@
 
 void gpio_enable(gpio_t gpio)
 {
-    _gpio_t *_gpio = gpio;
+    const _gpio_t *_gpio = gpio;
 
     // Set the GPIOx_EN bit in the APB2 clock enable register
     rcc_apb_enable(RCC_APB2, _gpio->apb2_bit);
@@ -40,7 +40,7 @@ void gpio_enable(gpio_t gpio)
 
 void gpio_disable(gpio_t gpio)
 {
-    _gpio_t *_gpio = gpio;
+    const _gpio_t *_gpio = gpio;
 
     // Clear the GPIOx_EN bit in the APB2 clock enable register
     rcc_apb_disable(RCC_APB2, _gpio->apb2_bit);
@@ -82,7 +82,7 @@ void gpio_set_analog(gpio_t gpio, gpio_pin_t pin)
     gpio_set_mode(gpio, pin, 0x0);
 }
 
-void gpio_set_alternate_function(_gpio_t *_gpio, gpio_pin_t pin)
+void gpio_set_alternate_function(const _gpio_t *_gpio, gpio_pin_t pin)
 {
     uint32_t res;
 
@@ -233,5 +233,11 @@ void gpio_set_i2c_scl(gpio_t gpio, gpio_pin_t pin)
 {
     gpio_set_output(gpio, pin);
     gpio_config_output_type(gpio, pin, GPIO_TYPE_OPEN_DRAIN);
+    gpio_set_alternate_function(gpio, pin);
+}
+void gpio_set_timer_output(gpio_t gpio, gpio_pin_t pin, uint32_t alternate)
+{
+    gpio_set_output(gpio, pin);
+    gpio_config_output_type(gpio, pin, GPIO_TYPE_PUSH_PULL);
     gpio_set_alternate_function(gpio, pin);
 }

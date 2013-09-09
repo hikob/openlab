@@ -29,27 +29,27 @@
 
 #include "gpio_.h"
 
-static inline volatile uint32_t *gpio_get_CRL(_gpio_t *_gpio)
+static inline volatile uint32_t *gpio_get_CRL(const _gpio_t *_gpio)
 {
     return mem_get_reg32(_gpio->base_address + GPIOx_CRL_OFFSET);
 }
 
-static inline volatile uint32_t *gpio_get_CRH(_gpio_t *_gpio)
+static inline volatile uint32_t *gpio_get_CRH(const _gpio_t *_gpio)
 {
     return mem_get_reg32(_gpio->base_address + GPIOx_CRH_OFFSET);
 }
 
-static inline volatile uint32_t *gpio_get_IDR(_gpio_t *_gpio)
+static inline volatile uint32_t *gpio_get_IDR(const _gpio_t *_gpio)
 {
     return mem_get_reg32(_gpio->base_address + GPIOx_IDR_OFFSET);
 }
 
-static inline volatile uint32_t *gpio_get_ODR(_gpio_t *_gpio)
+static inline volatile uint32_t *gpio_get_ODR(const _gpio_t *_gpio)
 {
     return mem_get_reg32(_gpio->base_address + GPIOx_ODR_OFFSET);
 }
 
-static inline volatile uint32_t *gpio_get_BSRR(_gpio_t *_gpio)
+static inline volatile uint32_t *gpio_get_BSRR(const _gpio_t *_gpio)
 {
     return mem_get_reg32(_gpio->base_address + GPIOx_BSRR_OFFSET);
 }

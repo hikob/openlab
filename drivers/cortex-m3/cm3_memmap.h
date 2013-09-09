@@ -88,5 +88,13 @@ static inline volatile uint8_t *mem_get_reg8(uint32_t addr)
 #define CM3_SCB_MMFAR_OFFSET        0x34
 #define CM3_SCB_BFAR_OFFSET         0x38
 
+#define CM3_SCB_CPACR_OFFSET        0x88
+
+static inline volatile uint32_t* mem_get_bitband(uint32_t reg_addr, uint32_t reg_bit)
+{
+#define BITBAND_PERI_REF 0x40000000
+#define BITBAND_PERI_BASE 0x42000000
+    return mem_get_reg32(BITBAND_PERI_BASE + (reg_addr - BITBAND_PERI_REF) * 32 + reg_bit * 4);
+}
 
 #endif /* CM3_MEMMAP_H_ */

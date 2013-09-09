@@ -27,6 +27,7 @@
 #include "platform.h"
 #include "agilefox.h"
 
+#include "watchdog.h"
 #include "rcc.h"
 #include "flash.h"
 #include "uart_.h"
@@ -34,12 +35,26 @@
 #include "random.h"
 #include "soft_timer.h"
 
+#include "rtc.h"
+
 #include "printf.h"
 
-platform_reset_cause_t platform_reset_cause;
+__attribute__((weak)) int32_t platform_should_start_watchdog();
+
+__attribute__((__weak__))
+void platform_daughter_setup()
+{
+    ;
+}
 
 void platform_init()
 {
+    // Enable watchdog if requested
+    if (platform_should_start_watchdog && platform_should_start_watchdog())
+    {
+        watchdog_enable(WATCHDOG_DIVIDER_256, 0xFFF);
+    }
+
     // Store the reset cause
     platform_reset_cause = rcc_get_reset_cause();
     rcc_clear_reset_cause();
@@ -57,10 +72,6 @@ void platform_init()
     rcc_sysclk_select_source(RCC_SYSCLK_SOURCE_PLL);
     rcc_hsi_disable();
 
-    // enable the LSE
-    // TODO: see if LSE is always enabled on STM32F...
-    //rcc_lse_enable();
-
     // Setup the drivers
     platform_drivers_setup();
 
@@ -70,39 +81,21 @@ void platform_init()
     // Setup the button
     platform_button_setup();
 
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
-
     // Setup the libraries
     platform_lib_setup();
 
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
-
     // Setup the peripherals
     platform_periph_setup();
-
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
-    // Setup the net stack
-    platform_net_setup();
-
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
 
     // Restart all timers
     platform_drivers_restart_timers();
 
     // Feed the random number generator
     random_init(uid->uid32[2]);
+
+    // enable the LSE and RTC
+    rcc_lse_enable();
+    rtc_enable();
 
     printf("\n\nPlatform starting in ");
     uint32_t i;
@@ -120,17 +113,40 @@ void platform_init()
 #else
     printf("\nGO!\n");
 #endif
-
-    // Enable the interrupts
-    asm("cpsie i\n"
-        "mov r0, #0\n"
-        "msr basepri, r0\n");
 }
 
-void platform_prevent_low_power() {}
-void platform_release_low_power() {}
-
-void xputc(char c)
+struct
 {
-    uart_transfer(uart_print, (uint8_t *) &c, 1);
+    platform_idle_handler_t handler;
+    handler_arg_t arg;
+} platform_idle_data =
+{ NULL, NULL };
+
+void platform_set_idle_handler(
+        platform_idle_handler_t handler, handler_arg_t arg)
+{
+    platform_idle_data.handler = handler;
+    platform_idle_data.arg = arg;
+}
+
+void vApplicationIdleHook(xTaskHandle *pxTask, signed portCHAR *pcTaskName)
+{
+    // Mask interrupts
+    asm volatile("cpsid i");
+
+    // Set SLEEP mode if there are underground activities
+    asm volatile("wfi");
+
+    // Unmask interrupts
+    asm volatile("cpsie i");
+
+    // Call handler if any
+    if (platform_idle_data.handler)
+    {
+        if (platform_idle_data.handler(platform_idle_data.arg))
+        {
+            // Do not halt the CPU
+            return;
+        }
+    }
 }

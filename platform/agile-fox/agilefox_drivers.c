@@ -39,43 +39,20 @@
 #include "i2c_.h"
 #include "sdio_.h"
 #include "dma_.h"
-#include "usb_.h"
-
-#include "printf.h"
-
-/* GPIO instantiations */
-_gpio_t _gpioA, _gpioB, _gpioC, _gpioD, _gpioE, _gpioF, _gpioG;
-
-_timer_t _tim2, _tim3, _tim4, _tim6, _tim7;
-
-/* Timer channels instantiation */
-static timer_handler_t tim2_handlers[4], tim3_handlers[4], tim4_handlers[4];
-static handler_arg_t tim2_args[4], tim3_args[4], tim4_args[4];
+#include "adc_.h"
 
 /* UART instantiation */
-_uart_t _uart2;
-/* UART declaration */
-uart_t uart_print = &_uart2;
-
-/* SPI instantiation */
-_spi_t _spi2;
-
-/* I2C instantiation */
-_i2c_t _i2c1;
+uart_t uart_print = UART_2;
 
 /* SDIO instantiation */
 _sdio_t _sdio;
 /* SDIO declaration */
 sdio_t sdio = &_sdio;
 
-/* DMA instantiation */
-static _dma_t _dma1_ch4, _dma1_ch5;
-static _dma_t _dma2_ch4;
-
 void platform_drivers_setup()
 {
     gpio_t sdio_gpio[6] =
-    { gpioC, gpioC, gpioC, gpioC, gpioC, gpioD };
+    { GPIO_C, GPIO_C, GPIO_C, GPIO_C, GPIO_C, GPIO_D };
     gpio_pin_t
     sdio_pin[6] =
     {
@@ -84,97 +61,65 @@ void platform_drivers_setup()
     };
 
     // Set base address and AHB bit for all GPIO ports
-    gpio_init(gpioA, GPIO_BASE_ADDRESS + GPIOA_OFFSET, RCC_APB_BIT_GPIOA);
-    gpio_init(gpioB, GPIO_BASE_ADDRESS + GPIOB_OFFSET, RCC_APB_BIT_GPIOB);
-    gpio_init(gpioC, GPIO_BASE_ADDRESS + GPIOC_OFFSET, RCC_APB_BIT_GPIOC);
-    gpio_init(gpioD, GPIO_BASE_ADDRESS + GPIOD_OFFSET, RCC_APB_BIT_GPIOD);
-    gpio_init(gpioE, GPIO_BASE_ADDRESS + GPIOE_OFFSET, RCC_APB_BIT_GPIOE);
-    gpio_init(gpioF, GPIO_BASE_ADDRESS + GPIOF_OFFSET, RCC_APB_BIT_GPIOF);
-    gpio_init(gpioG, GPIO_BASE_ADDRESS + GPIOG_OFFSET, RCC_APB_BIT_GPIOG);
-    gpio_enable(gpioA);
-    gpio_enable(gpioB);
-    gpio_enable(gpioC);
-    gpio_enable(gpioD);
-    gpio_enable(gpioE);
-    gpio_enable(gpioF);
-    gpio_enable(gpioG);
-
+    gpio_enable(GPIO_A);
+    gpio_enable(GPIO_B);
+    gpio_enable(GPIO_C);
+    gpio_enable(GPIO_D);
+    gpio_enable(GPIO_E);
+    gpio_enable(GPIO_F);
+    gpio_enable(GPIO_G);
 
     // Enable the AFIO
     rcc_apb_enable(RCC_APB2, RCC_APB_BIT_AFIO);
 
-    // Configure the General Purpose Timers
-    timer_init_general(tim2, TIM2_BASE_ADDRESS, RCC_APB_BUS_TIM2,
-                       RCC_APB_BIT_TIM2, NVIC_IRQ_LINE_TIM2, tim2_handlers, tim2_args);
-    timer_init_general(tim3, TIM3_BASE_ADDRESS, RCC_APB_BUS_TIM3,
-                       RCC_APB_BIT_TIM3, NVIC_IRQ_LINE_TIM3, tim3_handlers, tim3_args);
-    timer_init_general(tim4, TIM4_BASE_ADDRESS, RCC_APB_BUS_TIM4,
-                       RCC_APB_BIT_TIM4, NVIC_IRQ_LINE_TIM4, tim4_handlers, tim4_args);
-
-    // Configure the Basic Timers
-    timer_init_basic(tim6, TIM6_BASE_ADDRESS, RCC_APB_BUS_TIM6,
-                     RCC_APB_BIT_TIM6, NVIC_IRQ_LINE_TIM6);
-
-    timer_init_basic(tim7, TIM7_BASE_ADDRESS, RCC_APB_BUS_TIM7,
-                     RCC_APB_BIT_TIM7, NVIC_IRQ_LINE_TIM7);
-
     // Start the TIM3 at ~32kHz
-    timer_enable(tim3);
-    timer_select_internal_clock(tim3, (rcc_sysclk_get_clock_frequency(
+    timer_enable(TIM_3);
+    timer_select_internal_clock(TIM_3, (rcc_sysclk_get_clock_frequency(
                                            RCC_SYSCLK_CLOCK_PCLK1_TIM) / 32768) - 1);
-    timer_start(tim3, 0xFFFF, NULL, NULL);
-
-    // Configure the UART
-    uart_init(uart_print, USART2_BASE_ADDRESS, RCC_APB_BUS_USART2,
-              RCC_APB_BIT_USART2, NVIC_IRQ_LINE_USART2, gpioA, GPIO_PIN_3, // RX pin
-              GPIO_PIN_2, // TX pin
-              NULL // no DMA yet
-             );
+    timer_start(TIM_3, 0xFFFF, NULL, NULL);
 
     // Enable the print uart
+    gpio_set_uart_tx(GPIO_A, GPIO_PIN_2);
+    gpio_set_uart_rx(GPIO_A, GPIO_PIN_3);
     uart_enable(uart_print, 500000);
 
-    // Configure DMA1 Channel 4 (SPI2 RX)
-    dma_init(&_dma1_ch4, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_4,
-             NVIC_IRQ_LINE_DMA1_CH4);
-    // Configure DMA1 Channel 5 (SPI2 TX)
-    dma_init(&_dma1_ch5, DMA1_BASE_ADDRESS, RCC_AHB_BIT_DMA1, DMA_CHANNEL_5,
-             NVIC_IRQ_LINE_DMA1_CH5);
-    dma_enable(&_dma1_ch4);
-    dma_enable(&_dma1_ch5);
+    // Configure DMA1 Channel 4 (SPI2 RX) and DMA1 Channel 5 (SPI2 TX)
+    dma_enable(DMA_1_CH4);
+    dma_enable(DMA_1_CH5);
 
     // Configure the SPI 2 with DMA
-    spi_init(spi2, SPI2_BASE_ADDRESS, RCC_APB_BUS_SPI2, RCC_APB_BIT_SPI2,
-             NVIC_IRQ_LINE_SPI2, gpioB, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14,
-             &_dma1_ch4, &_dma1_ch5);
-    spi_enable(spi2, 4000000, SPI_CLOCK_MODE_IDLE_LOW_RISING);
+    gpio_set_spi_clk(GPIO_B, GPIO_PIN_13);
+    gpio_set_spi_miso(GPIO_B, GPIO_PIN_14);
+    gpio_set_spi_mosi(GPIO_B, GPIO_PIN_15);
+    spi_set_dma(SPI_2, DMA_1_CH4, DMA_1_CH5);
+    spi_enable(SPI_2, 4000000, SPI_CLOCK_MODE_IDLE_LOW_RISING);
 
     // Configure the I2C 1
-    i2c_init(i2c1, I2C1_BASE_ADDRESS, RCC_APB_BUS_I2C1, RCC_APB_BIT_I2C1,
-             NVIC_IRQ_LINE_I2C1_EV, NVIC_IRQ_LINE_I2C1_ER, gpioB, GPIO_PIN_6,
-             GPIO_PIN_7);
-    i2c_enable(i2c1, I2C_CLOCK_MODE_STANDARD);
+    gpio_set_i2c_scl(GPIO_B, GPIO_PIN_6);
+    gpio_set_i2c_sda(GPIO_B, GPIO_PIN_7);
+    i2c_enable(I2C_1, I2C_CLOCK_MODE_FAST);
 
     // Configure DMA2 Channel 4 (for SDIO)
-    dma_init(&_dma2_ch4, DMA2_BASE_ADDRESS, RCC_AHB_BIT_DMA2, DMA_CHANNEL_4,
-             NVIC_IRQ_LINE_DMA2_CH4_5);
+    dma_enable(DMA_2_CH4);
 
     // Configure SDIO
-    sdio_init(sdio, sdio_gpio, sdio_pin, gpioC, GPIO_PIN_6, &_dma2_ch4);
+    sdio_init(sdio, sdio_gpio, sdio_pin, GPIO_C, GPIO_PIN_6, DMA_2_CH4);
 
-    // Enable SD card TODO: place it in enhanced driver
-    gpio_set_output(gpioB, GPIO_PIN_2);
-    gpio_pin_clear(gpioB, GPIO_PIN_2);
+    /** Enable SD card
+     * \todo place it in enhanced driver
+     */
+    gpio_set_output(GPIO_B, GPIO_PIN_2);
+    gpio_pin_clear(GPIO_B, GPIO_PIN_2);
 }
 void platform_drivers_restart_timers()
 {
-    timer_restart(tim3);
+    timer_restart(TIM_3);
 }
 void platform_disable_uart()
 {
     // Set pins analog and disable the print UART
-    gpio_set_analog(gpioA, GPIO_PIN_2);
-    gpio_set_analog(gpioA, GPIO_PIN_3);
+    gpio_set_analog(GPIO_A, GPIO_PIN_2);
+    gpio_set_analog(GPIO_A, GPIO_PIN_3);
     uart_disable(uart_print);
 
 }
@@ -188,62 +133,62 @@ void platform_start_freertos_tick(uint16_t frequency, handler_t handler,
 /* ISR handlers */
 void tim2_isr()
 {
-    timer_handle_interrupt(tim2);
+    timer_handle_interrupt(TIM_2);
 }
 
 void tim3_isr()
 {
-    timer_handle_interrupt(tim3);
+    timer_handle_interrupt(TIM_3);
 }
 
 void tim4_isr()
 {
-    timer_handle_interrupt(tim4);
+    timer_handle_interrupt(TIM_4);
 }
 
 void tim6_isr()
 {
-    timer_handle_interrupt(tim6);
+    timer_handle_interrupt(TIM_6);
 }
 
 void tim7_isr()
 {
-    timer_handle_interrupt(tim7);
+    timer_handle_interrupt(TIM_7);
 }
 
 void usart2_isr()
 {
-    uart_handle_interrupt(uart_print);
+    uart_handle_interrupt(UART_2);
 }
 
 void spi2_isr()
 {
-    spi_handle_interrupt(spi2);
+    spi_handle_interrupt(SPI_2);
 }
 
 void i2c1_ev_isr()
 {
-    i2c_handle_ev_interrupt(i2c1);
+    i2c_handle_ev_interrupt(I2C_1);
 }
 
 void i2c1_er_isr()
 {
-    i2c_handle_er_interrupt(i2c1);
+    i2c_handle_er_interrupt(I2C_1);
 }
 
 void dma1_channel4_isr()
 {
-    dma_handle_interrupt(&_dma1_ch4);
+    dma_handle_interrupt(DMA_1_CH4);
 }
 
 void dma1_channel5_isr()
 {
-    dma_handle_interrupt(&_dma1_ch5);
+    dma_handle_interrupt(DMA_1_CH5);
 }
 
 void dma2_ch4_5_isr()
 {
-    dma_handle_interrupt(&_dma2_ch4);
+    dma_handle_interrupt(DMA_2_CH4);
 }
 
 void sdio_isr()
@@ -251,7 +196,7 @@ void sdio_isr()
     sdio_handle_interrupt(sdio);
 }
 
-void usb_lp_can1_rx0_isr()
+void adc1_2_isr()
 {
-    usb_handle_interrupt();
+    adc_handle_interrupt(ADC_1);
 }

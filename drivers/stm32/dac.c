@@ -38,11 +38,11 @@ void dac_enable(dac_channel_t channel)
     {
         case DAC_CHANNEL_1:
             *dac_get_CR() &= ~0x0000FFFF;
-            *dac_get_CR() |= DAC_CR__BOFF1 | DAC_CR__EN1;
+            *dac_get_CR() |= DAC_CR__EN1;
             break;
         case DAC_CHANNEL_2:
             *dac_get_CR() &= ~0xFFFF0000;
-            *dac_get_CR() |= DAC_CR__BOFF2 | DAC_CR__EN2;
+            *dac_get_CR() |= DAC_CR__EN2;
             break;
     }
 }

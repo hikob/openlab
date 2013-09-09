@@ -18,22 +18,38 @@
  */
 
 /**
- * i2c.h
+ * \file i2c.h
  *
- *  Created on: Aug 3, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
- *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
+ * \date Aug 3, 2011
+ * \author Christophe Braillon <christophe.braillon.at.hikob.com>
+ * \author Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
 #ifndef I2C_H_
 #define I2C_H_
 
+/**
+ * \addtogroup drivers
+ * @{
+ */
+
+/**
+ * \defgroup I2C I2C bus master driver
+ *
+ * This driver provides all methods required to transfer data with slaves over
+ * a I2C bus.
+ *
+ *@{
+ */
+
 #include <stdint.h>
+
+#include "handler.h"
 
 /**
  * Abstract representation of a I2C driver.
  */
-typedef void *i2c_t;
+typedef const void *i2c_t;
 
 typedef enum
 {
@@ -64,7 +80,75 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode);
 void i2c_disable(i2c_t i2c);
 
 /**
+ * Send then receive a given amount of bytes with an I2C driver.
+ * Non-blocking call if the given handler is non-NULL.
+ * It is then called when the transfer is completed.
+ *
+ * Note: the handler is called from interrupt context.
+ *
+ * \param i2c the I2C driver to use;
+ * \param addr the I2C slave address;
+ * \param tx_buffer a pointer to the buffer to send;
+ * \param tx_length the number of bytes to transmit;
+ * \param rx_buffer a pointer to the buffer to store the received bytes;
+ * \param rx_length the number of bytes to receive;
+ * \param handler the handler called when transfer completes;
+ * \param arg an argument to be given to the handler.
+ * \return >0 if an error occurred.
+ */
+unsigned i2c_tx_rx_async(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
+        uint16_t tx_length, uint8_t *rx_buffer, uint16_t rx_length,
+        result_handler_t handler, handler_arg_t arg);
+
+/**
  * Send a given amount of bytes with an I2C driver.
+ * Non-blocking call if the given handler is non-NULL.
+ * It is then called when the transfer is completed.
+ *
+ * Note: the handler is called from interrupt context.
+ *
+ * \param i2c the I2C driver to use;
+ * \param addr the I2C slave address;
+ * \param tx_buffer a pointer to the buffer to send;
+ * \param tx_length the number of bytes to transmit;
+ * \param handler the handler called when transfer completes;
+ * \param arg an argument to be given to the handler.
+ * \return >0 if an error occurred.
+ */
+static inline unsigned i2c_tx_async(i2c_t i2c, uint8_t addr,
+        const uint8_t *tx_buffer, uint16_t length,
+        result_handler_t handler, handler_arg_t arg)
+{
+    return i2c_tx_rx_async(i2c, addr, tx_buffer, length,
+            NULL, 0, handler, arg);
+}
+
+/**
+ * Receive a given amount of bytes with an I2C driver.
+ * Non-blocking call if the given handler is non-NULL.
+ * It is then called when the transfer is completed.
+ *
+ * Note: the handler is called from interrupt context.
+ *
+ * \param i2c the I2C driver to use;
+ * \param addr the I2C slave address;
+ * \param rx_buffer a pointer to the buffer to store the received bytes;
+ * \param rx_length the number of bytes to receive;
+ * \param handler the handler called when transfer completes;
+ * \param arg an argument to be given to the handler.
+ * \return >0 if an error occurred.
+ */
+static inline unsigned i2c_rx_async(i2c_t i2c, uint8_t addr,
+        uint8_t *rx_buffer, uint16_t length,
+        result_handler_t handler, handler_arg_t arg)
+{
+    return i2c_tx_rx_async(i2c, addr, NULL, 0,
+            rx_buffer, length, handler, arg);
+}
+
+/**
+ * Send a given amount of bytes with an I2C driver.
+ * Blocking call.
  *
  * \param i2c the I2C driver to use;
  * \param addr the I2C slave address;
@@ -72,10 +156,16 @@ void i2c_disable(i2c_t i2c);
  * \param length the number of bytes to transmit;
  * \return 0 if the transfer succeeded, >0 if an error occurred.
  */
-uint32_t i2c_tx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer, uint16_t length);
+static inline unsigned i2c_tx(i2c_t i2c, uint8_t addr,
+        const uint8_t *tx_buffer, uint16_t length)
+{
+    return i2c_tx_rx_async(i2c, addr, tx_buffer, length,
+            NULL, 0, NULL, NULL);
+}
 
 /**
  * Receive a given amount of bytes with an I2C driver.
+ * Blocking call.
  *
  * \param i2c the I2C driver to use;
  * \param addr the I2C slave address;
@@ -83,10 +173,16 @@ uint32_t i2c_tx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer, uint16_t leng
  * \param length the number of bytes to transmit;
  * \return 0 if the transfer succeeded, >0 if an error occurred.
  */
-uint32_t i2c_rx(i2c_t i2c, uint8_t addr, uint8_t *rx_buffer, uint16_t length);
+static inline unsigned i2c_rx(i2c_t i2c, uint8_t addr,
+        uint8_t *rx_buffer, uint16_t length)
+{
+    return i2c_tx_rx_async(i2c, addr, NULL, 0,
+            rx_buffer, length, NULL, NULL);
+}
 
 /**
  * Send then receive a given amount of bytes with an I2C driver.
+ * Blocking call.
  *
  * \param i2c the I2C driver to use;
  * \param addr the I2C slave address;
@@ -96,7 +192,17 @@ uint32_t i2c_rx(i2c_t i2c, uint8_t addr, uint8_t *rx_buffer, uint16_t length);
  * \param rx_length the number of bytes to receive.
  * \return 0 if the transfer succeeded, >0 if an error occurred.
  */
-uint32_t i2c_tx_rx(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
-                   uint16_t tx_length, uint8_t *rx_buffer, uint16_t rx_length);
+static inline unsigned i2c_tx_rx(i2c_t i2c, uint8_t addr,
+        const uint8_t *tx_buffer, uint16_t tx_length,
+        uint8_t *rx_buffer, uint16_t rx_length)
+{
+    return i2c_tx_rx_async(i2c, addr, tx_buffer, tx_length,
+            rx_buffer, rx_length, NULL, NULL);
+}
+
+/**
+ * @}
+ * @}
+ */
 
 #endif /* I2C_H_ */

@@ -37,35 +37,35 @@
  * It otherwise produces HardFaults!
  */
 
-static inline volatile uint32_t *dma_get_ISR(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_ISR(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_ISR_OFFSET);
 }
 
-static inline volatile uint32_t *dma_get_IFCR(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_IFCR(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_IFCR_OFFSET);
 }
 
-static inline volatile uint32_t *dma_get_CCRx(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_CCRx(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_CHANNEL1_OFFSET
                          + (_dma->channel * DMA_CHANNEL_OFFSET) + DMA_CCRx_OFFSET);
 }
 
-static inline volatile uint32_t *dma_get_CNDTRx(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_CNDTRx(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_CHANNEL1_OFFSET
                          + (_dma->channel * DMA_CHANNEL_OFFSET) + DMA_CNDTRx_OFFSET);
 }
 
-static inline volatile uint32_t *dma_get_CPARx(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_CPARx(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_CHANNEL1_OFFSET
                          + (_dma->channel * DMA_CHANNEL_OFFSET) + DMA_CPARx_OFFSET);
 }
 
-static inline volatile uint32_t *dma_get_CMARx(_dma_t *_dma)
+static inline volatile uint32_t *dma_get_CMARx(const _dma_t *_dma)
 {
     return mem_get_reg32(_dma->base_address + DMA_CHANNEL1_OFFSET
                          + (_dma->channel * DMA_CHANNEL_OFFSET) + DMA_CMARx_OFFSET);

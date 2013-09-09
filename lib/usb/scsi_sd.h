@@ -30,7 +30,7 @@
 
 void          scsi_sd_init          ( uint8_t lun );
 void          scsi_sd_read_capacity ( uint8_t lun, uint32_t *bcount, uint16_t *bsize );
-scsi_cmdret_t scsi_sd_read10        ( SCSI_PARAMS );
-scsi_cmdret_t scsi_sd_write10       ( SCSI_PARAMS );
+scsi_cmdret_t scsi_sd_read10        ( scsi_params_t scsi_params );
+scsi_cmdret_t scsi_sd_write10       ( scsi_params_t scsi_params );
 
 #endif

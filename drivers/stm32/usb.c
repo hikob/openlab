@@ -22,7 +22,7 @@
  *
  *  Created on: Aug 30, 2011
  *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
- *              Antoine Fraboulet <antoine.fraboulet.at.hikob.com>et
+ *              Antoine Fraboulet <antoine.fraboulet.at.hikob.com>
  */
 
 #include "platform.h"
@@ -36,12 +36,15 @@
 #define NO_DEBUG_HEADER
 #define LOG_LEVEL LOG_LEVEL_INFO
 #include "printf.h"
+#include "debug.h"
 
 #ifdef INFO_HEADER
 #undef INFO_HEADER
 #define INFO_HEADER()              printf("\x1b[33m  ")
 #endif
 
+
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 typedef enum
 {
@@ -220,7 +223,7 @@ static void usb_read_pma(uint8_t endp, uint8_t *buf, uint16_t len)
 
 void usb_recv(uint8_t endp, uint8_t *buf, uint16_t len)
 {
-    // TODO do some additional check
+    //! \todo do some additional check
     return usb_read_pma(endp,buf,len);
 }
 
@@ -683,6 +686,7 @@ static void process_standard_device(usb_device_request_t *header)
                     // The next transaction will be IN so we write the device descriptor as requested
                     if (usb_profile->device_descriptor->class_specific_len == 0)
                     {
+                        //usb_send(0, true, DATA1, (const uint8_t *)(usb_profile->device_descriptor), USB_DEV_DESC_SIZE);
                         usb_send(0, true, DATA1, (const uint8_t *)(usb_profile->device_descriptor), header->wLength);
                     }
                     else
@@ -702,7 +706,13 @@ static void process_standard_device(usb_device_request_t *header)
                     if (idx < usb_profile->device_descriptor->bNumConfigurations)
                     {
                         fill_buf_configuration(&(usb_profile->device_descriptor->configuration_descriptors[idx]));
-                        usb_send(0, true, DATA1, usb_local_buf, header->wLength);
+//---------------------------------------------------------------------------------------------------------
+
+                        usb_conf_desc_t *conf = (usb_conf_desc_t *) usb_local_buf;
+                        usb_send(0, true, DATA1, usb_local_buf,
+                                MIN(conf->wTotalLength, header->wLength));
+
+//---------------------------------------------------------------------------------------------------------
                     }
                     else
                     {
@@ -716,10 +726,15 @@ static void process_standard_device(usb_device_request_t *header)
                     log_info("GET_DESCRIPTOR => STRING_DESCRIPTOR (%d)", idx);
 
                     // The next transaction will be IN so we write the string descriptors as requested
-                    if (idx < *(usb_profile->number_of_string_descriptors))
+                    if (idx <= *(usb_profile->number_of_string_descriptors))
                     {
                         fill_buf_string(&(usb_profile->string_descriptors[idx]));
-                        usb_send(0, true, DATA1, usb_local_buf, header->wLength);
+//---------------------------------------------------------------------------------------------------------
+
+                        usb_send(0, true, DATA1, usb_local_buf,
+                                MIN(usb_profile->string_descriptors[idx].bLength, header->wLength));
+
+//---------------------------------------------------------------------------------------------------------
                     }
                     else
                     {
@@ -742,7 +757,9 @@ static void process_standard_device(usb_device_request_t *header)
                     if (idx < usb_profile->device_descriptor->bNumConfigurations)
                     {
                         fill_buf_configuration(&(usb_profile->device_descriptor->configuration_descriptors[idx]));
-                        usb_send(0, true, DATA1, usb_local_buf, header->wLength);
+                        (header->wLength > sizeof(usb_local_buf)) ?
+                        		usb_send(0, true, DATA1, usb_local_buf, sizeof(usb_local_buf)) :
+                        		usb_send(0, true, DATA1, usb_local_buf, header->wLength);
                     }
                     else
                     {
@@ -779,10 +796,15 @@ static void process_standard_device(usb_device_request_t *header)
 
             if (header->wValue == 0 && header->wIndex == 0 && header->wLength == 1)
             {
-                usb_send(0, true, DATA1, &usb_configuration, header->wLength);
+//                usb_send(0, true, DATA1, &usb_configuration, header->wLength);
+//                usb_send(0, true, DATA1, &usb_configuration, USB_CONF_DESC_SIZE);
+            	(header->wLength > sizeof(usb_local_buf)) ?
+            			usb_send(0, true, DATA1, usb_local_buf, sizeof(usb_local_buf)) :
+            			usb_send(0, true, DATA1, usb_local_buf, header->wLength);
             }
             else
             {
+            	log_error("error in GET_CONFIGURATION");
                 usb_set_stat_tx(0, STAT_TX_STALL);
             }
 
@@ -790,6 +812,7 @@ static void process_standard_device(usb_device_request_t *header)
 
         case 0x09: // SET_CONFIGURATION
 
+        	log_not_implemented("SET_CONFIG !!!");
             switch (usb_state)
             {
                 case USB_STATE_ADDRESS:
@@ -804,6 +827,7 @@ static void process_standard_device(usb_device_request_t *header)
                         else
                         {
                             // TODO: Send a request error
+                        	log_error("error in address state");
                         }
                     }
 
@@ -820,6 +844,7 @@ static void process_standard_device(usb_device_request_t *header)
                         else
                         {
                             // TODO: Send a request error
+                        	log_error("error in config state");
                         }
                     }
                     else
@@ -832,6 +857,7 @@ static void process_standard_device(usb_device_request_t *header)
 
                 default:
                     // TODO: Send error
+                	log_error("SET_CONFIGURATION !!");
                     break;
             }
 

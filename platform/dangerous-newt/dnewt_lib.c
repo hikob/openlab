@@ -33,8 +33,8 @@
 void platform_lib_setup()
 {
     // Setup the delay library
-    soft_timer_config(tim3, TIMER_CHANNEL_1);
-    timer_start(tim3, 0xFFFF, soft_timer_update, NULL);
+    soft_timer_config(TIM_3, TIMER_CHANNEL_1);
+    timer_start(TIM_3, 0xFFFF, soft_timer_update, NULL);
 
     // Setup the event system
     event_init();

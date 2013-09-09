@@ -17,136 +17,154 @@
  * Copyright (C) 2011,2012 HiKoB.
  */
 
-/*
- * lsm303dlhc.c
- *
- *  Created on: Aug 3, 2011
- *      Author: Christophe Braillon <christophe.braillon.at.hikob.com>
+/**
+ * @file lsm303dlhc.c
+ * @date Aug 3, 2011
+ * @author Christophe Braillon <christophe.braillon.at.hikob.com>
  */
 
+#include "gpio.h"
 #include "i2c.h"
 #include "lsm303dlhc.h"
 #include "lsm303dlhc_.h"
+#include "platform.h"
+#include "debug.h"
 
-#define LSM303DLHC_ACC_ADDRESS   0x32
-
-#define CTRL_REG1_A              0x20
-#define CTRL_REG2_A              0x21
-#define CTRL_REG3_A              0x22
-#define CTRL_REG4_A              0x23
-#define CTRL_REG5_A              0x24
-#define CTRL_REG6_A              0x25
-#define REFERENCE_A              0x26
-#define STATUS_REG_A             0x27
-#define OUT_X_L_A                0x28
-#define OUT_X_H_A                0x29
-#define OUT_Y_L_A                0x2A
-#define OUT_Y_H_A                0x2B
-#define OUT_Z_L_A                0x2C
-#define OUT_Z_H_A                0x2D
-#define FIFO_CTRL_REG_A          0x2E
-#define FIFO_SRC_REG_A           0x2F
-#define INT1_CFG_A               0x30
-#define INT1_SRC_A               0x31
-#define INT1_THS_A               0x32
-#define INT1_DURATION_A          0x33
-#define INT2_CFG_A               0x34
-#define INT2_SRC_A               0x35
-#define INT2_THS_A               0x36
-#define INT2_DURATION_A          0x37
-#define CLICK_CFG_A              0x38
-#define CLICK_SRC_A              0x39
-#define CLICK_THR_A              0x3A
-#define TIME_LIMIT_A             0x3B
-#define TIME_LATENCY_A           0x3C
-#define TIME_WINDOW_A            0x3D
-
-#define LSM303DLHC_MAG_ADDRESS   0x3C
-
-#define CRA_REG_M                0x00
-#define CRB_REG_M                0x01
-#define MR_REG_M                 0x02
-#define OUT_X_H_M                0x03
-#define OUT_X_L_M                0x04
-#define OUT_Z_H_M                0x05
-#define OUT_Z_L_M                0x06
-#define OUT_Y_H_M                0x07
-#define OUT_Y_L_M                0x08
-#define SR_REG_M                 0x09
-#define IRA_REG_M                0x0A
-#define IRB_REG_M                0x0B
-#define IRC_REG_M                0x0C
-#define TEMP_OUT_H_M             0x31
-#define TEMP_OUT_L_M             0x32
-
-#define READ_MULTIPLE_BYTE       0x80
+enum
+{
+    LSM303DLHC_ACC_ADDRESS = 0x32,
+    LSM303DLHC_MAG_ADDRESS = 0x3c,
+    LSM303DLHC_ACC_MULTIBYTES = 0x80
+};
 
 static struct
 {
     i2c_t i2c;
     exti_line_t mag_data_ready_line;
-    exti_line_t acc_int1_line;
+    timer_t acc_int1_timer;
+    union {
+        exti_line_t line;
+        timer_channel_t channel;
+    } acc_int1;
     exti_line_t acc_int2_line;
+    gpio_t mag_int_gpio;
+    gpio_t acc_int1_gpio;
+    gpio_t acc_int2_gpio;
+    gpio_pin_t mag_int_pin;
+    gpio_pin_t acc_int1_pin;
+    gpio_pin_t acc_int2_pin;
+    lsm303dlhc_mag_scale_t scale;
 } lsm303;
 
-void lsm303dlhc_config(i2c_t i2c, exti_line_t mag_data_ready_line,
-                       exti_line_t acc_int1_line, exti_line_t acc_int2_line)
+uint8_t lsm303dlhc_config(i2c_t i2c,
+                       exti_line_t mag_data_ready_line,
+                       gpio_t mag_drdy_gpio, gpio_pin_t mag_drdy_pin,
+                       exti_line_t acc_int1_line,
+                       gpio_t acc_int1_gpio, gpio_pin_t acc_int1_pin,
+                       exti_line_t acc_int2_line,
+                       gpio_t acc_int2_gpio, gpio_pin_t acc_int2_pin)
 {
+    uint8_t buf[2], r;
+
     // Store the values
     lsm303.i2c = i2c;
     lsm303.mag_data_ready_line = mag_data_ready_line;
-    lsm303.acc_int1_line = acc_int1_line;
+    lsm303.acc_int1_timer = NULL;
+    lsm303.acc_int1.line = acc_int1_line;
     lsm303.acc_int2_line = acc_int2_line;
 
+    lsm303.mag_int_gpio = mag_drdy_gpio;
+    lsm303.mag_int_pin = mag_drdy_pin;
+
+    lsm303.acc_int1_gpio = acc_int1_gpio;
+    lsm303.acc_int2_gpio = acc_int2_gpio;
+    lsm303.acc_int1_pin = acc_int1_pin;
+    lsm303.acc_int2_pin = acc_int2_pin;
+    lsm303.scale = LSM303DLHC_MAG_SCALE_1_3GAUSS;
+
     // Reboot memory content
-    uint8_t buf[2];
-    buf[0] = CTRL_REG5_A;
+    buf[0] = LSM303DLHC_REG_CTRL_REG5_A;
     buf[1] = 0x80;
-    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    r = i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
 
     // Set powerdown
-    lsm303dlhc_powerdown();
+    return r || lsm303dlhc_powerdown();
 }
 
-void lsm303dlhc_powerdown()
+void lsm303dlhc_config_acc_int1_uses_timer(timer_t timer, timer_channel_t channel)
 {
+    lsm303.acc_int1_timer = timer;
+    lsm303.acc_int1.channel = channel;
+}
+
+uint8_t lsm303dlhc_powerdown()
+{
+    uint8_t buf[2], r;
+
     // Stop accelero
-    uint8_t buf[2];
-    buf[0] = CTRL_REG1_A;
+    buf[0] = LSM303DLHC_REG_CTRL_REG1_A;
     buf[1] = 0x00;
-    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    r = i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
 
     // Stop magneto
-    buf[0] = MR_REG_M;
-    buf[1] = 0x03;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    buf[0] = LSM303DLHC_REG_MR_REG_M;
+    buf[1] = LSM303DLHC_MAG_MODE_OFF;
+    r = r || i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 
     // Stop temperature sensor
-    buf[0] = CRA_REG_M;
+    buf[0] = LSM303DLHC_REG_CRA_REG_M;
     buf[1] = 0x00;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    return r || i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 }
 
-void lsm303dlhc_mag_config(lsm303dlhc_mag_datarate_t datarate,
+unsigned lsm303dlhc_mag_reg_read(uint8_t reg, uint8_t *val)
+{
+    return i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, val, 1);
+}
+
+unsigned lsm303dlhc_mag_reg_write(uint8_t reg, uint8_t val)
+{
+    uint8_t buf[2] = {reg, val};
+    return i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+}
+
+unsigned lsm303dlhc_acc_reg_read(uint8_t reg, uint8_t *val)
+{
+    return i2c_tx_rx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, &reg, 1, val, 1);
+}
+
+unsigned lsm303dlhc_acc_reg_write(uint8_t reg, uint8_t val)
+{
+    uint8_t buf[2] = {reg, val};
+    return i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+}
+
+uint8_t lsm303dlhc_mag_config(lsm303dlhc_mag_datarate_t datarate,
                            lsm303dlhc_mag_scale_t scale, lsm303dlhc_mag_mode_t mode,
                            lsm303dlhc_temp_mode_t temp_mode)
 {
-    uint8_t buf[2];
+    uint8_t buf[2], r;
 
     // Set MAG datarate and temperature sensor
-    buf[0] = CRA_REG_M;
+    buf[0] = LSM303DLHC_REG_CRA_REG_M;
     buf[1] = datarate | temp_mode;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    r = i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 
     // Set MAG scale
-    buf[0] = CRB_REG_M;
+    buf[0] = LSM303DLHC_REG_CRB_REG_M;
     buf[1] = scale;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    r = r || i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    lsm303.scale = scale;
 
     // Set MAG mode
-    buf[0] = MR_REG_M;
+    buf[0] = LSM303DLHC_REG_MR_REG_M;
     buf[1] = mode;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    return r || i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+}
+
+int lsm303dlhc_mag_get_drdy_pin_value()
+{
+    return gpio_pin_read(lsm303.mag_int_gpio, lsm303.mag_int_pin);
 }
 
 void lsm303dlhc_mag_set_drdy_int(handler_t data_ready_handler,
@@ -166,61 +184,121 @@ void lsm303dlhc_mag_set_drdy_int(handler_t data_ready_handler,
     }
 }
 
-void lsm303dlhc_mag_sample_single()
+uint8_t lsm303dlhc_mag_sample_single()
 {
     uint8_t buf[2];
 
     // Set MAG mode to single
-    buf[0] = MR_REG_M;
-    buf[1] = 0x01;
-    i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
+    buf[0] = LSM303DLHC_REG_MR_REG_M;
+    buf[1] = LSM303DLHC_MAG_MODE_SINGLE;
+    return i2c_tx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, buf, 2);
 }
 
-void lsm303dlhc_acc_config(lsm303dlhc_acc_datarate_t datarate,
-                           lsm303dlhc_acc_scale_t scale)
+uint8_t lsm303dlhc_acc_config(lsm303dlhc_acc_datarate_t datarate,
+        lsm303dlhc_acc_scale_t scale, lsm303dlhc_acc_update_t update)
+{
+    uint8_t buf[2], r;
+
+    // Set the data rate
+    buf[0] = LSM303DLHC_REG_CTRL_REG1_A;
+    buf[1] = datarate | 0x7;
+    r = i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+
+    // Set the scale
+    buf[0] = LSM303DLHC_REG_CTRL_REG4_A;
+    buf[1] = scale | update | 0x08;
+    return r || i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+}
+
+void lsm303dlhc_acc_set_drdy_int1(handler_t data_ready_handler,
+                                 handler_arg_t data_ready_arg)
 {
     uint8_t buf[2];
 
-    // Set the data rate
-    buf[0] = CTRL_REG1_A;
-    buf[1] = datarate | 0x7;
-    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    // Enable interrupt generation if required
+    if (data_ready_handler)
+    {
+        if (lsm303.acc_int1_timer)
+        {
+            timer_set_channel_capture(lsm303.acc_int1_timer, lsm303.acc_int1.channel,
+                    TIMER_CAPTURE_EDGE_RISING, (timer_handler_t) data_ready_handler, NULL);
+        }
+        else
+        {
+            exti_set_handler(lsm303.acc_int1.line, data_ready_handler, data_ready_arg);
+            exti_enable_interrupt_line(lsm303.acc_int1.line, EXTI_TRIGGER_RISING);
+        }
 
-    // Set the scale
-    buf[0] = CTRL_REG4_A;
-    buf[1] = scale | 0x88;
-    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+        buf[0] = LSM303DLHC_REG_CTRL_REG3_A;
+        buf[1] = 0x10;
+        i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+    }
+    else
+    {
+        buf[0] = LSM303DLHC_REG_CTRL_REG3_A;
+        buf[1] = 0x00;
+        i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
 
-    // Enable data ready interrupt
-    buf[0] = CTRL_REG3_A;
-    buf[1] = 0x18;
-    i2c_tx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, buf, 2);
+        if (lsm303.acc_int1_timer)
+        {
+            timer_set_channel_capture(lsm303.acc_int1_timer, lsm303.acc_int1.channel,
+                    TIMER_CAPTURE_EDGE_RISING, NULL, NULL);
+        }
+        else
+        {
+            exti_disable_interrupt_line(lsm303.acc_int1.line);
+        }
+    }
 }
 
-void lsm303dlhc_acc_set_drdy_int(handler_t data_ready_handler,
+int lsm303dlhc_acc_get_drdy_int1_pin_value()
+{
+    return gpio_pin_read(lsm303.acc_int1_gpio, lsm303.acc_int1_pin);
+}
+
+void lsm303dlhc_acc_set_drdy_int2(handler_t data_ready_handler,
                                  handler_arg_t data_ready_arg)
 {
     // Enable interrupt generation if required
     if (data_ready_handler)
     {
-        exti_set_handler(lsm303.acc_int1_line, data_ready_handler,
-                         data_ready_arg);
-        exti_enable_interrupt_line(lsm303.acc_int1_line, EXTI_TRIGGER_RISING);
+        exti_set_handler(lsm303.acc_int2_line, data_ready_handler, data_ready_arg);
+        exti_enable_interrupt_line(lsm303.acc_int2_line, EXTI_TRIGGER_RISING);
     }
     else
     {
-        exti_disable_interrupt_line(lsm303.acc_int1_line);
+        exti_disable_interrupt_line(lsm303.acc_int2_line);
     }
 }
 
-void lsm303dlhc_read_acc(int16_t *acc)
+static inline void acc_finalize(int16_t *acc)
 {
-    uint8_t reg = READ_MULTIPLE_BYTE | OUT_X_L_A;
-
-    i2c_tx_rx(lsm303.i2c, LSM303DLHC_ACC_ADDRESS, &reg, 1, (uint8_t *) acc, 6);
     acc[0] >>= 4;
     acc[1] >>= 4;
     acc[2] >>= 4;
+}
+
+void lsm303dlhc_read_acc_async_finalize(int16_t *acc)
+{
+    acc_finalize(acc);
+}
+
+unsigned lsm303dlhc_read_acc_async(int16_t *acc, result_handler_t handler, handler_arg_t handler_arg)
+{
+    static const uint8_t reg = LSM303DLHC_ACC_MULTIBYTES | LSM303DLHC_REG_OUT_X_L_A;
+    unsigned res;
+
+    // Do the transfer
+    res = i2c_tx_rx_async(lsm303.i2c, LSM303DLHC_ACC_ADDRESS,
+            &reg, 1, (uint8_t *) acc, 6, handler, handler_arg);
+
+    // Finalize data if blocking transfer
+    if (handler == NULL)
+    {
+        acc_finalize(acc);
+    }
+
+    return res;
 }
 
 static inline void swap(int16_t *x)
@@ -230,14 +308,9 @@ static inline void swap(int16_t *x)
     *x = t | (*x << 8);
 }
 
-void lsm303dlhc_read_mag(int16_t *mag)
+void lsm303dlhc_read_mag_async_finalize(int16_t *mag)
 {
-    uint8_t reg = OUT_X_H_M;
     int16_t t;
-
-    // Read the 6 bytes for the 3 values
-    i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *) mag, 6);
-
     // Swap them to fit the host endianness (little endian)
     swap(&(mag[0]));
     swap(&(mag[1]));
@@ -249,16 +322,65 @@ void lsm303dlhc_read_mag(int16_t *mag)
     mag[1] = t;
 
     // Compensate for Z different sensitivity
-    mag[2] *= 670. / 600;
+    switch(lsm303.scale)
+    {
+        case LSM303DLHC_MAG_SCALE_1_3GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 1100) / 980;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_1_9GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 855) / 760;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_2_5GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 670) / 600;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_4_0GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 450) / 400;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_4_7GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 400) / 355;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_5_6GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 330) / 295;
+            break;
+
+        case LSM303DLHC_MAG_SCALE_8_1GAUSS:
+            mag[2] = (((int32_t) mag[2]) * 230) / 205;
+            break;
+    }
 }
 
-void lsm303dlhc_read_temp(int16_t *temp)
+unsigned lsm303dlhc_read_mag_async(int16_t *mag, result_handler_t handler, handler_arg_t handler_arg)
 {
-    uint8_t reg = TEMP_OUT_H_M;
+    static const uint8_t reg = LSM303DLHC_REG_OUT_X_H_M;
+    unsigned res;
 
-    i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *) temp, 2);
+    // Do the transfer
+    res = i2c_tx_rx_async(lsm303.i2c, LSM303DLHC_MAG_ADDRESS,
+            &reg, 1, (uint8_t *) mag, 6, handler, handler_arg);
+
+    // If blocking, finalize the array
+    if (handler == NULL)
+    {
+        lsm303dlhc_read_mag_async_finalize(mag);
+    }
+
+    return res;
+}
+
+uint8_t lsm303dlhc_read_temp(int16_t *temp)
+{
+    uint8_t r, reg = LSM303DLHC_REG_TEMP_OUT_H_M;
+
+    r = i2c_tx_rx(lsm303.i2c, LSM303DLHC_MAG_ADDRESS, &reg, 1, (uint8_t *) temp, 2);
 
     swap(temp);
+
+    return r;
 }
 
 lsm303dlhc_mag_datarate_t lsm303dlhc_mag_compute_datarate(uint32_t freq)
