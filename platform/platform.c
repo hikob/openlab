@@ -76,6 +76,9 @@ __attribute__((weak)) void vApplicationIdleHook(xTaskHandle *pxTask,
             return;
         }
     }
+
+    // Enter SLEEP mode
+    asm volatile("wfi");
 }
 __attribute__((weak)) void xputc(char c)
 {

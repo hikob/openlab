@@ -115,38 +115,3 @@ void platform_init()
 #endif
 }
 
-struct
-{
-    platform_idle_handler_t handler;
-    handler_arg_t arg;
-} platform_idle_data =
-{ NULL, NULL };
-
-void platform_set_idle_handler(
-        platform_idle_handler_t handler, handler_arg_t arg)
-{
-    platform_idle_data.handler = handler;
-    platform_idle_data.arg = arg;
-}
-
-void vApplicationIdleHook(xTaskHandle *pxTask, signed portCHAR *pcTaskName)
-{
-    // Mask interrupts
-    asm volatile("cpsid i");
-
-    // Set SLEEP mode if there are underground activities
-    asm volatile("wfi");
-
-    // Unmask interrupts
-    asm volatile("cpsie i");
-
-    // Call handler if any
-    if (platform_idle_data.handler)
-    {
-        if (platform_idle_data.handler(platform_idle_data.arg))
-        {
-            // Do not halt the CPU
-            return;
-        }
-    }
-}

@@ -118,7 +118,7 @@ uint32_t soft_timer_convert_time(uint16_t t)
 
 uint32_t soft_timer_time_s()
 {
-    return (softtim.update_count * 2) + (soft_timer_time() & 0x1000 ? 1 : 0);
+    return (softtim.update_count * 2) + (soft_timer_time() & 0x8000 ? 1 : 0);
 }
 
 int32_t soft_timer_a_is_before_b(uint32_t a, uint32_t b)
