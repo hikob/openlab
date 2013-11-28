@@ -61,7 +61,7 @@ typedef struct
     exti_line_t irq_exti_line;
 
     // We need to know the DIG2 pin Timer and Timer channel
-    timer_t dig2_timer;
+    openlab_timer_t dig2_timer;
     uint8_t dig2_channel;
 
     // The external PA enable pin

@@ -50,7 +50,7 @@ typedef struct
     rf2xx_t radio;
 
     // Timer for timed alarm
-    timer_t timer;
+    openlab_timer_t timer;
     // Timer Channel for alarm
     timer_channel_t channel;
 
@@ -78,7 +78,7 @@ typedef struct
  * \param timer a timer to provide timeouts and so;
  * \param channel a timer channel for timeouts and so;
  */
-void phy_rf2xx_init(phy_rf2xx_t *phy, rf2xx_t radio, timer_t timer,
+void phy_rf2xx_init(phy_rf2xx_t *phy, rf2xx_t radio, openlab_timer_t timer,
                     timer_channel_t channel);
 
 #endif /* PHY_RF2XX_H_ */

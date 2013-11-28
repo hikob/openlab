@@ -32,9 +32,9 @@
 
 #include "printf.h"
 
-void timer_enable(timer_t timer)
+void timer_enable(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Enable the clock for TIMx in the RCC registers
     rcc_apb_enable(_timer->apb_bus, _timer->apb_bit);
@@ -53,9 +53,9 @@ void timer_enable(timer_t timer)
     // Enable the interrupt in the NVIC
     nvic_enable_interrupt_line(_timer->irq_line);
 }
-void timer_disable(timer_t timer)
+void timer_disable(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Clear the TIMx_CR1 register (to stop it)
     *timer_get_CR1(_timer) = 0;
@@ -67,9 +67,9 @@ void timer_disable(timer_t timer)
     rcc_apb_disable(_timer->apb_bus, _timer->apb_bit);
 }
 
-void timer_select_internal_clock(timer_t timer, uint16_t prescaler)
+void timer_select_internal_clock(openlab_timer_t timer, uint16_t prescaler)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Disable slave mode
     *timer_get_SMCR(_timer) &= ~TIMER_SMCR__SMS_MASK;
@@ -97,9 +97,9 @@ void timer_select_internal_clock(timer_t timer, uint16_t prescaler)
     _timer->data->frequency = freq;
 }
 
-void timer_select_external_clock(timer_t timer, uint16_t prescaler)
+void timer_select_external_clock(openlab_timer_t timer, uint16_t prescaler)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Write ETF = 0 in SMCR
     *timer_get_SMCR(_timer) &= ~TIMER_SMCR__ETF_MASK;
@@ -127,10 +127,10 @@ void timer_select_external_clock(timer_t timer, uint16_t prescaler)
     _timer->data->frequency = freq;
 }
 
-void timer_start(timer_t timer, uint16_t update_value,
+void timer_start(openlab_timer_t timer, uint16_t update_value,
                  timer_handler_t update_handler, handler_arg_t update_arg)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Disable interrupt generation
     *timer_get_DIER_bitband(_timer, TIMER_DIER__UIE_bit) = 0;
@@ -165,26 +165,26 @@ void timer_start(timer_t timer, uint16_t update_value,
     *timer_get_CR1(_timer) |= TIMER_CR1__CEN;
 }
 
-void timer_stop(timer_t timer)
+void timer_stop(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Disable the counter
     *timer_get_CR1(_timer) &= ~TIMER_CR1__CEN;
 }
 
-uint16_t timer_time(timer_t timer)
+uint16_t timer_time(openlab_timer_t timer)
 {
     return *timer_get_CNT(timer);
 }
-void timer_tick_update(timer_t timer, int16_t dt)
+void timer_tick_update(openlab_timer_t timer, int16_t dt)
 {
     (*timer_get_CNT(timer)) += dt;
 }
 
-uint32_t timer_get_frequency(timer_t timer)
+uint32_t timer_get_frequency(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     if (_timer->data->frequency != 0)
     {
@@ -210,21 +210,21 @@ uint32_t timer_get_frequency(timer_t timer)
     }
 }
 
-uint16_t timer_get_number_of_channels(timer_t timer)
+uint16_t timer_get_number_of_channels(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
     return _timer->number_of_channels;
 }
 
-uint32_t timer_get_update_flag(timer_t timer)
+uint32_t timer_get_update_flag(openlab_timer_t timer)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
     return *timer_get_SR_bitband(_timer, TIMER_SR__UIF_bit);
 }
-void timer_set_channel_compare(timer_t timer, timer_channel_t channel,
+void timer_set_channel_compare(openlab_timer_t timer, timer_channel_t channel,
                                uint16_t compare_value, timer_handler_t handler, handler_arg_t arg)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Disable the interrupt
     *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 0;
@@ -262,10 +262,10 @@ void timer_set_channel_compare(timer_t timer, timer_channel_t channel,
     }
 }
 
-void timer_activate_channel_output(timer_t timer, timer_channel_t channel,
+void timer_activate_channel_output(openlab_timer_t timer, timer_channel_t channel,
                                    timer_output_mode_t mode)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Get CCMR register
     volatile uint16_t *ccmr;
@@ -306,20 +306,20 @@ void timer_activate_channel_output(timer_t timer, timer_channel_t channel,
     }
 }
 
-void timer_update_channel_compare(timer_t timer, timer_channel_t channel,
+void timer_update_channel_compare(openlab_timer_t timer, timer_channel_t channel,
                                   uint16_t value)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Store the new compare match value
     *timer_get_CCRx(_timer, channel) = value;
 }
 
-void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
+void timer_set_channel_capture(openlab_timer_t timer, timer_channel_t channel,
                                timer_capture_edge_t signal_edge, timer_handler_t handler,
                                handler_arg_t arg)
 {
-    const _timer_t *_timer = timer;
+    const _openlab_timer_t *_timer = timer;
 
     // Disable the interruption
     *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 0;
@@ -379,7 +379,7 @@ void timer_set_channel_capture(timer_t timer, timer_channel_t channel,
     *timer_get_DIER_bitband(_timer, TIMER_DIER__CC1IE_bit + channel) = 1;
 }
 
-void timer_handle_interrupt(const _timer_t *_timer)
+void timer_handle_interrupt(const _openlab_timer_t *_timer)
 {
     // Check source of interrupt
     uint16_t sr_dier = *timer_get_SR(_timer) & *timer_get_DIER(_timer);

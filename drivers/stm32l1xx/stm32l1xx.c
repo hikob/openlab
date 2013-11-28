@@ -91,8 +91,8 @@ const uart_t uart1 = UART_1;
 const uart_t uart2 = UART_2;
 const uart_t uart3 = UART_3;
 
-const timer_t tim2 = TIM_2;
-const timer_t tim3 = TIM_3;
-const timer_t tim9 = TIM_9;
-const timer_t tim10 = TIM_10;
-const timer_t tim11 = TIM_11;
+const openlab_timer_t tim2 = TIM_2;
+const openlab_timer_t tim3 = TIM_3;
+const openlab_timer_t tim9 = TIM_9;
+const openlab_timer_t tim10 = TIM_10;
+const openlab_timer_t tim11 = TIM_11;

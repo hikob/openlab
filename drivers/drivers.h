@@ -69,7 +69,7 @@ extern const i2c_t i2c1, i2c2;
 extern const spi_t spi1, spi2;
 
 #include "timer.h"
-extern const timer_t tim1, tim2, tim3, tim4, tim5, tim6, tim7, tim8, tim9,
+extern const openlab_timer_t tim1, tim2, tim3, tim4, tim5, tim6, tim7, tim8, tim9,
         tim10, tim11, tim12, tim13, tim14, tim15;
 
 #include "uart.h"

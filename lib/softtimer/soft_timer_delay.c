@@ -23,17 +23,23 @@
  *  Created on: Jan 13, 2012
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
+
+#if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
 #include "FreeRTOS.h"
+#else
+static void vPortEnterCritical() {}
+static void vPortExitCritical() {}
+#endif
 
 #include "soft_timer_.h"
 #include "timer.h"
 
 #define LOG_LEVEL LOG_LEVEL_INFO
-#include "printf.h"
+#include "debug.h"
 
 softtim_t softtim;
 
-void soft_timer_config(timer_t timer, timer_channel_t channel)
+void soft_timer_config(openlab_timer_t timer, timer_channel_t channel)
 {
     // Store parameters
     softtim.mutex = NULL;

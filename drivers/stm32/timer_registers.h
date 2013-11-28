@@ -30,39 +30,39 @@
 #include "memmap.h"
 #include "timer_.h"
 
-static inline volatile uint16_t *timer_get_CR1(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_CR1(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CR1_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CR2(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_CR2(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CR2_OFFSET);
 }
-static inline volatile uint16_t *timer_get_SMCR(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_SMCR(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_SMCR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_DIER(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_DIER(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_DIER_OFFSET);
 }
-static inline volatile uint32_t *timer_get_DIER_bitband(const _timer_t *timer, uint32_t bit)
+static inline volatile uint32_t *timer_get_DIER_bitband(const _openlab_timer_t *timer, uint32_t bit)
 {
     return mem_get_bitband(timer->base_address + TIMx_DIER_OFFSET, bit);
 }
-static inline volatile uint16_t *timer_get_SR(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_SR(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_SR_OFFSET);
 }
-static inline volatile uint32_t *timer_get_SR_bitband(const _timer_t *timer, uint32_t bit)
+static inline volatile uint32_t *timer_get_SR_bitband(const _openlab_timer_t *timer, uint32_t bit)
 {
     return mem_get_bitband(timer->base_address + TIMx_SR_OFFSET, bit);
 }
-static inline volatile uint16_t *timer_get_EGR(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_EGR(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_EGR_OFFSET);
 }
-static inline volatile uint16_t *timer_get_CCMRx(const _timer_t *timer, uint32_t ccmr)
+static inline volatile uint16_t *timer_get_CCMRx(const _openlab_timer_t *timer, uint32_t ccmr)
 {
     if (ccmr == 1)
     {
@@ -73,29 +73,29 @@ static inline volatile uint16_t *timer_get_CCMRx(const _timer_t *timer, uint32_t
         return mem_get_reg16(timer->base_address + TIMx_CCMR2_OFFSET);
     }
 }
-static inline volatile uint16_t *timer_get_CCER(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_CCER(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_CCER_OFFSET);
 }
-static inline volatile uint32_t *timer_get_CNT(const _timer_t *timer)
+static inline volatile uint32_t *timer_get_CNT(const _openlab_timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_CNT_OFFSET);
 }
-static inline volatile uint16_t *timer_get_PSC(const _timer_t *timer)
+static inline volatile uint16_t *timer_get_PSC(const _openlab_timer_t *timer)
 {
     return mem_get_reg16(timer->base_address + TIMx_PSC_OFFSET);
 }
-static inline volatile uint32_t *timer_get_ARR(const _timer_t *timer)
+static inline volatile uint32_t *timer_get_ARR(const _openlab_timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_ARR_OFFSET);
 }
-static inline volatile uint32_t *timer_get_CCRx(const _timer_t *timer,
+static inline volatile uint32_t *timer_get_CCRx(const _openlab_timer_t *timer,
         uint32_t channel)
 {
     return mem_get_reg32(timer->base_address + TIMx_CCR1_OFFSET + (4 * channel));
 }
 #if defined(TIMx_BDTR_OFFSET)
-static inline volatile uint32_t *timer_get_BDTR(const _timer_t *timer)
+static inline volatile uint32_t *timer_get_BDTR(const _openlab_timer_t *timer)
 {
     return mem_get_reg32(timer->base_address + TIMx_BDTR_OFFSET);
 }

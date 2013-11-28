@@ -41,7 +41,7 @@ static struct
 {
     i2c_t i2c;
     exti_line_t mag_data_ready_line;
-    timer_t acc_int1_timer;
+    openlab_timer_t acc_int1_timer;
     union {
         exti_line_t line;
         timer_channel_t channel;
@@ -91,7 +91,7 @@ uint8_t lsm303dlhc_config(i2c_t i2c,
     return r || lsm303dlhc_powerdown();
 }
 
-void lsm303dlhc_config_acc_int1_uses_timer(timer_t timer, timer_channel_t channel)
+void lsm303dlhc_config_acc_int1_uses_timer(openlab_timer_t timer, timer_channel_t channel)
 {
     lsm303.acc_int1_timer = timer;
     lsm303.acc_int1.channel = channel;

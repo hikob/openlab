@@ -60,7 +60,7 @@ extern const _uart_t _uart1, _uart2, _uart3;
 #define UART_2 (&_uart2)
 #define UART_3 (&_uart3)
 
-extern const _timer_t _tim2, _tim3, _tim9, _tim10, _tim11;
+extern const _openlab_timer_t _tim2, _tim3, _tim9, _tim10, _tim11;
 #define TIM_2 (&_tim2)
 #define TIM_3 (&_tim3)
 #define TIM_9 (&_tim9)

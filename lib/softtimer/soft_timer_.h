@@ -27,8 +27,12 @@
 #ifndef SOFT_TIMER__H_
 #define SOFT_TIMER__H_
 
+#if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
 #include "FreeRTOS.h"
 #include "semphr.h"
+#else
+typedef void* xSemaphoreHandle;
+#endif 
 
 #include "soft_timer.h"
 #include "timer.h"
@@ -46,7 +50,7 @@ typedef struct
     soft_timer_t *first;
 
     /** Timer information */
-    timer_t timer;
+    openlab_timer_t timer;
     timer_channel_t channel;
 
     /** Flag indicating if the timer alarm is set */
@@ -70,7 +74,7 @@ extern softtim_t softtim;
 /**
  * Configure the software timer, specifying its timer and channel to use
  */
-void soft_timer_config(timer_t timer, timer_channel_t channel);
+void soft_timer_config(openlab_timer_t timer, timer_channel_t channel);
 
 /**
  * Specify the priority on which to run the soft_timer process

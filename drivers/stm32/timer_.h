@@ -24,8 +24,8 @@
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
-#ifndef TIMER__H_
-#define TIMER__H_
+#ifndef OPENLAB_TIMER__H_
+#define OPENLAB_TIMER__H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -59,13 +59,13 @@ typedef struct
     timer_handler_t *channel_handlers;
     handler_arg_t *channel_handler_args;
     _timer_data_t *data;
-} _timer_t;
+} _openlab_timer_t;
 
 #define TIMER_INIT(name, addr, bus, bit, line, num) \
     static _timer_data_t name##_data; \
     static timer_handler_t name##_handlers[num]; \
     static handler_arg_t name##_args[num]; \
-    const _timer_t name = { \
+    const _openlab_timer_t name = { \
     .base_address = addr, \
     .apb_bus = bus, \
     .apb_bit = bit, \
@@ -78,7 +78,7 @@ typedef struct
 
 #define TIMER_INIT_BASIC(name, addr, bus, bit, line) \
     static _timer_data_t name##_data; \
-    const _timer_t name = { \
+    const _openlab_timer_t name = { \
     .base_address = addr, \
     .apb_bus = bus, \
     .apb_bit = bit, \
@@ -88,10 +88,10 @@ typedef struct
     .channel_handler_args = NULL, \
     .data = &name##_data \
 }
-void timer_handle_interrupt(const _timer_t *timer);
+void timer_handle_interrupt(const _openlab_timer_t *timer);
 
 #include "timer_registers.h"
-static inline void timer_restart(const _timer_t *_timer)
+static inline void timer_restart(const _openlab_timer_t *_timer)
 {
     // Set the UG bit to generate an update event (reset)
     *timer_get_EGR(_timer) = TIMER_EGR__UG;

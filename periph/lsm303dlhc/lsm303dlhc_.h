@@ -43,6 +43,6 @@ uint8_t lsm303dlhc_config(i2c_t i2c,
                        gpio_t acc_int2_gpio, gpio_pin_t acc_int2_pin);
 
 /** Special config where int1 don't use a standard EXTI but a timer channel interrupt */
-void lsm303dlhc_config_acc_int1_uses_timer(timer_t timer, timer_channel_t channel);
+void lsm303dlhc_config_acc_int1_uses_timer(openlab_timer_t timer, timer_channel_t channel);
 
 #endif /* LSM303DLHC__H_ */
