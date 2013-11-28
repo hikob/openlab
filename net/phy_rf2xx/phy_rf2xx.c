@@ -24,9 +24,6 @@
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
 
-#include "FreeRTOS.h"
-#include "semphr.h"
-
 #include "phy_rf2xx.h"
 #include "rf2xx.h"
 
@@ -63,21 +60,32 @@ static phy_status_t handle_rx_start(phy_rf2xx_t *_phy);
 
 #define RF_MAX_WAIT soft_timer_ms_to_ticks(1)
 
+#if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
+#include "FreeRTOS.h"
+#include "semphr.h"
 static xSemaphoreHandle mutex = NULL;
-static inline void take(){xSemaphoreTake(mutex, configTICK_RATE_HZ);}
-static inline void give(){xSemaphoreGive(mutex);}
-
-// ******************** API methods ************************** //
-
-void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, timer_t timer,
-                    timer_channel_t channel)
+static inline void seminit() 
 {
-    // Create mutex if required
     if (mutex == NULL)
     {
         mutex = xSemaphoreCreateMutex();
     }
+}
+static inline void take(){xSemaphoreTake(mutex, configTICK_RATE_HZ);}
+static inline void give(){xSemaphoreGive(mutex);}
+#else
+static inline void seminit() {}
+static inline void take()    {}
+static inline void give()    {}
+#endif
 
+// ******************** API methods ************************** //
+
+void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, openlab_timer_t timer,
+                    timer_channel_t channel)
+{
+    // Create mutex if required
+    seminit();
     take();
 
     // Store the pointers
