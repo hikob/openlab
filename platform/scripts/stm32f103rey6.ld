@@ -13,7 +13,7 @@ PROVIDE ( _Stack_Init = __Stack_Init ) ;
 /*
 There will be a link error if there is not this amount of RAM free at the end.
 */
-_Minimum_Stack_Size = 0x100 ;
+_Minimum_Stack_Size = 0x400 ;
 
 /* Memory Spaces Definitions */
 MEMORY
