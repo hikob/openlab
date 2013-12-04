@@ -106,3 +106,12 @@ __attribute__((weak)) void platform_exit_critical()
         asm volatile("cpsie i");
     }
 }
+
+__attribute__((weak)) uint32_t button_state()
+{
+    return 0;
+}
+
+__attribute__((weak)) void button_set_handler(handler_t handler, handler_arg_t handler_arg)
+{
+}
