@@ -75,6 +75,8 @@ static void give()
     xSemaphoreGive(mac.mutex);
 }
 
+__attribute__((weak)) void serial_id_read(uint8_t *addr);
+
 void mac_csma_init(int channel)
 {
     if (mac.mutex == NULL)
@@ -87,8 +89,9 @@ void mac_csma_init(int channel)
     mac.channel = channel;
 
     // Get MAC address
-    uint8_t ext_addr[8];
-    serial_id_read(ext_addr);
+    uint8_t ext_addr[8] =
+    { 0, 0, 0, 0, 0, 0, 0, 0 };
+    if (serial_id_read) serial_id_read(ext_addr);
     const uint8_t all_zeros[8] =
     { 0, 0, 0, 0, 0, 0, 0, 0 };
 
