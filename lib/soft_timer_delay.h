@@ -172,9 +172,31 @@ static inline int32_t soft_timer_ticks_to_min(int32_t ticks)
 /**
  * Get the current time, in 32kHz ticks as a 32bit value.
  *
+ * Because of the size of the return value, the time value will loop every
+ * 36.4 hours.
+ *
  * \return the current time of the Software Timer, in timer ticks
  */
 uint32_t soft_timer_time();
+
+struct soft_timer_timeval
+{
+    uint32_t tv_sec;
+    uint32_t tv_usec;
+};
+
+/**
+ * Get the current time, in seconds and micro secods
+ *
+ * This allows to get bigger values than the normal \ref soft_timer_time,
+ * with precision up to microsecond.
+ *
+ * Because of the size of the return value, the time value will loop every
+ * 136 years.
+ *
+ * \return the current time, as a struct soft_timer_timeval
+ */
+struct soft_timer_timeval soft_timer_time_extended();
 
 /**
  * Get the complete time based on a 16bit timer time.
@@ -183,15 +205,6 @@ uint32_t soft_timer_time();
  * \return the corresponding 32bit time
  */
 uint32_t soft_timer_convert_time(uint16_t t);
-
-/**
- * Get the current time, in seconds
- *
- * This allows to get bigger values than the normal \ref soft_timer_time
- *
- * \return the current time, in seconds
- */
-uint32_t soft_timer_time_s();
 
 /**
  * Compare two times and return 1 if time a is before time b

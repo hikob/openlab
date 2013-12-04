@@ -87,6 +87,21 @@ uint32_t soft_timer_time()
     return t + ((update || (t_b < t_a)) ? 0x10000 : 0) + t_b;
 }
 
+struct soft_timer_timeval soft_timer_time_extended()
+{
+    struct soft_timer_timeval tv;
+    vPortEnterCritical();
+
+    tv.tv_sec = softtim.update_count << 1;
+    uint32_t t = soft_timer_time();
+
+    vPortExitCritical();
+
+    tv.tv_sec += (t & 0x8000) ? 1 : 0;
+    tv.tv_usec = soft_timer_ticks_to_us(t & 0x7FFF);
+
+    return tv;
+}
 uint32_t soft_timer_convert_time(uint16_t t)
 {
     // We assume t cannot be in the future
@@ -120,11 +135,6 @@ uint32_t soft_timer_convert_time(uint16_t t)
     }
 
     return (ref & 0xFFFF0000) | t;
-}
-
-uint32_t soft_timer_time_s()
-{
-    return (softtim.update_count * 2) + (soft_timer_time() & 0x8000 ? 1 : 0);
 }
 
 int32_t soft_timer_a_is_before_b(uint32_t a, uint32_t b)
