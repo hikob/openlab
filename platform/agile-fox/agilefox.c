@@ -87,6 +87,8 @@ void platform_init()
     // Setup the peripherals
     platform_periph_setup();
 
+    platform_net_setup();
+
     // Restart all timers
     platform_drivers_restart_timers();
 
