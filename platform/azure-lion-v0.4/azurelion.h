@@ -48,6 +48,4 @@ void platform_lib_setup();
 void platform_net_setup();
 void platform_io_setup();
 
-void platform_daughter_setup();
-
 #endif /* AZURELION_H_ */

@@ -27,22 +27,12 @@
 
 #include "rf2xx.h"
 #include "phy_rf2xx/phy_rf2xx.h"
-#include "mac_tsch.h"
-#include "serialif/serialif_.h"
 
 #include "debug.h"
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231, phy_rf212;
 phy_t phy = &phy_rf231, phy_868 = &phy_rf212;
-
-const mac_tsch_config_t mac_tsch_config =
-{
-    .phy = &phy_rf231, .timer = TIM_9, .channel = TIMER_CHANNEL_2,
-};
-
-const serialif_config_t serialif_config =
-{ UART_2 };
 
 void platform_net_setup()
 {

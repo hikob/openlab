@@ -50,21 +50,6 @@ add_library(platform_usb STATIC
 # Allow for some more cyclic deps in libraries
 set_property(TARGET platform APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
 
-add_library(azurelion_none STATIC 
-    azurelion_daughter_none)
-    
-add_library(azurelion_sht25 STATIC 
-    azurelion_daughter_sht25)
-target_link_libraries(azurelion_sht25
-    sht25
-	drivers_stm32l1xx)
-
-add_library(azurelion_synchro STATIC 
-    azurelion_daughter_synchro)
-target_link_libraries(azurelion_synchro
-    external_synchro
-	drivers_stm32l1xx)
-    
 # Link the library to the drivers and peripherals
 target_link_libraries(platform
 # Driver
@@ -80,11 +65,9 @@ target_link_libraries(platform
 	freertos
 	random
 	printf
-	eeprom_internal
 	packet
 	event
 	softtimer
-	autostart
 
 # Net
 	phy_rf2xx)
@@ -103,28 +86,11 @@ target_link_libraries(platform_usb
 	freertos
 	random
 	printf
-	eeprom_internal
 	packet
 	event
 	softtimer
-	autostart
 	usb
 
 # Net
 	phy_rf2xx)
-
-if ( ${DAUGHTER_SHT25} )
-target_link_libraries(platform azurelion_sht25)
-    
-else ( ${DAUGHTER_SHT25} )
-if ( ${DAUGHTER_SYNCHRO} )
-
-target_link_libraries(platform azurelion_synchro)
-
-else ( ${DAUGHTER_SYNCHRO}  )
-
-target_link_libraries(platform azurelion_none)
-
-endif ( ${DAUGHTER_SYNCHRO} )
-endif ( ${DAUGHTER_SHT25} )
 	

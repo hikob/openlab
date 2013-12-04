@@ -124,13 +124,13 @@ void platform_drivers_restart_timers()
 }
 void platform_drivers_check_timers()
 {
-    const timer_t timers[] =
+    const openlab_timer_t timers[] =
     { TIM_3, TIM_9, TIM_10 };
-    const timer_t timer_ref = TIM_11;
+    const openlab_timer_t timer_ref = TIM_11;
 
     uint32_t i;
 
-    for (i = 0; i < sizeof(timers) / sizeof(timer_t); i++)
+    for (i = 0; i < sizeof(timers) / sizeof(openlab_timer_t); i++)
     {
         uint16_t ta1, ta2, tb;
         ta1 = timer_time(timers[i]);

@@ -27,14 +27,6 @@
 
 #include "softtimer/soft_timer_.h"
 #include "event.h"
-#include "eeprom/eeprom_.h"
-#include "eeprom/eeprom_internal.h"
-#include "smartif/smartif_.h"
-
-const eeprom_config_t eeprom_config = {.internal = &eeprom_internal, .external = NULL};
-
-static const smartif_config_t smartif_cfg = {.uart = UART_2};
-const smartif_config_t *smartif_config = &smartif_cfg;
 
 void platform_lib_setup()
 {

@@ -46,6 +46,7 @@
 #include "debug.h"
 
 __attribute__((weak)) int32_t platform_should_start_watchdog();
+__attribute__((weak)) void platform_daughter_setup();
 
 #define TRIM 0x60
 
@@ -156,7 +157,10 @@ void platform_init()
 #endif
 
     // DaughterBoard if any
-    platform_daughter_setup();
+    if (platform_daughter_setup)
+    {
+        platform_daughter_setup();
+    }
 }
 
 static volatile int32_t underground_activities = 0;
