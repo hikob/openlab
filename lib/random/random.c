@@ -33,7 +33,7 @@
 #include "random.h"
 #include <stdlib.h>
 
-void random_init(unsigned int seed)
+void random_init(unsigned short seed)
 {
     srand(seed);
 }

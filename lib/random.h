@@ -27,7 +27,7 @@
 #ifndef RANDOM_H_
 #define RANDOM_H_
 
-void random_init(unsigned int seed);
+void random_init(unsigned short seed);
 
 unsigned short random_rand16();
 unsigned int   random_rand32();
