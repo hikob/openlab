@@ -27,9 +27,6 @@
 #include "platform.h"
 #include "fiteco-m3.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
-
 #include "watchdog.h"
 #include "rcc.h"
 #include "flash.h"

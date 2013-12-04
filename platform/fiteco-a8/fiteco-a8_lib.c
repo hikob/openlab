@@ -28,7 +28,10 @@
 #include "fiteco-a8.h"
 
 #include "softtimer/soft_timer_.h"
+
+#if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
 #include "event.h"
+#endif
 
 void platform_lib_setup()
 {
