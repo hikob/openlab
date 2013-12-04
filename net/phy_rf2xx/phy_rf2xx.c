@@ -23,6 +23,7 @@
  *  Created on: Jul 11, 2011
  *      Author: Clément Burin des Roziers <clement.burin-des-roziers.at.hikob.com>
  */
+#include <stdlib.h>
 
 #include "phy_rf2xx.h"
 #include "rf2xx.h"
@@ -36,6 +37,9 @@
 #include "soft_timer_delay.h"
 
 /* Private Functions */
+/** Convert Power from PHY power to RF231 power */
+static int convert_power(phy_power_t power);
+
 // Interrupt handlers
 static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value);
 static void rx_start_handler(handler_arg_t arg, uint16_t timer_value);
@@ -71,8 +75,14 @@ static inline void seminit()
         mutex = xSemaphoreCreateMutex();
     }
 }
-static inline void take(){xSemaphoreTake(mutex, configTICK_RATE_HZ);}
-static inline void give(){xSemaphoreGive(mutex);}
+static inline void take()
+{
+    xSemaphoreTake(mutex, configTICK_RATE_HZ);
+}
+static inline void give()
+{
+    xSemaphoreGive(mutex);
+}
 #else
 static inline void seminit() {}
 static inline void take()    {}
@@ -95,7 +105,6 @@ void phy_rf2xx_init(phy_rf2xx_t *_phy, rf2xx_t radio, openlab_timer_t timer,
 
     // Initialize the packet pointer
     _phy->pkt = NULL;
-
 
     // Do a reset
     reset(_phy);
@@ -186,14 +195,13 @@ phy_status_t phy_set_channel(phy_t phy, uint8_t channel)
 
     // Write new data to register
     rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_CC_CCA,
-                    RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE | channel);
+            RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE | channel);
 
     // Go back to sleep if it was in this state
     if (_phy->state == PHY_STATE_SLEEP)
     {
         rf2xx_sleep(_phy->radio);
     }
-
 
     give();
     return PHY_SUCCESS;
@@ -227,90 +235,11 @@ phy_status_t phy_set_power(phy_t phy, phy_power_t power)
 
     if (rf2xx_get_type(_phy->radio) == RF2XX_TYPE_2_4GHz)
     {
-        // Convert power value to register value
-        switch (power)
-        {
-            case PHY_POWER_m30dBm:
-            case PHY_POWER_m29dBm:
-            case PHY_POWER_m28dBm:
-            case PHY_POWER_m27dBm:
-            case PHY_POWER_m26dBm:
-            case PHY_POWER_m25dBm:
-            case PHY_POWER_m24dBm:
-            case PHY_POWER_m23dBm:
-            case PHY_POWER_m22dBm:
-            case PHY_POWER_m21dBm:
-            case PHY_POWER_m20dBm:
-            case PHY_POWER_m19dBm:
-            case PHY_POWER_m18dBm:
-            case PHY_POWER_m17dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
-                break;
-            case PHY_POWER_m16dBm:
-            case PHY_POWER_m15dBm:
-            case PHY_POWER_m14dBm:
-            case PHY_POWER_m13dBm:
-            case PHY_POWER_m12dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m12dBm;
-                break;
-            case PHY_POWER_m11dBm:
-            case PHY_POWER_m10dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m9dBm;
-                break;
-            case PHY_POWER_m9dBm:
-            case PHY_POWER_m8dBm:
-            case PHY_POWER_m7dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m7dBm;
-                break;
-            case PHY_POWER_m6dBm:
-            case PHY_POWER_m5dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m5dBm;
-                break;
-            case PHY_POWER_m4dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m4dBm;
-                break;
-            case PHY_POWER_m3dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m3dBm;
-                break;
-            case PHY_POWER_m2dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m2dBm;
-                break;
-            case PHY_POWER_m1dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m1dBm;
-                break;
-            case PHY_POWER_0dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
-                break;
-            case PHY_POWER_0_7dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0_7dBm;
-                break;
-            case PHY_POWER_1dBm:
-            case PHY_POWER_1_3dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_3dBm;
-                break;
-            case PHY_POWER_1_8dBm:
-            case PHY_POWER_2dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_8dBm;
-                break;
-            case PHY_POWER_2_3dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_3dBm;
-                break;
-            case PHY_POWER_2_8dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_8dBm;
-                break;
-            case PHY_POWER_3dBm:
-            case PHY_POWER_4dBm:
-            case PHY_POWER_5dBm:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
-                break;
-            default:
-                power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
-                break;
-        }
+        power = convert_power(power);
 
         // Write new data to register
         rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR,
-                        RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT
+                RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT
                         | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT | power);
     }
     else
@@ -378,13 +307,13 @@ static phy_status_t phy_ed_cca_measure(phy_t phy, int32_t *result, int32_t ed)
             give();
             return PHY_ERR_INTERNAL;
         }
-    }
-    while ((reg & RF2XX_TRX_STATUS__RX_ON) == 0);
+    } while ((reg & RF2XX_TRX_STATUS__RX_ON) == 0);
 
     if (ed)
     {
         // Enable ED END IRQ
-        rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK, RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE);
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
+                RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE);
 
         // Request a ED measurement
         rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_ED_LEVEL, 0xAA);
@@ -404,11 +333,10 @@ static phy_status_t phy_ed_cca_measure(phy_t phy, int32_t *result, int32_t ed)
                 give();
                 return PHY_ERR_INTERNAL;
             }
-        }
-        while ((reg & RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE) == 0);
+        } while ((reg & RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE) == 0);
 
         // Set ED value
-        *result =  -91 + rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_ED_LEVEL);
+        *result = -91 + rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_ED_LEVEL);
     }
     else
     {
@@ -432,11 +360,10 @@ static phy_status_t phy_ed_cca_measure(phy_t phy, int32_t *result, int32_t ed)
                 give();
                 return PHY_ERR_INTERNAL;
             }
-        }
-        while ((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
+        } while ((reg & RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0);
 
         // Set CCA STATUS
-        *result =  !!(reg & RF2XX_TRX_STATUS_MASK__CCA_STATUS);
+        *result = !!(reg & RF2XX_TRX_STATUS_MASK__CCA_STATUS);
     }
 
     // Stop RX
@@ -448,7 +375,6 @@ static phy_status_t phy_ed_cca_measure(phy_t phy, int32_t *result, int32_t ed)
         // Sleep
         rf2xx_sleep(_phy->radio);
     }
-
 
     give();
 
@@ -466,7 +392,7 @@ phy_status_t phy_cca(phy_t phy, int32_t *cca)
     return phy_ed_cca_measure(phy, cca, 0);
 }
 phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
-                    phy_packet_t *pkt, phy_handler_t handler)
+        phy_packet_t *pkt, phy_handler_t handler)
 {
     take();
 
@@ -474,7 +400,7 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
     phy_rf2xx_t *_phy = phy;
 
     // Check the provided packet
-    if (pkt == NULL)
+    if (pkt == NULL )
     {
         log_error("Invalid provided RX packet: NULL");
         HALT();
@@ -546,7 +472,7 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
     {
         // Set RX start time
         timer_set_channel_compare(_phy->timer, _phy->channel, rx_time & 0xFFFF,
-                                  (timer_handler_t) rx_start_handler, _phy);
+                (timer_handler_t) rx_start_handler, _phy);
 
         give();
     }
@@ -563,7 +489,7 @@ phy_status_t phy_rx(phy_t phy, uint32_t rx_time, uint32_t timeout_time,
 }
 
 phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
-                    phy_handler_t handler)
+        phy_handler_t handler)
 {
     take();
 
@@ -571,7 +497,7 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     phy_rf2xx_t *_phy = phy;
 
     // Check the provided packet
-    if (pkt == NULL)
+    if (pkt == NULL )
     {
         log_error("Invalid provided TX packet: NULL");
         HALT();
@@ -617,7 +543,7 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
 
     // Set IRQ to reflect TRX END (end of TX) only
     rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
-                    RF2XX_IRQ_STATUS_MASK__TRX_END);
+            RF2XX_IRQ_STATUS_MASK__TRX_END);
 
     // Read IRQ to clear it
     rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
@@ -655,13 +581,14 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
         if (spare_time > 1)
         {
             // Set timer
-            timer_set_channel_compare(_phy->timer, _phy->channel, tx_time
-                                      & 0xFFFF, tx_start_handler, _phy);
+            timer_set_channel_compare(_phy->timer, _phy->channel,
+                    tx_time & 0xFFFF, tx_start_handler, _phy);
 
             // Set output compare pin if available
             if (_phy->timer_is_slptr)
             {
-                timer_activate_channel_output(_phy->timer, _phy->channel, TIMER_OUTPUT_MODE_SET_ACTIVE);
+                timer_activate_channel_output(_phy->timer, _phy->channel,
+                        TIMER_OUTPUT_MODE_SET_ACTIVE);
                 rf2xx_slp_tr_config_timer(_phy->radio);
             }
         }
@@ -712,13 +639,12 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
             give();
             return PHY_ERR_INVALID_STATE;
         }
-    }
-    while (status != RF2XX_TRX_STATUS__PLL_ON);
+    } while (status != RF2XX_TRX_STATUS__PLL_ON);
 
     // Copy the packet to the radio FIFO
     rf2xx_fifo_write_first(_phy->radio, _phy->pkt->length + 2);
     rf2xx_fifo_write_remaining_async(_phy->radio, _phy->pkt->data,
-                                     _phy->pkt->length, NULL, NULL);
+            _phy->pkt->length, NULL, NULL );
 
     // Launch now if required
     if (launch_now)
@@ -732,12 +658,398 @@ phy_status_t phy_tx(phy_t phy, uint32_t tx_time, phy_packet_t *pkt,
     return PHY_SUCCESS;
 }
 
+phy_power_t phy_convert_power(float power)
+{
+    phy_power_t result;
+
+    if (power < -29.5f)
+    {
+        result = PHY_POWER_m30dBm;
+    }
+    else if (power < -28.5f)
+    {
+        result = PHY_POWER_m29dBm;
+    }
+    else if (power < -27.5f)
+    {
+        result = PHY_POWER_m28dBm;
+    }
+    else if (power < -26.5f)
+    {
+        result = PHY_POWER_m27dBm;
+    }
+    else if (power < -25.5f)
+    {
+        result = PHY_POWER_m26dBm;
+    }
+    else if (power < -24.5f)
+    {
+        result = PHY_POWER_m25dBm;
+    }
+    else if (power < -23.5f)
+    {
+        result = PHY_POWER_m24dBm;
+    }
+    else if (power < -22.5f)
+    {
+        result = PHY_POWER_m23dBm;
+    }
+    else if (power < -21.5f)
+    {
+        result = PHY_POWER_m22dBm;
+    }
+    else if (power < -20.5f)
+    {
+        result = PHY_POWER_m21dBm;
+    }
+    else if (power < -19.5f)
+    {
+        result = PHY_POWER_m20dBm;
+    }
+    else if (power < -18.5f)
+    {
+        result = PHY_POWER_m19dBm;
+    }
+    else if (power < -17.5f)
+    {
+        result = PHY_POWER_m18dBm;
+    }
+    else if (power < -16.5f)
+    {
+        result = PHY_POWER_m17dBm;
+    }
+    else if (power < -15.5f)
+    {
+        result = PHY_POWER_m16dBm;
+    }
+    else if (power < -14.5f)
+    {
+        result = PHY_POWER_m15dBm;
+    }
+    else if (power < -13.5f)
+    {
+        result = PHY_POWER_m14dBm;
+    }
+    else if (power < -12.5f)
+    {
+        result = PHY_POWER_m13dBm;
+    }
+    else if (power < -11.5f)
+    {
+        result = PHY_POWER_m12dBm;
+    }
+    else if (power < -10.5f)
+    {
+        result = PHY_POWER_m11dBm;
+    }
+    else if (power < -9.5f)
+    {
+        result = PHY_POWER_m10dBm;
+    }
+    else if (power < -8.5f)
+    {
+        result = PHY_POWER_m9dBm;
+    }
+    else if (power < -7.5f)
+    {
+        result = PHY_POWER_m8dBm;
+    }
+    else if (power < -6.5f)
+    {
+        result = PHY_POWER_m7dBm;
+    }
+    else if (power < -5.5f)
+    {
+        result = PHY_POWER_m6dBm;
+    }
+    else if (power < -4.5f)
+    {
+        result = PHY_POWER_m5dBm;
+    }
+    else if (power < -3.5f)
+    {
+        result = PHY_POWER_m4dBm;
+    }
+    else if (power < -2.5f)
+    {
+        result = PHY_POWER_m3dBm;
+    }
+    else if (power < -1.5f)
+    {
+        result = PHY_POWER_m2dBm;
+    }
+    else if (power < -0.5f)
+    {
+        result = PHY_POWER_m1dBm;
+    }
+    else if (power < 0.35f)
+    {
+        result = PHY_POWER_0dBm;
+    }
+    else if (power < 0.85f)
+    {
+        result = PHY_POWER_0_7dBm;
+    }
+    else if (power < 1.15f)
+    {
+        result = PHY_POWER_1dBm;
+    }
+    else if (power < 1.55f)
+    {
+        result = PHY_POWER_1_3dBm;
+    }
+    else if (power < 1.9f)
+    {
+        result = PHY_POWER_1_8dBm;
+    }
+    else if (power < 2.15f)
+    {
+        result = PHY_POWER_2dBm;
+    }
+    else if (power < 2.55f)
+    {
+        result = PHY_POWER_2_3dBm;
+    }
+    else if (power < 2.9f)
+    {
+        result = PHY_POWER_2_8dBm;
+    }
+    else if (power < 3.5f)
+    {
+        result = PHY_POWER_3dBm;
+    }
+    else if (power < 4.5f)
+    {
+        result = PHY_POWER_4dBm;
+    }
+    else
+    {
+        result = PHY_POWER_5dBm;
+    }
+
+    return result;
+}
+phy_status_t phy_jam(phy_t phy, uint8_t channel, phy_power_t power)
+{
+    take();
+
+    // Cast to RF2XX PHY
+    phy_rf2xx_t *_phy = phy;
+
+    // Check state
+    switch (_phy->state)
+    {
+        case PHY_STATE_SLEEP:
+            // Wakeup
+            rf2xx_wakeup(_phy->radio);
+            break;
+        case PHY_STATE_IDLE:
+            // Nothing to do
+            break;
+        default:
+            log_error("Invalid state %u", _phy->state);
+
+            give();
+            return PHY_ERR_INVALID_STATE;
+    }
+
+    // Store State
+    _phy->state = PHY_STATE_JAMMING;
+
+    // Disable interrupt
+    rf2xx_irq_disable(_phy->radio);
+
+    // Step 1: RESET
+    rf2xx_reset(_phy->radio);
+    rf2xx_wakeup(_phy->radio);
+
+    // Enable the PA
+    rf2xx_pa_enable(_phy->radio);
+
+    // Step 2: Set IRQ mask PLL ON
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
+            RF2XX_IRQ_STATUS_MASK__PLL_LOCK);
+    rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS);
+
+    // Step 3: disable TX_AUTO_CRC_ON
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, 0);
+
+    // Step 4: Set State TRX_OFF
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_STATE,
+            RF2XX_TRX_STATE__FORCE_TRX_OFF);
+
+    // Step 5: Set clock at pin 17
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_0, 0x01);
+
+    // Step 6: Set tx_channel
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_CC_CCA,
+            RF2XX_PHY_CC_CCA_DEFAULT__CCA_MODE | channel);
+
+    // Step 7: Set output power as specified
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR,
+            convert_power(power));
+
+    // Step 8: Verify TRX_OFF status
+    rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_STATUS);
+
+    // If radio has external PA, enable DIG3/4
+    if (rf2xx_has_pa(_phy->radio))
+    {
+        // Enable the PA
+        rf2xx_pa_enable(_phy->radio);
+
+        // Activate DIG3/4 pins
+        uint8_t reg = rf2xx_reg_read(_phy->radio, RF2XX_REG__TRX_CTRL_1);
+        reg |= RF2XX_TRX_CTRL_1_MASK__PA_EXT_EN;
+        rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_1, reg);
+    }
+
+    // Step 9: Enable continuous transmission test mode step #1
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TST_CTRL_DIGI, 0x0F);
+
+    // Step 10: not used for PRBS
+    rf2xx_reg_write(_phy->radio, 0x0C, 0x03);
+
+    // Step 11: idem
+    rf2xx_reg_write(_phy->radio, 0x0A, 0xA7);
+
+    // Step 12: Write a complete frame buffer with random data
+    uint8_t frame_buf[128];
+    uint16_t i;
+    // Set length
+    frame_buf[0] = 127;
+
+    // Set data to send
+    for (i = 1; i < 128; i++)
+    {
+        /*
+         * If data is all zero or all one, (0x00 or 0xFF), then a sine wave
+         * will be continuously transmitted (fc-0.5 MHz or fc+0.5MHz resp.)
+         *
+         * If normal modulated data is desired, random data should fill the
+         * buffer (with rand() for example)
+         */
+        frame_buf[i] = rand(); /* Modulated data */
+    }
+
+    // Write data
+    rf2xx_fifo_write(_phy->radio, frame_buf, 128);
+
+    // Step 13: Enable continuous transmission test mode step #2
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__PART_NUM, 0x54);
+
+    // Step 14: Enable continuous transmission test mode step #3
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__PART_NUM, 0x46);
+
+    // Step 15: Enable PLL_ON state
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_STATE, RF2XX_TRX_STATE__PLL_ON);
+
+    // Step 16: Wait for PLL_LOCK
+    while (!rf2xx_reg_read(_phy->radio, RF2XX_REG__IRQ_STATUS)
+            & RF2XX_IRQ_STATUS_MASK__PLL_LOCK)
+    {
+        asm volatile("nop");
+    }
+
+    // Step 17: Enter BUSY TX
+    rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_STATE, RF2XX_TRX_STATE__TX_START);
+
+
+    give();
+
+    // Return Success
+    return PHY_SUCCESS;
+}
 // ***************** Internal methods (mutex taken before) ******************* //
 
+static int convert_power(phy_power_t power)
+{
+    // Convert power value to register value
+    switch (power)
+    {
+        case PHY_POWER_m30dBm:
+        case PHY_POWER_m29dBm:
+        case PHY_POWER_m28dBm:
+        case PHY_POWER_m27dBm:
+        case PHY_POWER_m26dBm:
+        case PHY_POWER_m25dBm:
+        case PHY_POWER_m24dBm:
+        case PHY_POWER_m23dBm:
+        case PHY_POWER_m22dBm:
+        case PHY_POWER_m21dBm:
+        case PHY_POWER_m20dBm:
+        case PHY_POWER_m19dBm:
+        case PHY_POWER_m18dBm:
+        case PHY_POWER_m17dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m17dBm;
+            break;
+        case PHY_POWER_m16dBm:
+        case PHY_POWER_m15dBm:
+        case PHY_POWER_m14dBm:
+        case PHY_POWER_m13dBm:
+        case PHY_POWER_m12dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m12dBm;
+            break;
+        case PHY_POWER_m11dBm:
+        case PHY_POWER_m10dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m9dBm;
+            break;
+        case PHY_POWER_m9dBm:
+        case PHY_POWER_m8dBm:
+        case PHY_POWER_m7dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m7dBm;
+            break;
+        case PHY_POWER_m6dBm:
+        case PHY_POWER_m5dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m5dBm;
+            break;
+        case PHY_POWER_m4dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m4dBm;
+            break;
+        case PHY_POWER_m3dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m3dBm;
+            break;
+        case PHY_POWER_m2dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m2dBm;
+            break;
+        case PHY_POWER_m1dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__m1dBm;
+            break;
+        case PHY_POWER_0dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
+            break;
+        case PHY_POWER_0_7dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0_7dBm;
+            break;
+        case PHY_POWER_1dBm:
+        case PHY_POWER_1_3dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_3dBm;
+            break;
+        case PHY_POWER_1_8dBm:
+        case PHY_POWER_2dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__1_8dBm;
+            break;
+        case PHY_POWER_2_3dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_3dBm;
+            break;
+        case PHY_POWER_2_8dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__2_8dBm;
+            break;
+        case PHY_POWER_3dBm:
+        case PHY_POWER_4dBm:
+        case PHY_POWER_5dBm:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
+            break;
+        default:
+            power = RF2XX_PHY_TX_PWR_TX_PWR_VALUE__0dBm;
+            break;
+    }
+    return power;
+}
 static void reset(phy_rf2xx_t *_phy)
 {
     // Stop timer
-    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
     // Stop any Asynchronous access
     rf2xx_fifo_access_cancel(_phy->radio);
@@ -777,14 +1089,16 @@ static void reset(phy_rf2xx_t *_phy)
         rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_2, reg);
 
         // Set max TX power
-        reg = RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT
-              | RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
+        reg = RF2XX_PHY_TX_PWR_DEFAULT__PA_BUF_LT
+                | RF2XX_PHY_TX_PWR_DEFAULT__PA_LT
+                | RF2XX_PHY_TX_PWR_TX_PWR_VALUE__3dBm;
         rf2xx_reg_write(_phy->radio, RF2XX_REG__PHY_TX_PWR, reg);
     }
     else
     {
         // Enable Dynamic Frame Buffer Protection, OQPSK-200
-        reg = RF2XX_TRX_CTRL_2_MASK__RX_SAFE_MODE | RF2XX_TRX_CTRL_2_MASK__BPSK_OQPSK
+        reg = RF2XX_TRX_CTRL_2_MASK__RX_SAFE_MODE
+                | RF2XX_TRX_CTRL_2_MASK__BPSK_OQPSK
                 | RF2XX_TRX_CTRL_2_OQPSK_DATA_RATE__200_500;
         rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_2, reg);
 
@@ -794,9 +1108,9 @@ static void reset(phy_rf2xx_t *_phy)
 
     // Disable CLKM signal
     reg = RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO
-          | RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO_CLKM
-          | RF2XX_TRX_CTRL_0_DEFAULT__CLKM_SHA_SEL
-          | RF2XX_TRX_CTRL_0_CLKM_CTRL__OFF;
+            | RF2XX_TRX_CTRL_0_DEFAULT__PAD_IO_CLKM
+            | RF2XX_TRX_CTRL_0_DEFAULT__CLKM_SHA_SEL
+            | RF2XX_TRX_CTRL_0_CLKM_CTRL__OFF;
     rf2xx_reg_write(_phy->radio, RF2XX_REG__TRX_CTRL_0, reg);
 
     /** Set XCLK TRIM
@@ -831,7 +1145,7 @@ static void idle(phy_rf2xx_t *_phy)
     rf2xx_irq_disable(_phy->radio);
 
     // Stop timer
-    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
     // Check state
     switch (_phy->state)
@@ -888,7 +1202,7 @@ static void start_rx(handler_arg_t arg)
         return;
     }
 
-    if (_phy->pkt == NULL)
+    if (_phy->pkt == NULL )
     {
         log_error("start_rx but pkt NULL");
         HALT();
@@ -905,7 +1219,7 @@ static void start_rx(handler_arg_t arg)
 
     // Reset IRQ to TRX END and RX_START if no DIG2 available
     rf2xx_reg_write(_phy->radio, RF2XX_REG__IRQ_MASK,
-                    RF2XX_IRQ_STATUS_MASK__TRX_END
+            RF2XX_IRQ_STATUS_MASK__TRX_END
                     | (rf2xx_has_dig2(_phy->radio) ? 0 :
                             RF2XX_IRQ_STATUS_MASK__RX_START));
 
@@ -950,20 +1264,20 @@ static void start_rx(handler_arg_t arg)
             log_error("RF delay expired #3");
             break;
         }
-    }
-    while ((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
+    } while ((status & RF2XX_TRX_STATUS_MASK__TRX_STATUS)
             != RF2XX_TRX_STATUS__RX_ON);
 
     // Set timer for timeout, if any
     if (_phy->rx_timeout)
     {
-        timer_set_channel_compare(_phy->timer, _phy->channel, _phy->rx_timeout
-                                  & 0xFFFF, (timer_handler_t) rx_timeout_handler, _phy);
+        timer_set_channel_compare(_phy->timer, _phy->channel,
+                _phy->rx_timeout & 0xFFFF, (timer_handler_t) rx_timeout_handler,
+                _phy);
     }
     else
     {
         // Disable timer
-        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
     }
 
     give();
@@ -978,7 +1292,7 @@ static phy_status_t handle_rx_start(phy_rf2xx_t *_phy)
         HALT();
     }
 
-    if (_phy->pkt == NULL)
+    if (_phy->pkt == NULL )
     {
         log_error("handle_rx_start but pkt NULL");
         HALT();
@@ -992,7 +1306,7 @@ static phy_status_t handle_rx_start(phy_rf2xx_t *_phy)
             & RF2XX_PHY_RSSI_MASK__RX_CRC_VALID))
     {
         // Stop timer
-        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
         // Force Idle
         idle(_phy);
@@ -1005,8 +1319,9 @@ static phy_status_t handle_rx_start(phy_rf2xx_t *_phy)
     _phy->pkt->length = rf2xx_fifo_read_first(_phy->radio);
 
     // Check valid length (not zero and enough space to store it)
-    if ((_phy->pkt->length == 0) ||
-            (_phy->pkt->data + _phy->pkt->length > _phy->pkt->raw_data + PHY_MAX_RX_LENGTH))
+    if ((_phy->pkt->length == 0)
+            || (_phy->pkt->data + _phy->pkt->length
+                    > _phy->pkt->raw_data + PHY_MAX_RX_LENGTH))
     {
         // Error length, end transfer
         rf2xx_fifo_read_remaining(_phy->radio, _phy->pkt->data, 0);
@@ -1024,7 +1339,7 @@ static phy_status_t handle_rx_start(phy_rf2xx_t *_phy)
     uint8_t length = _phy->pkt->length + 1;
 
     rf2xx_fifo_read_remaining_async(_phy->radio, _phy->pkt->data, length,
-                                    fifo_read_done_handler, _phy);
+            fifo_read_done_handler, _phy);
 
     return PHY_SUCCESS;
 }
@@ -1047,7 +1362,7 @@ static void handle_rx_end(handler_arg_t arg)
         return;
     }
 
-    if (_phy->pkt == NULL)
+    if (_phy->pkt == NULL )
     {
         log_error("handle_rx_end but pkt NULL");
         HALT();
@@ -1058,7 +1373,7 @@ static void handle_rx_end(handler_arg_t arg)
 
     // Read the ED value (~RSSI)
     _phy->pkt->rssi = -91
-                      + rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_ED_LEVEL);
+            + rf2xx_reg_read(_phy->radio, RF2XX_REG__PHY_ED_LEVEL);
 
     // Read the LQI (last byte read from the framebuffer)
     _phy->pkt->lqi = _phy->pkt->data[_phy->pkt->length];
@@ -1069,7 +1384,7 @@ static void handle_rx_end(handler_arg_t arg)
     if (_phy->pkt->t_rx_end - _phy->pkt->t_rx_start > 500)
     {
         log_error("Too much time to read a packet, length = %u",
-                  _phy->pkt->length + 1);
+                _phy->pkt->length + 1);
         log_info("rx_end : %u", _phy->pkt->t_rx_end - _phy->pkt->t_rx_start);
         HALT();
     }
@@ -1157,7 +1472,7 @@ static void handle_irq(handler_arg_t arg)
             {
                 // Error
                 log_error("invalid handle_irq %x in RX state (radio state %x)",
-                          irq_status, rf2xx_get_status(_phy->radio));
+                        irq_status, rf2xx_get_status(_phy->radio));
             }
             break;
 
@@ -1181,14 +1496,14 @@ static void handle_irq(handler_arg_t arg)
             {
                 // Error
                 log_error("invalid handle_irq %x in TX state (radio state %x)",
-                          irq_status, rf2xx_get_status(_phy->radio));
+                        irq_status, rf2xx_get_status(_phy->radio));
             }
             break;
 
         default:
             // Weird state
             log_error("handle_irq %x in state %x (radio state %x)", irq_status,
-                      _phy->state, rf2xx_get_status(_phy->radio));
+                    _phy->state, rf2xx_get_status(_phy->radio));
             break;
     }
 
@@ -1211,7 +1526,7 @@ static void dig2_capture_handler(handler_arg_t arg, uint16_t timer_value)
     }
 
     // Stop RX timeout alarm
-    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
     // Store timer value, if rx packet specified
     if (_phy->pkt)
@@ -1238,10 +1553,12 @@ static void tx_start_handler(handler_arg_t arg, uint16_t timer_value)
         if (_phy->timer_is_slptr)
         {
             // Disable timer output
-            timer_activate_channel_output(_phy->timer, _phy->channel, TIMER_OUTPUT_MODE_FORCE_INACTIVE);
+            timer_activate_channel_output(_phy->timer, _phy->channel,
+                    TIMER_OUTPUT_MODE_FORCE_INACTIVE);
 
             // Store time
-            _phy->pkt->timestamp = soft_timer_convert_time(timer_value) + PHY_TIMING__TX_OFFSET;
+            _phy->pkt->timestamp = soft_timer_convert_time(
+                    timer_value) + PHY_TIMING__TX_OFFSET;
         }
         else
         {
@@ -1253,7 +1570,7 @@ static void tx_start_handler(handler_arg_t arg, uint16_t timer_value)
         _phy->state = PHY_STATE_TX;
 
         // Disable timer
-        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+        timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
         // Clear SLP_TR
         rf2xx_slp_tr_clear(_phy->radio);
@@ -1266,7 +1583,7 @@ static void rx_timeout_handler(handler_arg_t arg, uint16_t timer_value)
     phy_rf2xx_t *_phy = arg;
 
     // Disable timer
-    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL);
+    timer_set_channel_compare(_phy->timer, _phy->channel, 0, NULL, NULL );
 
     // Call handle_rx_timeout handler from event task
     event_post_from_isr(EVENT_QUEUE_NETWORK, handle_rx_timeout, arg);

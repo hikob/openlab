@@ -335,6 +335,8 @@ phy_status_t phy_ed(phy_t phy, int32_t *ed);
  * \note At the end of RX, the PHY goes in IDLE state.
  * \note The handler is posted with the \ref event, using the
  *          \ref EVENT_QUEUE_NETWORK priority.
+ * \note rx_time MUST be less than 1s in the future
+ * \note timeout_time MUST be less than 1s in the future
  *
  * \param phy the PHY
  * \param rx_time the time at which to start receiving
@@ -418,6 +420,27 @@ static inline void phy_prepare_packet(phy_packet_t *pkt)
 {
     pkt->data = pkt->raw_data;
 }
+
+/**
+ * Get the closest parameter matching the given power in dBm
+ *
+ * \param power the desired power in dBm
+ * \return the phy_power_t equivalent value, to be used with phy_set_power
+ */
+phy_power_t phy_convert_power(float power);
+
+/**
+ * Jam the environment.
+ *
+ * Start sending pseudo-random bytes on the configured channel with the configured
+ * TX power. Stopped when called phy_idle.
+ *
+ * \param phy the PHY
+ * \param channel the channel to jam
+ * \param power the power to use
+ * \return the status of the operation, SUCCESS if jamming is ongoing
+ */
+phy_status_t phy_jam(phy_t phy, uint8_t channel, phy_power_t power);
 
 /**
  * @}
