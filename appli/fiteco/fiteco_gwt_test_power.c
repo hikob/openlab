@@ -33,7 +33,8 @@
 
 static void char_rx(handler_arg_t arg, uint8_t c);
 static void process_char(handler_arg_t arg);
-static void sample_done(handler_arg_t arg, float u, float i, float p, float sv);
+static void sample_done(handler_arg_t arg, float u, float i, float p, float sv,
+        uint32_t timestamp);
 
 int main()
 {
@@ -109,26 +110,34 @@ static void process_char(handler_arg_t arg)
         case '6':
             // Current 3V
             log_debug("Current 3V\r");
+            fiteco_lib_gwt_current_monitor_configure(INA226_PERIOD_2116us, INA226_AVERAGE_64);
             fiteco_lib_gwt_current_monitor_select(
                     FITECO_GWT_CURRENT_MONITOR__OPEN_3V, sample_done, NULL );
             break;
         case '7':
             // Current 5V
             log_debug("Current 5V\r");
+            fiteco_lib_gwt_current_monitor_configure(INA226_PERIOD_2116us, INA226_AVERAGE_64);
             fiteco_lib_gwt_current_monitor_select(
                     FITECO_GWT_CURRENT_MONITOR__OPEN_5V, sample_done, NULL );
             break;
         case '8':
             // Current Battery
             log_debug("Current Battery\r");
+            fiteco_lib_gwt_current_monitor_configure(INA226_PERIOD_2116us, INA226_AVERAGE_64);
             fiteco_lib_gwt_current_monitor_select(
                     FITECO_GWT_CURRENT_MONITOR__BATTERY, sample_done, NULL );
+            break;
+        case 'r':
+            nvic_reset();
             break;
     }
 }
 
-static void sample_done(handler_arg_t arg, float u, float i, float p, float sv)
+static void sample_done(handler_arg_t arg, float u, float i, float p, float sv,
+        uint32_t timestamp)
 {
     // Print values
-    log_printf("u=%f, \t\ti=%f, \t\tp=%f\tsv: %f\r\n", u, i, p, sv);
+    log_printf("[%u] \tu=%f, \t\ti=%f, \t\tp=%f\tsv: %f\r\n", timestamp, u, i,
+            p, sv);
 }

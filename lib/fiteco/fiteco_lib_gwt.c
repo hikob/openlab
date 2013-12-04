@@ -25,9 +25,10 @@
 
 #include "fiteco_lib_gwt_.h"
 #include "fiteco_lib_gwt.h"
-#include "ina226.h"
 
+#include "ina226.h"
 #include "event.h"
+#include "soft_timer.h"
 
 static void current_sample_ready_isr(handler_arg_t arg);
 static void process_current_sample(handler_arg_t arg);
@@ -36,6 +37,7 @@ static struct
 {
     const fiteco_lib_gwt_config_t *config;
 
+    uint32_t isr_timestamp;
     fiteco_lib_gwt_current_monitor_handler_t handler;
 } gwt;
 
@@ -53,6 +55,18 @@ void fiteco_lib_gwt_set_config(const fiteco_lib_gwt_config_t* config)
     // Set default mode
     fiteco_lib_gwt_opennode_power_select(FITECO_GWT_OPENNODE_POWER__MAIN);
     fiteco_lib_gwt_battery_charge_enable();
+}
+
+void fiteco_lib_gwt_current_monitor_stop()
+{
+    adg759_disable(gwt.config->current_mux);
+    ina226_disable();
+}
+
+void fiteco_lib_gwt_current_monitor_configure(ina226_sampling_period_t period,
+        ina226_averaging_factor_t average)
+{
+    ina226_configure(period, average);
 }
 
 void fiteco_lib_gwt_current_monitor_select(
@@ -73,35 +87,40 @@ void fiteco_lib_gwt_current_monitor_select(
             adg759_enable(gwt.config->current_mux);
             adg759_select(gwt.config->current_mux, ADG759_INPUT_1);
 
-            // Calibrate (RShut = 1 Ohm, Imax = 50mA)
-            ina226_calibrate(1, 0.05f);
+            // Calibrate (RShut = 1 Ohm, Imax = 160mA)
+            ina226_calibrate(1, 0.160f);
             break;
 
         case FITECO_GWT_CURRENT_MONITOR__OPEN_5V:
             adg759_enable(gwt.config->current_mux);
             adg759_select(gwt.config->current_mux, ADG759_INPUT_2);
 
-            // Calibrate (RShut = 0.082 Ohm, Imax = 500mA)
-            ina226_calibrate(0.082f, 0.5f);
+            // Calibrate (RShut = 0.082 Ohm, Imax = 800mA)
+            ina226_calibrate(0.082f, 0.8f);
             break;
 
         case FITECO_GWT_CURRENT_MONITOR__BATTERY:
             adg759_enable(gwt.config->current_mux);
             adg759_select(gwt.config->current_mux, ADG759_INPUT_3);
 
-            // Calibrate (RShut = 1 Ohm, Imax = 800mA)
-            ina226_calibrate(0.082f, 0.5f);
+            // Calibrate (RShut = 0.082 Ohm, Imax = 800mA)
+            ina226_calibrate(0.082f, 0.8f);
             break;
     }
 
-    ina226_configure(INA226_PERIOD_1100us, INA226_AVERAGE_256);
-    ina226_alert_enable(current_sample_ready_isr, arg );
+    // Enable interrupt
+    ina226_alert_enable(current_sample_ready_isr, arg);
+
+    // Initial read to start measures
+    ina226_read(NULL, NULL, NULL, NULL );
 }
 
 static void current_sample_ready_isr(handler_arg_t arg)
 {
+    gwt.isr_timestamp = soft_timer_time();
     event_post_from_isr(EVENT_QUEUE_APPLI, process_current_sample, arg);
 }
+
 static void process_current_sample(handler_arg_t arg)
 {
     // Read INA values
@@ -111,7 +130,7 @@ static void process_current_sample(handler_arg_t arg)
     // Call handler
     if (gwt.handler)
     {
-        gwt.handler(arg, u, i, p, sv);
+        gwt.handler(arg, u, i, p, sv, gwt.isr_timestamp);
     }
 }
 
