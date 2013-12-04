@@ -25,11 +25,11 @@
  */
 #include "platform.h"
 #include "agilefox.h"
+#include "softtimer/soft_timer_.h"
 
 #if !defined(PLATFORM_OS) || (PLATFORM_OS == FREERTOS)
-
-#include "softtimer/soft_timer_.h"
 #include "event.h"
+#endif
 
 void platform_lib_setup()
 {
@@ -40,12 +40,4 @@ void platform_lib_setup()
     // Setup the event system
     event_init();
 }
-
-#else
-
-void platform_lib_setup()
-{
-}
-
-#endif
 
