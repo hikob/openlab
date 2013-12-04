@@ -14,26 +14,25 @@
 # License along with HiKoB Openlab. If not, see
 # <http://www.gnu.org/licenses/>.
 #
-# Copyright (C) 2011 HiKoB.
+# Copyright (C) 2011,2012 HiKoB.
 #
 
-# Add the test directory
-add_subdirectory(tests)
+if(${PLATFORM_HAS_INA226})
+    add_executable(iotlab_controlnode 
+        controlnode
+        iotlab-serial
+        iotlab-control
+        iotlab-polling
+        iotlab-radio)
+    target_link_libraries(iotlab_controlnode
+        packet
+        platform)
+endif(${PLATFORM_HAS_INA226})
 
-# Add the example directory
-add_subdirectory(examples)
-
-# Add the fiteco directory
-add_subdirectory(fiteco)
-
-# Add the nancy directory
-add_subdirectory(newt)
-
-# Add the imu_mouse directory
-add_subdirectory(imu_mouse)
-
-# Add the sniffer directory
-add_subdirectory(sniffer)
-
-# Add the sniffer directory
-add_subdirectory(iotlab)
+include_directories(.)
+add_executable(iotlab_serial_test
+    test/iotlab-serial-test
+    iotlab-serial)
+target_link_libraries(iotlab_serial_test
+    packet
+    platform)
