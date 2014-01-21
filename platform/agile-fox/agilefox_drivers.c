@@ -81,7 +81,7 @@ void platform_drivers_setup()
     // Enable the print uart
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_2);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_3);
-    uart_enable(uart_print, 500000);
+    uart_enable(uart_print, PLATFORM_UART_PRINT_BAUDRATE);
 
     // Configure DMA1 Channel 4 (SPI2 RX) and DMA1 Channel 5 (SPI2 TX)
     dma_enable(DMA_1_CH4);
