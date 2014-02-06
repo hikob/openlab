@@ -71,7 +71,7 @@ typedef enum {
 
 
 //power types used for start_stop_unit (table 169 in Seagate)
-typedef enum{
+enum{
 	START_VALID     = 0x00,
 	ACTIVE          = 0x01,
 	IDLE            = 0x02,

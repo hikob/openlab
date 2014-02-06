@@ -105,8 +105,6 @@ typedef struct{
     scsi_status_t *status;
 }scsi_params_t;
 
-static scsi_params_t params;
-
 typedef enum {
     USB_MSC_NONE,
     USB_MSC_SD, 

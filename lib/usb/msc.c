@@ -345,6 +345,7 @@ typedef enum {
 /* MSC Global Variable           */
 /* ***************************** */
 
+static scsi_params_t  params;
 
 /* MSC command, status and state   */
 static msc_cbw_t         cbw;                         // 31
