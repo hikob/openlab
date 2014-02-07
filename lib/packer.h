@@ -76,5 +76,13 @@ static inline uint32_t packer_uint32_hton(uint32_t value)
     return ((value >> 24) & 0x000000FF) | ((value >> 8) & 0x0000FF00)
            | ((value << 8) & 0x00FF0000) | ((value << 24) & 0xFF000000);
 }
+static inline uint16_t packer_uint16_ntoh(uint16_t value)
+{
+    return packer_uint16_hton(value);
+}
+static inline uint32_t packer_uint32_ntoh(uint32_t value)
+{
+    return packer_uint32_hton(value);
+}
 
 #endif /* PACKER_H_ */
