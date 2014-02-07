@@ -67,8 +67,8 @@ static void start_test(handler_arg_t arg)
     printf("Testing the RF231 timings\n");
 
     // Init. the radio
-    phy_reset(phy);
-    phy_idle(phy);
+    phy_reset(platform_phy);
+    phy_idle(platform_phy);
 
     // Reset the total values
     t_sleep_total = 0;
@@ -84,7 +84,7 @@ static void start_test(handler_arg_t arg)
 static void test_start(handler_arg_t arg)
 {
     // Start Idle
-    phy_idle(phy);
+    phy_idle(platform_phy);
     count ++;
 
     soft_timer_delay_ms(50);
@@ -93,7 +93,7 @@ static void test_start(handler_arg_t arg)
 
     // SLEEP
     t_a = soft_timer_time();
-    phy_sleep(phy);
+    phy_sleep(platform_phy);
     t_b = soft_timer_time();
 
     // Compute sleep time
@@ -104,7 +104,7 @@ static void test_start(handler_arg_t arg)
 
     // WAKEUP
     t_a = soft_timer_time();
-    phy_idle(phy);
+    phy_idle(platform_phy);
     t_b = soft_timer_time();
 
     // Compute wakeup time
@@ -115,9 +115,9 @@ static void test_start(handler_arg_t arg)
 
     // RX
     t_a = soft_timer_time();
-    phy_rx(phy, 0, 0, &my_pkt, NULL );
+    phy_rx(platform_phy, 0, 0, &my_pkt, NULL );
     t_b = soft_timer_time();
-    phy_idle(phy);
+    phy_idle(platform_phy);
 
     // Compute RX time
     t_rx = t_b - t_a;
@@ -128,7 +128,7 @@ static void test_start(handler_arg_t arg)
     // CCA
     int32_t cca;
     t_a = soft_timer_time();
-    phy_cca(phy, &cca);
+    phy_cca(platform_phy, &cca);
     t_b = soft_timer_time();
 
     soft_timer_delay_ms(50);
@@ -136,7 +136,7 @@ static void test_start(handler_arg_t arg)
     // Compute cca time
     t_cca = t_b - t_a;
     t_cca_total += t_cca;
-    phy_idle(phy);
+    phy_idle(platform_phy);
 
     // Print results
     printf("[%u]\t%u(%u)\t%u(%u)\t%u(%u)\t%u(%u)\n", count,

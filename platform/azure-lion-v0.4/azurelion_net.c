@@ -32,7 +32,7 @@
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231, phy_rf212;
-phy_t phy = &phy_rf231, phy_868 = &phy_rf212;
+phy_t platform_phy = &phy_rf231, phy_868 = &phy_rf212;
 
 void platform_net_setup()
 {

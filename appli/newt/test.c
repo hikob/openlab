@@ -98,7 +98,7 @@ static void app_task(void *param)
 
     while (1)
     {
-        phy_idle(phy);
+        phy_idle(platform_phy);
         count++;
         printf("\n###############################\n");
         printf("Test #%u\n", count);
@@ -132,7 +132,7 @@ static void app_task(void *param)
         phy_channel = PHY_2400_MIN_CHANNEL
                 + (count % (PHY_2400_MAX_CHANNEL - PHY_2400_MIN_CHANNEL));
         printf("\tPHY RX on channel %u\n", phy_channel);
-        phy_set_channel(phy, phy_channel);
+        phy_set_channel(platform_phy, phy_channel);
         phy_rx_handler(PHY_ERR_INVALID_STATE);
 
         vTaskDelay(configTICK_RATE_HZ / 2);
@@ -168,7 +168,7 @@ static void phy_rx_handler(phy_status_t status)
     // Enter RX again
     phy_pkt.data = phy_pkt.raw_data;
     phy_pkt.length = 0;
-    phy_rx(phy, 0, 0, &phy_pkt, phy_rx_handler);
+    phy_rx(platform_phy, 0, 0, &phy_pkt, phy_rx_handler);
 }
 
 static volatile int32_t adc_value;

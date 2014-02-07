@@ -36,7 +36,7 @@
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231;
-phy_t phy = &phy_rf231;
+phy_t platform_phy = &phy_rf231;
 
 const mac_csma_config_t mac_csma_config =
 {

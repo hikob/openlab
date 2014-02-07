@@ -74,7 +74,7 @@ extern uart_t uart_external;
 /**
  * Reference to the default PHY radio interface, if it exists.
  */
-extern phy_t phy;
+extern phy_t platform_phy;
 
 /**
  * Reference to the external I2C driver

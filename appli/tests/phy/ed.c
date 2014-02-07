@@ -36,7 +36,7 @@
 static void do_ed(handler_arg_t arg);
 
 #if 1
-#define PHY phy
+#define PHY platform_phy
 #else
 extern phy_t phy_868;
 #define PHY phy_868

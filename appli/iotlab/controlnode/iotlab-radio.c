@@ -113,7 +113,7 @@ static void proper_stop()
     soft_timer_stop(&radio.period_tim);
 
     // Set PHY idle
-    phy_idle(phy);
+    phy_idle(platform_phy);
 
     // Free polling packet
     if (radio.poll.serial_pkt)
@@ -191,8 +191,8 @@ static int32_t radio_sniffer(uint8_t cmd_type, packet_t *pkt)
     phy_prepare_packet(radio.sniff.pkt_buf + radio.sniff.pkt_index);
 
     // Start listening
-    phy_set_channel(phy, radio.current_channel);
-    phy_status_t ret = phy_rx(phy, 0,
+    phy_set_channel(platform_phy, radio.current_channel);
+    phy_status_t ret = phy_rx(platform_phy, 0,
             soft_timer_time() + soft_timer_ms_to_ticks(500),
             radio.sniff.pkt_buf + radio.sniff.pkt_index, sniff_rx);
     if (ret != PHY_SUCCESS)
@@ -221,7 +221,7 @@ static void sniff_rx(phy_status_t status)
     radio.sniff.pkt_index = (radio.sniff.pkt_index + 1) % 2;
 
     // Enter RX again
-    phy_status_t ret = phy_rx(phy, 0,
+    phy_status_t ret = phy_rx(platform_phy, 0,
             soft_timer_time() + soft_timer_ms_to_ticks(500),
             radio.sniff.pkt_buf + radio.sniff.pkt_index, sniff_rx);
 
@@ -270,7 +270,7 @@ static void sniff_send_to_serial(handler_arg_t arg)
 
 static void sniff_switch_channel(handler_arg_t arg)
 {
-    phy_idle(phy);
+    phy_idle(platform_phy);
 
     // Select next channel
     do
@@ -283,8 +283,8 @@ static void sniff_switch_channel(handler_arg_t arg)
     } while ((radio.channels & (1 << radio.current_channel)) == 0);
 
     // Enter RX on new channel
-    phy_set_channel(phy, radio.current_channel);
-    phy_status_t ret = phy_rx(phy, 0,
+    phy_set_channel(platform_phy, radio.current_channel);
+    phy_status_t ret = phy_rx(platform_phy, 0,
             soft_timer_time() + soft_timer_ms_to_ticks(500),
             radio.sniff.pkt_buf + radio.sniff.pkt_index, sniff_rx);
     if (ret != PHY_SUCCESS)
@@ -347,7 +347,7 @@ static int32_t radio_polling(uint8_t cmd_type, packet_t *pkt)
     }
 
     // Set Channel
-    phy_set_channel(phy, channel);
+    phy_set_channel(platform_phy, channel);
 
     // Start Timer
     soft_timer_set_handler(&radio.period_tim, poll_time, NULL);
@@ -361,7 +361,7 @@ static void poll_time(handler_arg_t arg)
 {
     int32_t ed = 0;
     uint32_t timestamp = iotlab_control_convert_time(soft_timer_time());
-    phy_ed(phy, &ed);
+    phy_ed(platform_phy, &ed);
 
     // Get packet if required
     if (radio.poll.serial_pkt == NULL)
@@ -483,8 +483,8 @@ static int32_t radio_injection(uint8_t cmd_type, packet_t *pkt)
     radio.injection.current_pkts_on_channel = 0;
 
     // Wake PHY and configure
-    phy_set_channel(phy, radio.current_channel);
-    phy_set_power(phy, phy_convert_power(tx_power));
+    phy_set_channel(platform_phy, radio.current_channel);
+    phy_set_power(platform_phy, phy_convert_power(tx_power));
 
     // Start sending timer
     soft_timer_set_handler(&radio.period_tim, injection_time, NULL);
@@ -498,7 +498,7 @@ static int32_t radio_injection(uint8_t cmd_type, packet_t *pkt)
 
 static void injection_time(handler_arg_t arg)
 {
-    if (phy_tx_now(phy, &radio.injection.pkt, injection_tx_done) != PHY_SUCCESS)
+    if (phy_tx_now(platform_phy, &radio.injection.pkt, injection_tx_done) != PHY_SUCCESS)
     {
         log_error("Failed to send injection packet");
     }
@@ -523,7 +523,7 @@ static void injection_tx_done(phy_status_t status)
             }
         } while ((radio.channels & (1 << radio.current_channel)) == 0);
 
-        phy_set_channel(phy, radio.current_channel);
+        phy_set_channel(platform_phy, radio.current_channel);
 
         log_info("Injecting %u packets on channel %u",
                 radio.injection.num_pkts_per_channel, radio.current_channel);
@@ -583,7 +583,7 @@ static int32_t radio_jamming(uint8_t cmd_type, packet_t *pkt)
     radio.jam.tx_power = phy_convert_power(tx_power);
 
     // Start jamming
-    phy_jam(phy, radio.current_channel, radio.jam.tx_power);
+    phy_jam(platform_phy, radio.current_channel, radio.jam.tx_power);
 
     if (channel_period)
     {
@@ -609,8 +609,8 @@ static void jam_change_channel_time(handler_arg_t arg)
     } while ((radio.channels & (1 << radio.current_channel)) == 0);
 
     // Re-Jam
-    phy_idle(phy);
-    phy_jam(phy, radio.current_channel, radio.jam.tx_power);
+    phy_idle(platform_phy);
+    phy_jam(platform_phy, radio.current_channel, radio.jam.tx_power);
 
     log_info("Jamming on channel %u", radio.current_channel);
 }

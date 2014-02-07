@@ -41,7 +41,7 @@ static void rx_done(phy_status_t status);
 static phy_packet_t pkt;
 
 #if 1
-#define PHY phy
+#define PHY platform_phy
 #else
 extern phy_t phy_868;
 #define PHY phy_868

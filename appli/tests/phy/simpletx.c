@@ -41,7 +41,7 @@ static phy_packet_t pkt;
 static soft_timer_t tim;
 
 #if 1
-#define PHY phy
+#define PHY platform_phy
 #else
 extern phy_t phy_868;
 #define PHY phy_868

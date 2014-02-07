@@ -86,11 +86,11 @@ int main()
 static void enter_rx(handler_arg_t arg)
 {
     // Set PHY IDLE, then enter RX
-    phy_idle(phy);
-    phy_set_channel(phy, RADIO_CHANNEL);
+    phy_idle(platform_phy);
+    phy_set_channel(platform_phy, RADIO_CHANNEL);
     // Prepare packet and start RX
     phy_prepare_packet(&rx_packet);
-    phy_rx_now(phy, &rx_packet, rx_done);
+    phy_rx_now(platform_phy, &rx_packet, rx_done);
 }
 
 static void rx_done(phy_status_t status)
@@ -122,7 +122,7 @@ static void process_rx_packet(handler_arg_t arg)
 static void send_packet(handler_arg_t arg)
 {
     // Set IDLE
-    phy_idle(phy);
+    phy_idle(platform_phy);
 
     // Prepare the packet and place
     phy_prepare_packet(&tx_packet);
@@ -134,13 +134,13 @@ static void send_packet(handler_arg_t arg)
 
     // Perform a CCA
     int32_t cca;
-    phy_cca(phy, &cca);
+    phy_cca(platform_phy, &cca);
 
     if (cca)
     {
         // Channel is clear
         // Send
-        phy_tx_now(phy, &tx_packet, tx_done);
+        phy_tx_now(platform_phy, &tx_packet, tx_done);
         printf("Sending Packet, count=%u\n", tx_count);
 
         // Increment counter

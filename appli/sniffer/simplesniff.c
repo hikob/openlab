@@ -67,10 +67,10 @@ void test_task(void *arg)
     printf("PHY Simple Sniffer\n");
 
     // Reset
-    phy_reset(phy);
+    phy_reset(platform_phy);
 
     // Set channel
-    phy_set_channel(phy, 12);
+    phy_set_channel(platform_phy, 12);
 
     portTickType next_switch = xTaskGetTickCount();
     int current_channel_ix = 0;
@@ -78,10 +78,10 @@ void test_task(void *arg)
     {
         next_switch += CHAN_PERIOD;
         // Reset RX
-        phy_idle(phy);
+        phy_idle(platform_phy);
 
         // Set current channel
-        phy_set_channel(phy, channels[current_channel_ix]);
+        phy_set_channel(platform_phy, channels[current_channel_ix]);
 
         // Send message
         // Send startup sequence
@@ -95,7 +95,7 @@ void test_task(void *arg)
 
         // Set RX
         rx_pkt.data = rx_pkt.raw_data + 1;
-        phy_rx_now(phy, &rx_pkt, rx_done);
+        phy_rx_now(platform_phy, &rx_pkt, rx_done);
 
         // Get a packet from the queue
         while (xQueueReceive(rx_queue, &pkt, next_switch - xTaskGetTickCount())
@@ -111,7 +111,7 @@ void test_task(void *arg)
 
             // Set RX
             rx_pkt.data = rx_pkt.raw_data + 1;
-            phy_rx_now(phy, &rx_pkt, rx_done);
+            phy_rx_now(platform_phy, &rx_pkt, rx_done);
         }
 
         // Increment channel
@@ -126,7 +126,7 @@ static void rx_done(phy_status_t status)
     if (status != PHY_SUCCESS)
     {
         // Reset RX
-        phy_rx_now(phy, &rx_pkt, rx_done);
+        phy_rx_now(platform_phy, &rx_pkt, rx_done);
         return;
     }
 
