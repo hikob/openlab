@@ -37,6 +37,9 @@
 /* UART declaration */
 uart_t uart_print = UART_1;
 
+/* I2C instantiation */
+i2c_t i2c_external = I2C_2;
+
 void platform_drivers_setup()
 {
     // Set base address and AHB bit for all GPIO ports
@@ -74,6 +77,11 @@ void platform_drivers_setup()
     gpio_set_i2c_scl(GPIO_B, GPIO_PIN_6);
     gpio_set_i2c_sda(GPIO_B, GPIO_PIN_7);
     i2c_enable(I2C_1, I2C_CLOCK_MODE_FAST);
+
+    // Configure the I2C2
+    gpio_set_i2c_scl(GPIO_B, GPIO_PIN_10);
+    gpio_set_i2c_sda(GPIO_B, GPIO_PIN_11);
+    i2c_enable(I2C_2, I2C_CLOCK_MODE_FAST);
 
     // Force inclusion of EXTI
     exti_set_handler(EXTI_LINE_Px0, NULL, NULL);
@@ -138,6 +146,16 @@ void i2c1_ev_isr()
 void i2c1_er_isr()
 {
     i2c_handle_er_interrupt(I2C_1);
+}
+
+void i2c2_ev_isr()
+{
+    i2c_handle_ev_interrupt(I2C_2);
+}
+
+void i2c2_er_isr()
+{
+    i2c_handle_er_interrupt(I2C_2);
 }
 
 void dma1_channel4_isr()

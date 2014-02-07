@@ -79,3 +79,6 @@ add_subdirectory(imu)
 
 # Add the lwip tests
 add_subdirectory(lwip)
+
+# Add the i2c_slave directory
+add_subdirectory(i2c_slave)

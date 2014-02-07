@@ -37,6 +37,9 @@
 /* UART declaration */
 uart_t uart_print = UART_1;
 
+/* I2C instantiation */
+i2c_t i2c_external = I2C_1;
+
 void platform_drivers_setup()
 {
     // Set base address and AHB bit for all GPIO ports

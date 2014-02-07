@@ -77,6 +77,11 @@ extern uart_t uart_external;
 extern phy_t phy;
 
 /**
+ * Reference to the external I2C driver
+ */
+extern i2c_t i2c_external;
+
+/**
  * Initialize the platform.
  *
  * This should setup the clocks, the LEDs,

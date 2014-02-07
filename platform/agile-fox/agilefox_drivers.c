@@ -49,6 +49,9 @@ _sdio_t _sdio;
 /* SDIO declaration */
 sdio_t sdio = &_sdio;
 
+/* I2C instantiation */
+i2c_t i2c_external = I2C_1;
+
 void platform_drivers_setup()
 {
     gpio_t sdio_gpio[6] =

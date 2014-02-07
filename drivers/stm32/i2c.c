@@ -32,6 +32,10 @@
 #include "i2c_registers.h"
 #include "nvic_.h"
 
+#ifdef I2C__SLAVE_SUPPORT
+#include "i2c_slave.h"
+#endif
+
 #define LOG_LEVEL LOG_LEVEL_DEBUG
 #include "printf.h"
 #include "debug.h"
@@ -100,6 +104,8 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode)
     *i2c_get_TRISE(_i2c) = 0;
     *i2c_get_SR1(_i2c) = 0;
     *i2c_get_SR2(_i2c) = 0;
+    *i2c_get_OAR1(_i2c) = 0;
+    *i2c_get_OAR2(_i2c) = 0;
 
     // Release SWRST
     *i2c_get_CR1(_i2c) = 0;
@@ -144,12 +150,12 @@ void i2c_enable(i2c_t i2c, i2c_clock_mode_t mode)
 
     /* Step 4: program the CR1 register to enable the peripheral */
 
-    // Set I2C mode, enable ACK and enable I2C
-    *i2c_get_CR1(_i2c) = I2C_CR1__ACK | I2C_CR1__PE;
+    // Enable I2C
+    *i2c_get_CR1(_i2c) = I2C_CR1__PE;
 
-    // Enable EV and BUF interrupt
-    *i2c_get_CR2(_i2c) |= I2C_CR2__ITEVTEN | I2C_CR2__ITBUFEN
-                          | I2C_CR2__ITERREN;
+    // Enable EVT and ERR interrupt
+    // Note: do not enable BUF to avoid stm32f problem
+    *i2c_get_CR2(_i2c) |= I2C_CR2__ITEVTEN | I2C_CR2__ITERREN;
 
     // Initialize I2C state
     _i2c->data->state = I2C_IDLE;
@@ -196,6 +202,32 @@ unsigned i2c_tx_rx_async(i2c_t i2c, uint8_t addr, const uint8_t *tx_buffer,
 
     return res;
 }
+
+#ifdef I2C__SLAVE_SUPPORT
+void i2c_slave_configure(i2c_t i2c, i2c_slave_handler_t handler)
+{
+    const _i2c_t *_i2c = i2c;
+
+    _i2c->data->slave_handler = handler;
+    if (handler)
+    {
+        // Enable address ACK
+        *i2c_get_CR1(_i2c) |= I2C_CR1__ACK;
+    }
+    else
+    {
+        // Disable address ACK
+        *i2c_get_CR1(_i2c) &= ~I2C_CR1__ACK;
+    }
+}
+
+void i2c_slave_set_address(i2c_t i2c, uint8_t addr)
+{
+    const _i2c_t *_i2c = i2c;
+
+    *i2c_get_OAR1(_i2c) = addr & 0xfe;
+}
+#endif
 
 void i2c_handle_ev_interrupt(const _i2c_t *_i2c)
 {
@@ -245,15 +277,16 @@ void i2c_handle_ev_interrupt(const _i2c_t *_i2c)
         // Disable Buffer Interrupt
         *i2c_get_CR2(_i2c) &= ~I2C_CR2__ITBUFEN;
 
+        // Enable ACK
         *i2c_get_CR1(_i2c) |= I2C_CR1__ACK;
 
         data->state = I2C_SENDING_ADDRESS;
     }
 
-    if (sr1 & I2C_SR1__ADDR)
+    if (sr1 & I2C_SR1__ADDR && data->state == I2C_SENDING_ADDRESS)
     {
         // ** EV6 **
-        // Address byte has been sent.
+        // Master mode: Address byte has been sent.
         // The flag is cleared after reading both SR1 and SR2
 
         // Send the first byte if any
@@ -357,26 +390,51 @@ void i2c_handle_ev_interrupt(const _i2c_t *_i2c)
         // we may have written into DR
         return;
     }
+#ifdef I2C__SLAVE_SUPPORT
+    else if (sr1 & I2C_SR1__ADDR && (data->state == I2C_IDLE ||
+                (data->state == I2C_SL_RX && !(sr1 & I2C_SR1__RXNE))))
+    {
+        // ** EV1 **
+        // Slave mode: Address byte has been acknowledged.
+
+        // Clear the flag by reading SR2.
+        sr2 = *i2c_get_SR2(_i2c);
+
+        // Disable Buffer Interrupt
+        *i2c_get_CR2(_i2c) &= ~I2C_CR2__ITBUFEN;
+
+        if (sr2 & I2C_SR2__TRA)
+        {
+            uint8_t byte = 0;
+            // we will send data
+            data->state = I2C_SL_TX;
+            if (data->slave_handler)
+            {
+                data->slave_handler(I2C_SLAVE_EV_TX_START, NULL);
+                data->slave_handler(I2C_SLAVE_EV_TX_BYTE, &byte);
+            }
+
+            //send the first byte
+            *i2c_get_DR(_i2c) = byte;
+        }
+        else
+        {
+            // we will receive data
+            data->state = I2C_SL_RX;
+            if (data->slave_handler)
+            {
+                data->slave_handler(I2C_SLAVE_EV_RX_START, NULL);
+            }
+        }
+
+        return;
+    }
+#endif
 
     if (sr1 & I2C_SR1__ADD10)
     {
         // This should not happen as we do not handle 10-bits addresses
         log_error("ADD10 interrupt!");
-
-        // Set stop bit to stop transfer
-        *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
-
-        // Update State
-        tx_rx_end(_i2c, I2C_ERROR);
-        return;
-    }
-
-    if (sr1 & I2C_SR1__STOPF)
-    {
-        // This should not happen as we are in master mode
-        log_error("STOPF interrupt!");
-        uint8_t x = *i2c_get_CR1(_i2c);
-        *i2c_get_CR1(_i2c) = x;
 
         // Set stop bit to stop transfer
         *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
@@ -494,6 +552,18 @@ void i2c_handle_ev_interrupt(const _i2c_t *_i2c)
                 }
             }
         }
+#ifdef I2C__SLAVE_SUPPORT
+        else if (data->state == I2C_SL_RX)
+        {
+            if (sr1 & I2C_SR1__BTF || ((sr1 & I2C_SR1__ADDR) && (sr1 & I2C_SR1__TXE)))
+            {
+                // ** EV2 **
+                // read the byte into the buffer
+                uint8_t byte = *i2c_get_DR(_i2c);
+                data->slave_handler(I2C_SLAVE_EV_RX_BYTE, &byte);
+            }
+        }
+#endif
     }
 
     if (sr1 & I2C_SR1__TXE)
@@ -538,8 +608,61 @@ void i2c_handle_ev_interrupt(const _i2c_t *_i2c)
                 // Stay in the I2C_SENDING_DATA state
             }
         }
+#ifdef I2C__SLAVE_SUPPORT
+        else if (data->state == I2C_SL_TX)
+        {
+            // ** EV3 **
+            uint8_t byte;
+            // request the byte to send
+            data->slave_handler(I2C_SLAVE_EV_TX_BYTE, &byte);
+            *i2c_get_DR(_i2c) = byte;
+        }
+#endif
+    }
 
-        // If we are not sending data, do nothing
+
+    if (sr1 & I2C_SR1__STOPF)
+    {
+        switch (data->state)
+        {
+#ifdef I2C__SLAVE_SUPPORT
+            case I2C_SL_RX:
+                if (sr1 & I2C_SR1__RXNE)
+                {
+                    // it remains exactly 1 byte to read
+                    // since we have already read the buffer one (if any)
+                    uint8_t byte = *i2c_get_DR(_i2c);
+                    if (data->slave_handler)
+                    {
+                        data->slave_handler(I2C_SLAVE_EV_RX_BYTE, &byte);
+                    }
+                }
+                sr1 = *i2c_get_SR1(_i2c);
+                *i2c_get_CR1(_i2c) &= ~I2C_CR1__STOP;
+                data->state = I2C_IDLE;
+                if (data->slave_handler)
+                {
+                    data->slave_handler(I2C_SLAVE_EV_STOP, NULL);
+                }
+                break;
+            case I2C_SL_TX:
+                log_error("STOPF interrupt!");
+                data->state = I2C_IDLE;
+                break;
+#endif
+            default:
+                // This should not happen as we are in master mode
+                log_error("STOPF interrupt!");
+                uint8_t x = *i2c_get_CR1(_i2c);
+                *i2c_get_CR1(_i2c) = x;
+
+                // Set stop bit to stop transfer
+                *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;
+
+                // Update State
+                tx_rx_end(_i2c, I2C_ERROR);
+                break;
+        }
     }
 }
 
@@ -548,9 +671,6 @@ void i2c_handle_er_interrupt(const _i2c_t *_i2c)
     uint16_t sr1 = *i2c_get_SR1(_i2c);
     uint16_t sr2 = *i2c_get_SR2(_i2c);
     (void) sr2; // clear defined but not used warning warning
-
-    log_error("I2C ERROR, CR1: %x, CR2: %x, SR1: %x, SR2: %x, state: %x",
-            *i2c_get_CR1(_i2c), *i2c_get_CR2(_i2c), sr1, sr2, _i2c->data->state);
 
     if (sr1 & I2C_SR1__BERR)
     {
@@ -566,6 +686,18 @@ void i2c_handle_er_interrupt(const _i2c_t *_i2c)
 
     if (sr1 & I2C_SR1__AF)
     {
+#ifdef I2C__SLAVE_SUPPORT
+        if (_i2c->data->state == I2C_SL_TX)
+        {
+            *i2c_get_SR1(_i2c) &= ~I2C_SR1__AF;
+            _i2c->data->state = I2C_IDLE;
+            if (_i2c->data->slave_handler)
+            {
+                _i2c->data->slave_handler(I2C_SLAVE_EV_STOP, NULL);
+            }
+            return;
+        }
+#endif
         log_error("Acknowledge Failure");
         *i2c_get_SR1(_i2c) &= ~I2C_SR1__AF;
     }
@@ -593,6 +725,9 @@ void i2c_handle_er_interrupt(const _i2c_t *_i2c)
         log_error("SMBAlert");
         *i2c_get_SR1(_i2c) &= ~I2C_SR1__SMBALERT;
     }
+
+    log_error("I2C ERROR, CR1: %x, CR2: %x, SR1: %x, SR2: %x, state: %x",
+            *i2c_get_CR1(_i2c), *i2c_get_CR1(_i2c), sr1, sr2, _i2c->data->state);
 
     // Set stop bit to stop transfer
     *i2c_get_CR1(_i2c) |= I2C_CR1__STOP;

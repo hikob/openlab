@@ -43,6 +43,11 @@ set(PLATFORM_HAS_SOFTTIM 1)
 set(PLATFORM_HAS_USB 1)
 set(PLATFORM_HAS_TSCH 1)
 set(PLATFORM_HAS_CSMA 1)
+set(PLATFORM_HAS_I2C_EXTERNAL 1)
+
+#uncomment to add i2c slave support
+#set(PLATFORM_HAS_I2C_SLAVE 1)
+#set(MY_C_FLAGS "${MY_C_FLAGS} -DI2C__SLAVE_SUPPORT")
 
 # Flags for daughter boards
 set(PLATFORM_HAS_UBLOX 1)

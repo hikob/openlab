@@ -35,6 +35,10 @@
 #include "gpio.h"
 #include "handler.h"
 
+#ifdef I2C__SLAVE_SUPPORT
+#include "i2c_slave.h"
+#endif
+
 typedef enum
 {
     I2C_IDLE = 0,
@@ -43,7 +47,11 @@ typedef enum
     I2C_SENDING_DATA = 3,
     I2C_RECEIVING_DATA = 4,
     I2C_SENDING_RESTART = 5,
-    I2C_ERROR = 6
+    I2C_ERROR = 6,
+#ifdef I2C__SLAVE_SUPPORT
+    I2C_SL_TX,
+    I2C_SL_RX,
+#endif
 } i2c_state_t;
 
 typedef struct
@@ -63,6 +71,9 @@ typedef struct
     // Non-blocking end-transfer handler
     result_handler_t transfer_handler;
     handler_arg_t transfer_handler_arg;
+#ifdef I2C__SLAVE_SUPPORT
+    i2c_slave_handler_t slave_handler;
+#endif
 } _i2c_data_t;
 
 typedef struct
