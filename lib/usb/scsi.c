@@ -324,10 +324,10 @@ static scsi_cmdret_t scsi_cmd_test_unit_ready(scsi_params_t scsi_params)
 
 static scsi_cmdret_t scsi_cmd_mode_select6(scsi_params_t scsi_params)
 {
-    uint8_t pf = (scsi_params.cmd[1] & 0x10) >> 4;
-    uint8_t sp = (scsi_params.cmd[1] & 0x01);
-    uint8_t param_list_length = (scsi_params.cmd[4]);
-    uint8_t control = (scsi_params.cmd[5]);
+    uint8_t pf __attribute__((__unused__)) = (scsi_params.cmd[1] & 0x10) >> 4;
+    uint8_t sp __attribute__((__unused__)) = (scsi_params.cmd[1] & 0x01);
+    uint8_t param_list_length __attribute__((__unused__)) = (scsi_params.cmd[4]);
+    uint8_t control __attribute__((__unused__)) = (scsi_params.cmd[5]);
 
     log_warning("SCSI Mode Select lun %d, (%x, %x, %x, %x), unimplemented", scsi_params.lun, pf, sp, param_list_length, control);
 
@@ -341,7 +341,7 @@ static scsi_cmdret_t scsi_cmd_mode_select6(scsi_params_t scsi_params)
 static scsi_cmdret_t scsi_cmd_read_format_capacities(scsi_params_t scsi_params)
 {
     uint16_t allocation_length = scsi_params.cmd[7] << 4 & scsi_params.cmd[8];
-    uint8_t control = scsi_params.cmd[9];
+    uint8_t control __attribute__((__unused__)) = scsi_params.cmd[9];
 
     if (allocation_length == 0)
     {
@@ -362,13 +362,13 @@ static scsi_cmdret_t scsi_cmd_read_format_capacities(scsi_params_t scsi_params)
 
 static scsi_cmdret_t scsi_cmd_start_stop_unit(scsi_params_t scsi_params)
 {
-    uint8_t immed 					 = (scsi_params.cmd[1] & 0x01	  );
-    uint8_t power_condition_modifier = (scsi_params.cmd[3] & 0x0F	  );
-    uint8_t power_condition			 = (scsi_params.cmd[4] & 0xF0) >> 4;
-    uint8_t no_flush				 = (scsi_params.cmd[4] & 0x04) >> 2;
-    uint8_t loej					 = (scsi_params.cmd[4] & 0x02) >> 1;
-    uint8_t start					 = (scsi_params.cmd[4] & 0x01     );
-    uint8_t control 				 = (scsi_params.cmd[5]			  );
+    uint8_t immed 						 = (scsi_params.cmd[1] & 0x01);
+    uint8_t power_condition_modifier __attribute__((__unused__)) = (scsi_params.cmd[3] & 0x0F);
+    uint8_t power_condition __attribute__((__unused__)) 	 = (scsi_params.cmd[4] & 0xF0) >> 4;
+    uint8_t no_flush __attribute__((__unused__)) 		 = (scsi_params.cmd[4] & 0x04) >> 2;
+    uint8_t loej __attribute__((__unused__)) 			 = (scsi_params.cmd[4] & 0x02) >> 1;
+    uint8_t start __attribute__((__unused__)) 			 = (scsi_params.cmd[4] & 0x01);
+    uint8_t control __attribute__((__unused__)) 		 = (scsi_params.cmd[5]);
 
     if (immed == 0)
     {
