@@ -205,10 +205,6 @@ void platform_exit_critical();
  * int32_t platform_should_start_watchdog();
  */
 
-#ifndef PLATFORM_UART_PRINT_BAUDRATE
-#define PLATFORM_UART_PRINT_BAUDRATE 500000
-#endif
-
 /**
  * @}
  * @}

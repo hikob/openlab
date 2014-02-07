@@ -32,6 +32,11 @@
 
 #include "rf2xx.h"
 
+/* Set default uart_print to 5000000Bd */
+#ifndef PLATFORM_UART_PRINT_BAUDRATE
+#define PLATFORM_UART_PRINT_BAUDRATE 500000
+#endif
+
 /* Peripherals */
 extern rf2xx_t rf212, rf231;
 

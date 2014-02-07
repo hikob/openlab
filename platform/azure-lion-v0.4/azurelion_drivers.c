@@ -84,7 +84,7 @@ void platform_drivers_setup()
     // Enable the print uart
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_9);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_10);
-    uart_enable(UART_1, 500000);
+    uart_enable(UART_1, PLATFORM_UART_PRINT_BAUDRATE);
 
     // Configure the UART2 (for gateway)
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_2);

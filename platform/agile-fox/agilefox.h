@@ -33,6 +33,11 @@
 #include "sdio.h"
 #include "rf2xx.h"
 
+/* Set default uart_print to 5000000Bd */
+#ifndef PLATFORM_UART_PRINT_BAUDRATE
+#define PLATFORM_UART_PRINT_BAUDRATE 500000
+#endif
+
 extern sdio_t sdio;
 
 /* Peripherals */

@@ -31,6 +31,11 @@
 #include "stm32f1xx.h"
 #include "rf2xx.h"
 
+/* Set default uart_print to 115200Bd */
+#ifndef PLATFORM_UART_PRINT_BAUDRATE
+#define PLATFORM_UART_PRINT_BAUDRATE 115200
+#endif
+
 /* Peripheral */
 extern rf2xx_t rf231;
 

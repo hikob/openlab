@@ -67,7 +67,7 @@ void platform_drivers_setup()
     // Enable the UART_2 (debug)
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_2);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_3);
-    uart_enable(UART_2, 115200);
+    uart_enable(UART_2, PLATFORM_UART_PRINT_BAUDRATE);
 
     // Configure the UART1 for PGA control
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_9);
