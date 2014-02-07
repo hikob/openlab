@@ -46,3 +46,6 @@ add_subdirectory(libprintf)
 
 # Add the fat32 directory
 add_subdirectory(fat32)
+
+# Add the tdma directory
+add_subdirectory(tdma)

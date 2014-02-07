@@ -33,12 +33,18 @@
 #include "rf2xx.h"
 #include "phy_rf2xx/phy_rf2xx.h"
 #include "mac_csma.h"
+#include "mac_tdma.h"
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231;
 phy_t platform_phy = &phy_rf231;
 
 const mac_csma_config_t mac_csma_config =
+{
+    .phy = &phy_rf231,
+};
+
+const mac_tdma_config_t mac_tdma_config =
 {
     .phy = &phy_rf231,
 };

@@ -28,10 +28,16 @@
 #include "fiteco-a8.h"
 
 #include "phy_rf2xx/phy_rf2xx.h"
+#include "mac_tdma.h"
 
 /* Phy Instantiation */
 static phy_rf2xx_t phy_rf231;
 phy_t platform_phy = &phy_rf231;
+
+const mac_tdma_config_t mac_tdma_config =
+{
+    .phy = &phy_rf231,
+};
 
 void platform_net_setup()
 {
