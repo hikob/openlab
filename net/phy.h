@@ -198,8 +198,8 @@ typedef struct
     /** The length of the data of interest, starting at \ref data */
     uint8_t length;
 
-    /** The buffer holding the maximum PHY packet size */
-    uint8_t raw_data[PHY_MAX_RX_LENGTH];
+    /** The buffer holding the maximum PHY packet size and LQI byte*/
+    uint8_t raw_data[PHY_MAX_RX_LENGTH + 1];
 
     /** The RSSI reading of a received packet */
     int8_t rssi;
