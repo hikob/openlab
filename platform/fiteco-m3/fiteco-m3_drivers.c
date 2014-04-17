@@ -58,9 +58,9 @@ void platform_drivers_setup()
     timer_start(TIM_3, 0xFFFF, NULL, NULL);
 
     // Enable the print uart
+    uart_enable(UART_1, PLATFORM_UART_PRINT_BAUDRATE);
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_9);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_10);
-    uart_enable(UART_1, PLATFORM_UART_PRINT_BAUDRATE);
 
     // Configure the DMA for the SPIs
     dma_enable(DMA_1_CH2);

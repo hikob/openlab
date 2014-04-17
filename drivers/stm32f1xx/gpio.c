@@ -215,7 +215,8 @@ void gpio_set_uart_rx(gpio_t gpio, gpio_pin_t pin)
 }
 void gpio_set_uart_tx(gpio_t gpio, gpio_pin_t pin)
 {
-    // Set output
+    // Set output in uart idle level (high)
+    gpio_pin_set(gpio, pin);
     gpio_set_output(gpio, pin);
     // Set push pull
     gpio_config_output_type(gpio, pin, GPIO_TYPE_PUSH_PULL);
