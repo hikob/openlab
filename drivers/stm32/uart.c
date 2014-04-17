@@ -123,7 +123,6 @@ void uart_set_rx_handler(uart_t uart, uart_handler_t handler, handler_arg_t arg)
     if (handler)
     {
         *uart_get_CR1(_uart) |= UART_CR1__RXNEIE;
-        *uart_get_CR1(_uart) |= UART_CR3__EIE;
     }
     else
     {
