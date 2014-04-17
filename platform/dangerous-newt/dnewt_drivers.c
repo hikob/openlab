@@ -65,14 +65,14 @@ void platform_drivers_setup()
     timer_start(TIM_3, 0xFFFF, NULL, NULL);
 
     // Enable the UART_2 (debug)
+    uart_enable(UART_2, PLATFORM_UART_PRINT_BAUDRATE);
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_2);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_3);
-    uart_enable(UART_2, PLATFORM_UART_PRINT_BAUDRATE);
 
     // Configure the UART1 for PGA control
+    uart_enable(UART_1, 114000);
     gpio_set_uart_tx(GPIO_A, GPIO_PIN_9);
     gpio_set_uart_rx(GPIO_A, GPIO_PIN_10);
-    uart_enable(UART_1, 114000);
 
     // Configure DMA1 Channel 4 (SPI2 RX) and DMA1 Channel 5 (SPI2 TX)
     dma_enable(DMA_1_CH4);
