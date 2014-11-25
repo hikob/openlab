@@ -25,4 +25,10 @@ if (${PLATFORM_HAS_TDMA})
     add_executable(example_tdma_node example_tdma_node)
     target_link_libraries(example_tdma_node mac_tdma platform)
 
+    add_executable(example_tdma_coord_static example_tdma_coord_static)
+    target_link_libraries(example_tdma_coord_static mac_tdma platform)
+
+    add_executable(example_tdma_node_cb example_tdma_node_cb)
+    target_link_libraries(example_tdma_node_cb mac_tdma platform)
+
 endif (${PLATFORM_HAS_TDMA})

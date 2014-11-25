@@ -47,13 +47,6 @@ enum tdma_state
     TDMA_COORD = 0x20,
 };
 
-enum tdma_slot_type
-{
-    TDMA_SLOT_EMPTY,
-    TDMA_SLOT_RX,
-    TDMA_SLOT_TX,
-};
-
 enum tdma_status
 {
     TDMA_STATUS_IDLE,
@@ -78,16 +71,39 @@ struct tdma_frame
 
 struct tdma_global
 {
-    mac_tdma_pan_config_t pan;
+    // Our address
     uint16_t addr;
-    uint16_t coord;
+    // The Network config
+    struct
+    {
+        // the Network ID
+        uint16_t panid;
+        // the coordinator address
+        uint16_t coord;
+        // the slot duration in 100us unit
+        uint8_t slot_duration;
+        // the number of slot
+        uint8_t slot_count;
+        // the channel
+        uint8_t channel;
+    } pan;
+    // Request bandwidth (in slot/s)
+    uint8_t bandwidth;
     enum tdma_state state;
     tdma_frame_t *tx_frames;
     tdma_frame_t *beacon_frame;
     tdma_frame_handler_t rx_handler;
     tdma_frame_handler_t tx_handler;
     mac_tdma_rx_handler_t data_rx_handler;
-    int16_t  tx_slot;
+    mac_tdma_sl_callback_t slot_cb;
+    /* current number of slots */
+    uint8_t tx_slots;
+    /*
+     * This array is used by the mac the select when to listen and when to send
+     * 0x0000 => no-op slot
+     * our_addr => tx slot
+     * others (including 0xffff) => rx slot
+     */
     uint16_t slots[TDMA_MAX_SLOTS];
 };
 

@@ -61,7 +61,7 @@ void tdma_frame_free (tdma_frame_t *frame);
 /*
  * Send a frame
  */
-int tdma_frame_send(uint16_t dst, tdma_frame_t *frame);
+int tdma_frame_send (tdma_frame_t *frame);
 
 /*
  * Print a frame
@@ -84,9 +84,9 @@ int tdma_slot_start (uint32_t start_time);
 void tdma_slot_stop (void);
 
 /*
- * Configure a slot
+ * Configure a slot owner
  */
-void tdma_slot_configure(uint8_t id, enum tdma_slot_type type, uint16_t addr);
+void tdma_slot_configure(uint8_t id, uint16_t owner);
 
 /*
  * Print the slots-frame

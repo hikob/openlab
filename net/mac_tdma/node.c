@@ -49,7 +49,7 @@ static void scan_handler(tdma_frame_t *frame);
 static void node_timeout(handler_arg_t arg);
 static void send_association_request ();
 
-void mac_tdma_start_node(uint8_t channel, uint16_t panid)
+void mac_tdma_start_node(const mac_tdma_node_config_t *cfg)
 {
     tdma_get();
 
@@ -61,9 +61,10 @@ void mac_tdma_start_node(uint8_t channel, uint16_t panid)
     }
 
     /* register config */
-    tdma_data.coord = 0;
-    tdma_data.pan.panid = panid;
-    tdma_data.pan.channel = channel;
+    tdma_data.pan.coord = 0;
+    tdma_data.pan.panid = cfg->panid;
+    tdma_data.pan.channel = cfg->channel;
+    tdma_data.bandwidth = cfg->bandwidth;
 
     tdma_data.beacon_frame = NULL;
     tdma_data.state = TDMA_SCAN;
@@ -87,7 +88,7 @@ static void node_timeout (handler_arg_t arg)
 {
     // unused
     (void) arg;
-    
+
     tdma_frame_t *f,*p;
 
     tdma_get();
@@ -141,7 +142,7 @@ static void node_timeout (handler_arg_t arg)
 
     /* change state */
     tdma_data.tx_frames = NULL;
-    tdma_data.coord = 0;
+    tdma_data.pan.coord = 0;
     tdma_data.state = TDMA_SCAN;
 
     tdma_release();
@@ -157,7 +158,7 @@ static void scan_start(handler_arg_t arg)
 {
     // unused
     (void) arg;
-    
+
     tdma_get();
 
     log_info("Start to scan on channel %u", tdma_data.pan.channel);
@@ -183,28 +184,36 @@ static void scan_handler(tdma_frame_t *frame)
         //tdma_frame_print(frame);
         tdma_packet_t *pkt = (tdma_packet_t *) frame->pkt.data;
         tdma_packet_header_decode(pkt);
-        if (tdma_packet_is_ok(pkt, tdma_data.pan.panid, 0xffff) && pkt->header.type == TDMA_PKT_BEACON
+        if (tdma_packet_is_ok(pkt, tdma_data.pan.panid, 0xffff) && tdma_packet_header_type(pkt) == TDMA_PKT_BEACON
                 && frame->pkt.length == TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_BEACON +
-                    TDMA_PKT_SIZE_ASSOC_IND * pkt->payload.beacon.assoc_count)
+                    2 * pkt->payload.beacon.slot_desc_cnt)
         {
             /* compute start of frame time */
             uint32_t time = frame->pkt.timestamp;
+            uint8_t i;
 
             /* start slots-frame */
             log_info("Scanned beacon from 0x%04x : %u*%uus",
                     pkt->header.src, pkt->payload.beacon.slot_count,
                     TDMA_SLOT_DURATION_FACTOR_US * pkt->payload.beacon.slot_duration);
-            tdma_data.coord = pkt->header.src;
+            tdma_data.pan.coord = pkt->header.src;
             tdma_data.pan.slot_count = pkt->payload.beacon.slot_count;
             tdma_data.pan.slot_duration = pkt->payload.beacon.slot_duration;
             tdma_data.rx_handler = node_rx_handler;
             tdma_slot_start(time);
 
             /* add rx slot */
-            tdma_slot_configure(0, TDMA_SLOT_RX, tdma_data.coord);
+            tdma_slot_configure(0, tdma_data.pan.coord);
 
-            /* add tx slot */
-            tdma_slot_configure(1, TDMA_SLOT_TX, tdma_data.coord);
+            /* add temporary tx slot to do association */
+            for (i = 0; i < pkt->payload.beacon.slot_desc_cnt; i++)
+            {
+                if (pkt->payload.beacon.slot_desc_own[i] == 0xffff)
+                {
+                    tdma_slot_configure(pkt->payload.beacon.slot_desc_off + i, tdma_data.addr);
+                    break;
+                }
+            }
 
             /* wait random slots-frames */
             time = ((soft_timer_time() ^ random_rand16()) % (1 + TDMA_ASSOC_BACKOFF_WINDOW));
@@ -232,10 +241,30 @@ static void send_association_request ()
     tdma_packet_t *pkt = (tdma_packet_t *) node_frame.pkt.data;
     tdma_frame_prepare(&node_frame);
     phy_prepare_packet(&node_frame.pkt);
-    tdma_packet_header_prepare(pkt, TDMA_PKT_ASSOC_REQ, tdma_data.pan.panid, tdma_data.addr, tdma_data.coord);
-    node_frame.pkt.length = TDMA_PKT_SIZE_HEADER;
+    tdma_packet_header_prepare(pkt, TDMA_PKT_ASSOC, tdma_data.pan.panid, tdma_data.addr, tdma_data.pan.coord);
 
-    log_debug("Sending association request to %04x", tdma_data.coord);
+    /* compute number of slots to be requested */
+    {
+        unsigned n = tdma_data.pan.slot_duration; // n in 10e-4 sec
+        n *= tdma_data.pan.slot_count;// n in 10e-4 sec/frame
+        n *= tdma_data.bandwidth;// n in 10e-4 slot/frame
+        n += (1000000 / TDMA_SLOT_DURATION_FACTOR_US) - 1;
+        n /= (1000000 / TDMA_SLOT_DURATION_FACTOR_US); // n in slot/frame
+        if (n > 255)
+        {
+            n = 255;
+        }
+        if (n == 0)
+        {
+            n = 1;
+        }
+        pkt->payload.assoc.slots = n;
+    }
+
+    node_frame.pkt.length = TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_ASSOC;
+
+    log_debug("Sending association request to %04x for %u/%u slots",
+            tdma_data.pan.coord, pkt->payload.assoc.slots, tdma_data.pan.slot_count);
     tdma_data.tx_frames = &node_frame;
 
     tdma_data.state = TDMA_ASSOC;
@@ -264,7 +293,7 @@ static void node_rx_handler(tdma_frame_t *frame)
 {
     tdma_packet_t *pkt = (tdma_packet_t *) frame->pkt.data;
     //tdma_frame_print(frame);
-    switch (pkt->header.type)
+    switch (tdma_packet_header_type(pkt))
     {
         case TDMA_PKT_DATA:
             if (tdma_data.state == TDMA_NODE)
@@ -275,15 +304,15 @@ static void node_rx_handler(tdma_frame_t *frame)
             break;
         case TDMA_PKT_BEACON:
             if (frame->pkt.length != TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_BEACON
-                    + TDMA_PKT_SIZE_ASSOC_IND * pkt->payload.beacon.assoc_count)
+                    + 2 * pkt->payload.beacon.slot_desc_cnt)
             {
-                log_error("Bad length packet for type %d", pkt->header.type);
+                log_error("Bad length packet for type %d", tdma_packet_header_type(pkt));
                 break;
             }
             event_post(EVENT_QUEUE_APPLI, node_beacon, frame);
             return;
         default:
-            log_warning("Received frame of unexpected type %u", pkt->header.type);
+            log_warning("Received frame of unexpected type %u", tdma_packet_header_type(pkt));
             break;
     }
 
@@ -301,36 +330,52 @@ static void node_beacon(handler_arg_t arg)
 
     tdma_get();
 
-    if (tdma_data.coord == pkt->header.src)
+    if (tdma_data.pan.coord == pkt->header.src)
     {
         log_debug("Received beacon");
 
         /* update time */
         tdma_slot_update_frame_start (frame->pkt.timestamp);
 
+        /* unpack all beacon */
+        for (i = 0; i < pkt->payload.beacon.slot_desc_cnt; i++)
+        {
+            pkt->payload.beacon.slot_desc_own[i] = packer_uint16_ntoh(pkt->payload.beacon.slot_desc_own[i]);
+        }
+
         switch (tdma_data.state)
         {
             case TDMA_ASSOC:
                 /* check for slot indication */
-                for (i = 0; i < pkt->payload.beacon.assoc_count; i++)
+                for (i = 0; i < pkt->payload.beacon.slot_desc_cnt; i++)
                 {
-                    if (tdma_data.addr == packer_uint16_ntoh(pkt->payload.beacon.assoc_ind[i].addr))
+                    if (tdma_data.addr == pkt->payload.beacon.slot_desc_own[i])
                     {
-                        log_info("Received assoc indication for slot %u", pkt->payload.beacon.assoc_ind[i].slot);
-
-                        /* replace broadcast slot by ours */
-                        tdma_slot_configure(1, TDMA_SLOT_EMPTY, 0);
-                        tdma_slot_configure(pkt->payload.beacon.assoc_ind[i].slot, TDMA_SLOT_TX, tdma_data.coord);
-
-                        /* update state and timeout */
+                        // we have a slot => we are connected
                         tdma_data.state = TDMA_NODE;
-                        soft_timer_start(&timeout_timer, 3 * TDMA_BEACON_PERIOD_S * SOFT_TIMER_FREQUENCY, 0);
+                        break;
                     }
                 }
-                break;
+
+                // stop here if not connected
+                if (tdma_data.state != TDMA_NODE)
+                {
+                    break;
+                }
 
             case TDMA_NODE:
+                // update timeout
                 soft_timer_start(&timeout_timer, 3 * TDMA_BEACON_PERIOD_S * SOFT_TIMER_FREQUENCY, 0);
+                for (i = 0; i < pkt->payload.beacon.slot_desc_cnt; i++)
+                {
+                    uint16_t addr = pkt->payload.beacon.slot_desc_own[i];
+                    // ignore brodcast slot since we have our own slot
+                    if (addr == 0xffff)
+                    {
+                        addr = 0;
+                    }
+                    tdma_slot_configure(pkt->payload.beacon.slot_desc_off + i, addr);
+                }
                 break;
 
             default:

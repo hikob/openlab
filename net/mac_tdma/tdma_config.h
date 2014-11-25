@@ -18,7 +18,7 @@
  */
 
 /*
- * tdmac_onfig.h
+ * tdma_config.h
  *
  * \date Jan 09, 2013
  * \author: Damien Hedde <damien.hedde.at.hikob.com>
@@ -28,7 +28,7 @@
 #define MAC_TDMA_CONFIG_H_
 
 /* maximum size of slots-frame */
-#define TDMA_MAX_SLOTS 20
+#define TDMA_MAX_SLOTS 50
 
 /* maximium number of frames */
 #define MAC_TDMA_MAX_FRAMES 10

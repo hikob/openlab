@@ -52,6 +52,11 @@ typedef void (*mac_tdma_rx_handler_t)(packet_t *, uint16_t);
 typedef void (*mac_tdma_tx_callback_t)(void *cb_arg, enum tdma_result);
 
 /**
+ * Callback type for slot callback.
+ */
+typedef void (*mac_tdma_sl_callback_t)(uint8_t slot_id, uint32_t time);
+
+/**
  * MAC configuration structure.
  */
 typedef struct
@@ -60,15 +65,37 @@ typedef struct
 } mac_tdma_config_t;
 
 /**
- * Panid configuration structure.
+ * Coordinator configuration structure.
  */
 typedef struct
 {
+    // Network id
     uint16_t panid;
+    // Slot duration in 100us unit
     uint8_t slot_duration;
+    // Total number of slot
     uint8_t slot_count;
+    // Channel
     uint8_t channel;
-} mac_tdma_pan_config_t;
+    // Optional static slotsframe description
+    // must be NULL or an array of slot_count size
+    // [0] should be the coord addr
+    // and it should contain 1 (and only 1) 0xffff slot
+    const uint16_t *slotsframe;
+} mac_tdma_coord_config_t;
+
+/**
+ * Node configuration structure.
+ */
+typedef struct
+{
+    // Network id
+    uint16_t panid;
+    // Output bandwidth in pkt/s
+    uint8_t bandwidth;
+    // Channel
+    uint8_t channel;
+} mac_tdma_node_config_t;
 
 extern const mac_tdma_config_t mac_tdma_config;
 
@@ -87,14 +114,14 @@ void mac_tdma_init(uint16_t addr);
  * \param channel the channel to use
  * \param panid the network panid
  */
-void mac_tdma_start_node(uint8_t channel, uint16_t panid);
+void mac_tdma_start_node(const mac_tdma_node_config_t *cfg);
 
 /**
  * Start as coordinator.
  *
  * \param cfg a pointer to the network configuration
  */
-void mac_tdma_start_coord(const mac_tdma_pan_config_t *cfg);
+void mac_tdma_start_coord(const mac_tdma_coord_config_t *cfg);
 
 /*
  * Set data packet callback.
@@ -133,5 +160,15 @@ uint16_t mac_tdma_get_address (void);
  * Get the coordinator address when connected.
  */
 uint16_t mac_tdma_get_coordinator (void);
+
+/*
+ * Register a slot callback.
+ * It will be called in NETWORK TASK QUEUE.
+ * It should used with care and should be short to avoid breaking the tdma timings.
+ * the callback takes 2 parameters:
+ *  + the slot id (starting from 0)
+ *  + the time (soft_timer) at which it starts.
+ */
+void mac_tdma_set_slot_callback(mac_tdma_sl_callback_t cb);
 
 #endif /* MAC_TDMA_H_ */

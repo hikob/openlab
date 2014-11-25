@@ -77,37 +77,30 @@ void tdma_frame_free (tdma_frame_t *frame)
     frames = frame;
 }
 
-int tdma_frame_send (uint16_t dst, tdma_frame_t *frame)
+int tdma_frame_send (tdma_frame_t *frame)
 {
-    /* find a slot */
-    if (tdma_data.tx_slot < 0)
+    if (tdma_data.tx_slots == 0)
     {
-        log_error("No Tx slot");
+        log_error("No slot for Tx");
         return 1;
     }
 
-    if (tdma_data.slots[tdma_data.tx_slot] == dst || tdma_data.slots[tdma_data.tx_slot] == 0xffff)
+    /* add frame in queue */
+    tdma_frame_t *f = tdma_data.tx_frames;
+    if (f)
     {
-        /* add frame in queue */
-        tdma_frame_t *f = tdma_data.tx_frames;
-        if (f)
+        while (f->next)
         {
-            while (f->next)
-            {
-                f = f->next;
-            }
-            f->next = frame;
+            f = f->next;
         }
-        else
-        {
-            tdma_data.tx_frames = frame;
-        }
-        frame->next = NULL;
-        return 0;
+        f->next = frame;
     }
-
-    log_error("Can't find a slot for Tx to 0x%04x", dst);
-    return 1;
+    else
+    {
+        tdma_data.tx_frames = frame;
+    }
+    frame->next = NULL;
+    return 0;
 }
 
 void tdma_frame_print(tdma_frame_t *frame)
@@ -117,21 +110,24 @@ void tdma_frame_print(tdma_frame_t *frame)
     __attribute__((__unused__)) uint16_t panid = packer_uint16_ntoh(pkt->header.panid);
     __attribute__((__unused__)) uint16_t src = packer_uint16_ntoh(pkt->header.src);
     __attribute__((__unused__)) uint16_t dst = packer_uint16_ntoh(pkt->header.dst);
-    log_printf("Packet L:%u M:%08x N:%04x S:%04x D:%04x T:%u\n",
+    log_printf("Packet L:%u M:%08x N:%04x S:%04x D:%04x V:%u T:%u\n",
             frame->pkt.length,
             magic, panid, src, dst,
-            pkt->header.type);
-    switch (pkt->header.type)
+            tdma_packet_header_version(pkt),
+            tdma_packet_header_type(pkt));
+    switch (tdma_packet_header_type(pkt))
     {
         int i;
         case TDMA_PKT_BEACON:
             log_printf("\t->beacon %u*%u\n", pkt->payload.beacon.slot_count, pkt->payload.beacon.slot_duration);
-            for (i = 0; i < pkt->payload.beacon.assoc_count; i++)
+            for (i = 0; i < pkt->payload.beacon.slot_desc_cnt; i++)
             {
-                log_printf("\t->slot %u for %04x\n", pkt->payload.beacon.assoc_ind[i].slot, pkt->payload.beacon.assoc_ind[i].addr);
+                log_printf("\t->slot %u for %04x\n", pkt->payload.beacon.slot_desc_off + i,
+                        packer_uint16_ntoh(pkt->payload.beacon.slot_desc_own[i]));
             }
             break;
-        case TDMA_PKT_ASSOC_REQ:
+        case TDMA_PKT_ASSOC:
+            log_printf("\t->assoc request for %u slots\n", pkt->payload.assoc.slots);
             break;
         default:
             break;

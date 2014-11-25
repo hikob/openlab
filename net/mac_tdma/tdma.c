@@ -67,6 +67,7 @@ void mac_tdma_init (uint16_t addr)
     /* Init structure */
     tdma_data.addr = addr;
     tdma_data.state = TDMA_IDLE;
+    tdma_data.slot_cb = NULL;
 }
 
 void tdma_get ()
@@ -114,5 +115,10 @@ uint16_t mac_tdma_get_address ()
 
 uint16_t mac_tdma_get_coordinator ()
 {
-    return tdma_data.coord;
+    return tdma_data.pan.coord;
+}
+
+void mac_tdma_set_slot_callback(mac_tdma_sl_callback_t cb)
+{
+    tdma_data.slot_cb = cb;
 }

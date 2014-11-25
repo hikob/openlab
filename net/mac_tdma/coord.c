@@ -24,6 +24,8 @@
  * \author: Damien Hedde <damien.hedde.at.hikob.com>
  */
 
+#include <string.h>
+
 #include "soft_timer.h"
 
 #include "tdma_internal.h"
@@ -39,12 +41,14 @@ static soft_timer_t beacon_timer;
 static tdma_frame_t beacon_frame;
 static uint32_t beacon_time;
 
+static int slotsframe_is_static;
+
 static void coord_rx_handler(tdma_frame_t *frame);
 static void coord_tx_handler(tdma_frame_t *frame);
 static void beacon_tick(handler_arg_t arg);
 static void coord_assoc(handler_arg_t arg);
 
-void mac_tdma_start_coord(const mac_tdma_pan_config_t *cfg)
+void mac_tdma_start_coord(const mac_tdma_coord_config_t *cfg)
 {
     tdma_packet_t *packet;
     tdma_get();
@@ -63,7 +67,12 @@ void mac_tdma_start_coord(const mac_tdma_pan_config_t *cfg)
     }
 
     /* register config */
-    memcpy(&tdma_data.pan, cfg, sizeof(tdma_data.pan));
+    tdma_data.pan.coord = tdma_data.addr;
+    tdma_data.pan.panid = cfg->panid;
+    tdma_data.pan.slot_duration = cfg->slot_duration;
+    tdma_data.pan.slot_count = cfg->slot_count;
+    tdma_data.pan.channel = cfg->channel;
+
     tdma_data.rx_handler = &coord_rx_handler;
     tdma_data.tx_handler = &coord_tx_handler;
 
@@ -89,12 +98,53 @@ void mac_tdma_start_coord(const mac_tdma_pan_config_t *cfg)
     tdma_packet_header_prepare(packet, TDMA_PKT_BEACON, tdma_data.pan.panid, tdma_data.addr, 0xffff);
     packet->payload.beacon.slot_duration = tdma_data.pan.slot_duration;
     packet->payload.beacon.slot_count = tdma_data.pan.slot_count;
-    packet->payload.beacon.assoc_count = 0;
+    packet->payload.beacon.slot_desc_off = 0;
     beacon_frame.pkt.length = TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_BEACON;
 
-    /* add broadcast tx/rx slot */
-    tdma_slot_configure(0, TDMA_SLOT_TX, 0xffff);
-    tdma_slot_configure(1, TDMA_SLOT_RX, 0xffff);
+
+    if (!cfg->slotsframe)
+    {
+        /* dynamic slotsframe => default slots */
+        slotsframe_is_static = 0;
+        tdma_slot_configure(0, tdma_data.addr); // Tx
+        tdma_slot_configure(tdma_data.pan.slot_count / 2, 0xffff); // Rx
+    }
+    else
+    {
+        unsigned i,bdcast = 0;
+        /* static slotsframe */
+        slotsframe_is_static = 1;
+
+        /* check first slot */
+        if (cfg->slotsframe[0] != tdma_data.addr)
+        {
+            log_error("Invalid slots-frame: slot0's owner isn't coordinator");
+            tdma_slot_stop();
+            tdma_release();
+            return;
+        }
+        tdma_slot_configure(0, tdma_data.addr); // Tx
+
+        /* add other slots */
+        for (i= 1; i < tdma_data.pan.slot_count; i += 1)
+        {
+            uint16_t owner = cfg->slotsframe[i];
+            if (owner == 0xffff)
+            {
+                bdcast += 1;
+            }
+            tdma_slot_configure(i, owner);
+        }
+
+        /* check broadcast slots */
+        if (bdcast != 1)
+        {
+            log_error("Invalid slots-frame: there's %u broadcast RX slot(s)", bdcast);
+            tdma_slot_stop();
+            tdma_release();
+            return;
+        }
+    }
     tdma_slot_print();
 
     /* start beacons */
@@ -104,12 +154,29 @@ void mac_tdma_start_coord(const mac_tdma_pan_config_t *cfg)
     soft_timer_start(&beacon_timer, TDMA_BEACON_PERIOD_S * SOFT_TIMER_FREQUENCY, 1);
 
     /* change state */
-    tdma_data.coord = tdma_data.addr;
     tdma_data.tx_frames = NULL;
     tdma_data.beacon_frame = NULL;
     tdma_data.state = TDMA_COORD;
 
     tdma_release();
+}
+
+/*
+ * Prepare a beacon
+ */
+static void beacon_prepare(void)
+{
+    /* TODO: handle big slotframes size */
+    uint8_t i;
+    tdma_packet_t *pkt = (tdma_packet_t *) &beacon_frame.pkt.raw_data[0];
+    for (i = 0; i < tdma_data.pan.slot_count && i < 50; i++)
+    {
+        pkt->payload.beacon.slot_desc_own[i] = packer_uint16_hton(tdma_data.slots[i]);
+    }
+    pkt->payload.beacon.slot_desc_off = 0;
+    pkt->payload.beacon.slot_desc_cnt = i;
+    beacon_frame.pkt.length = TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_BEACON + 2U * i;
+    tdma_data.beacon_frame = &beacon_frame;
 }
 
 /*
@@ -133,7 +200,7 @@ static void beacon_tick(handler_arg_t arg)
     }
 
     /* add beacon */
-    tdma_data.beacon_frame = &beacon_frame;
+    beacon_prepare();
 
     tdma_release();
 }
@@ -144,7 +211,7 @@ static void beacon_tick(handler_arg_t arg)
 static void coord_tx_handler(tdma_frame_t *frame)
 {
     tdma_packet_t *pkt = (tdma_packet_t *) frame->pkt.data;
-    switch (pkt->header.type)
+    switch (tdma_packet_header_type(pkt))
     {
         case TDMA_PKT_BEACON:
             /* reset the beacon frame */
@@ -153,14 +220,14 @@ static void coord_tx_handler(tdma_frame_t *frame)
             tdma_packet_header_prepare(pkt, TDMA_PKT_BEACON, tdma_data.pan.panid, tdma_data.addr, 0xffff);
             pkt->payload.beacon.slot_duration = tdma_data.pan.slot_duration;
             pkt->payload.beacon.slot_count = tdma_data.pan.slot_count;
-            pkt->payload.beacon.assoc_count = 0;
+            pkt->payload.beacon.slot_desc_cnt = 0;
             beacon_frame.pkt.length = TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_BEACON;
             break;
         case TDMA_PKT_DATA:
             event_post(EVENT_QUEUE_APPLI, (handler_t) tdma_data_tx_handler, frame);
             break;
         default:
-            log_error("Unexpected tx frame type %d", pkt->header.type);
+            log_error("Unexpected tx frame type %d", tdma_packet_header_type(pkt));
             break;
     }
 }
@@ -172,27 +239,25 @@ static void coord_rx_handler(tdma_frame_t *frame)
 {
     tdma_packet_t *pkt = (tdma_packet_t *) frame->pkt.data;
     //tdma_frame_print(frame);
-    switch (pkt->header.type)
+    switch (tdma_packet_header_type(pkt))
     {
         case TDMA_PKT_DATA:
             event_post(EVENT_QUEUE_APPLI, (handler_t) tdma_data_rx_handler, frame);
             return;
-            break;
-        case TDMA_PKT_ASSOC_REQ:
-            if (frame->pkt.length != TDMA_PKT_SIZE_HEADER)
+        case TDMA_PKT_ASSOC:
+            if (frame->pkt.length != TDMA_PKT_SIZE_HEADER + TDMA_PKT_SIZE_ASSOC)
             {
-                log_error("Bad length packet for type %d", pkt->header.type);
+                log_error("Bad length packet for type %d", tdma_packet_header_type(pkt));
                 break;
             }
             event_post(EVENT_QUEUE_APPLI, coord_assoc, frame);
             return;
-            break;
         default:
-            log_warning("Received frame of unexpected type %u", pkt->header.type);
-            tdma_frame_free(frame);
+            log_warning("Received frame of unexpected type %u", tdma_packet_header_type(pkt));
             break;
     }
 
+    // Droping frame
     tdma_frame_free(frame);
 }
 
@@ -204,10 +269,19 @@ static void coord_assoc(handler_arg_t arg)
     tdma_frame_t *frame = (tdma_frame_t *) arg;
     tdma_packet_t *pkt = (tdma_packet_t *) frame->pkt.data;
     uint16_t addr = pkt->header.src;
-    int id, eid;
+    uint8_t request = pkt->payload.assoc.slots;
+    uint8_t delta_slot, i;
+    unsigned id;
 
     tdma_get();
     tdma_frame_free(frame);
+
+    if (slotsframe_is_static)
+    {
+        log_info("Ignoring associate request because slots-frame is static");
+        tdma_release();
+        return;
+    }
 
     /* check address */
     if (addr == 0x0000 ||
@@ -219,6 +293,14 @@ static void coord_assoc(handler_arg_t arg)
         return;
     }
 
+    /* check slots */
+    if (!request)
+    {
+        tdma_release();
+        log_error("Bad associate request with 0 slots");
+        return;
+    }
+
     /* beacon frame not idle, should bot happen */
     if (beacon_frame.status != TDMA_STATUS_IDLE)
     {
@@ -227,51 +309,53 @@ static void coord_assoc(handler_arg_t arg)
         return;
     }
 
-    /* search for existing or free slot */
-    eid = -1;
-    for (id = 0; id < tdma_data.pan.slot_count; id++)
+    /* estimate delat_slot to allocate slot 'not in group' */
+    delta_slot = tdma_data.pan.slot_count / request;
+
+    /* first count the current slot of this node and register the last one index */
+    id = 0;
+    for (i = 0; i < tdma_data.pan.slot_count; i++)
     {
-        if (id == tdma_data.tx_slot)
+        if (tdma_data.slots[i] == addr)
         {
-            continue;
+            log_warning("0x%x has already slot %d", addr, i);
+            id = i;
+            if (!--request)
+            {
+                break;
+            }
         }
-        if (tdma_data.slots[id] == addr)
+    }
+
+    while (request)
+    {
+        // compute next slot id base on last one
+        uint8_t base = (id + delta_slot) % tdma_data.pan.slot_count;
+        id = base;
+        while (tdma_data.slots[id])
+        {
+            id = (id + 1) % tdma_data.pan.slot_count;
+            if (id == base)
+            {
+                // no more slot available
+                break;
+            }
+        }
+        if (tdma_data.slots[id])
         {
             break;
         }
-        if (tdma_data.slots[id] == 0)
-        {
-            eid = id;
-        }
+        tdma_slot_configure(id, addr);
+        request -= 1;
     }
 
-    /* configure slot */
-    if (id >= tdma_data.pan.slot_count)
+    if (request)
     {
-        id = eid;
-        if (id < 0)
-        {
-            log_error("Can't associate 0x%x, slots-frame is full", addr);
-            tdma_release();
-            return;
-        }
-        tdma_slot_configure(id, TDMA_SLOT_RX, addr);
-        log_info("Added slot %d for 0x%x", id, addr);
+        log_warning("slotframe is full, %u slots remains unallocated", request);
     }
-    else
-    {
-        log_warning("0x%x has already slot %d", addr, id);
-    }
-
-    /* add assoc indication to next beacon */
-    pkt = (tdma_packet_t *) beacon_frame.pkt.data;
-    pkt->payload.beacon.assoc_ind[pkt->payload.beacon.assoc_count].addr = packer_uint16_hton(addr);
-    pkt->payload.beacon.assoc_ind[pkt->payload.beacon.assoc_count].slot = id;
-    pkt->payload.beacon.assoc_count += 1;
-    beacon_frame.pkt.length += TDMA_PKT_SIZE_ASSOC_IND;
 
     /* program beacon to be sent */
-    tdma_data.beacon_frame = &beacon_frame;
+    beacon_prepare();
 
     tdma_release();
 }

@@ -70,7 +70,7 @@ enum tdma_result mac_tdma_send(packet_t *pkt, uint16_t dst, mac_tdma_tx_callback
     /* fill frame */
     if (dst == 0x0000)
     {
-        dst = tdma_data.coord;
+        dst = tdma_data.pan.coord;
     }
     tdma_pkt = (tdma_packet_t *) &frame->pkt.raw_data[0];
     tdma_packet_header_prepare(tdma_pkt, TDMA_PKT_DATA, tdma_data.pan.panid, tdma_data.addr, dst);
@@ -86,7 +86,7 @@ enum tdma_result mac_tdma_send(packet_t *pkt, uint16_t dst, mac_tdma_tx_callback
         log_error("Can't send frame, network is disonnected");
         return TDMA_FAILED;
     }
-    if (tdma_frame_send(dst, frame))
+    if (tdma_frame_send(frame))
     {
         tdma_frame_free(frame);
         tdma_release();

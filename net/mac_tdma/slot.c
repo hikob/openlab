@@ -28,6 +28,7 @@
 
 #include "platform.h"
 #include "soft_timer.h"
+#include "softtimer/soft_timer_.h"
 
 #include "tdma_internal.h"
 #include "tdma_packet.h"
@@ -66,8 +67,9 @@ static void slot_scan_handler(phy_status_t status);
 
 void tdma_slot_init ()
 {
+    soft_timer_config_priority(EVENT_QUEUE_NETWORK);
     soft_timer_set_handler(&sf_data.timer, handle_slot, NULL);
-    soft_timer_set_event_priority(&sf_data.timer, EVENT_QUEUE_APPLI);
+    soft_timer_set_event_priority(&sf_data.timer, EVENT_QUEUE_NETWORK);
 }
 
 int tdma_slot_start (uint32_t start)
@@ -81,12 +83,12 @@ int tdma_slot_start (uint32_t start)
         return 1;
     }
 
+    tdma_data.tx_slots = 0;
     for (id = 0; id < tdma_data.pan.slot_count; id++)
     {
         tdma_data.slots[id] = 0x0000;
     }
 
-    tdma_data.tx_slot = -1;
     sf_data.frame = NULL;
     sf_data.beacon_backoff = 0;
     sf_data.frame_duration = soft_timer_us_to_ticks(TDMA_SLOT_DURATION_FACTOR_US * tdma_data.pan.slot_duration * tdma_data.pan.slot_count);
@@ -145,48 +147,49 @@ void tdma_slot_print ()
     for (i = 0; i < tdma_data.pan.slot_count; i++)
     {
         __attribute__((__unused__)) char c = 'R';
-        if (i == tdma_data.tx_slot)
-        {
-            c = 'T';
-        }
-        else if (tdma_data.slots[i] == 0)
+        if (tdma_data.slots[i] == 0)
         {
             continue;
+        }
+        else if (tdma_data.slots[i] == tdma_data.addr)
+        {
+            c = 'T';
         }
         log_printf("Slot %d\t%c 0x%04x\n", i, c, tdma_data.slots[i]);
     }
 }
 
-void tdma_slot_configure(uint8_t id, enum tdma_slot_type type, uint16_t addr)
+void tdma_slot_configure(uint8_t id, uint16_t owner)
 {
+    uint16_t prev;
     if (id >= TDMA_MAX_SLOTS)
     {
         return;
     }
-    if (tdma_data.tx_slot == id)
+
+    prev = tdma_data.slots[id];
+    if (owner != 0 && prev != 0 && prev != owner)
     {
-        tdma_data.tx_slot = -1;
+        log_warning("Changing slot[%u] owner from %04x to %04x", id, prev, owner);
     }
-    switch (type)
+
+    /*
+     * TODO: protect the 'tx_slots' modif with a mutex ?
+     * not necessary while slot_configure call is called
+     * in the same event_queue.
+     */
+    if (owner == tdma_data.addr)
     {
-        case TDMA_SLOT_EMPTY:
-            tdma_data.slots[id] = 0;
-            break;
-        case TDMA_SLOT_RX:
-            tdma_data.slots[id] = addr;
-            break;
-        case TDMA_SLOT_TX:
-            if (tdma_data.tx_slot >= 0)
-            {
-                log_warning("Overriding previous tx slot %u", tdma_data.tx_slot);
-                tdma_data.slots[tdma_data.tx_slot] = 0;
-            }
-            tdma_data.slots[id] = addr;
-            tdma_data.tx_slot = id;
-            break;
-        default:
-            log_error("Unknown slot type %d", type);
-            break;
+        tdma_data.tx_slots += 1;
+    }
+    if (prev == tdma_data.addr)
+    {
+        tdma_data.tx_slots -= 1;
+    }
+    tdma_data.slots[id] = owner;
+    if (prev != owner)
+    {
+        log_info("Set slot[%u] to %04x (TX:%u)", id, owner, tdma_data.tx_slots);
     }
 }
 
@@ -200,11 +203,13 @@ static void handle_slot(handler_arg_t arg)
 
     uint32_t time;
     uint8_t index;
+    uint16_t owner;
     tdma_get();
 
     time = sf_data.slot_time;
 
     index = sf_data.next_index;
+
     /* update index */
     if (1 + index >= tdma_data.pan.slot_count)
     {
@@ -236,9 +241,10 @@ static void handle_slot(handler_arg_t arg)
     }
 
     /* do the slot things */
-    if (tdma_data.slots[index] != 0x0000)
+    owner = tdma_data.slots[index];
+    if (owner != 0x0000)
     {
-        if (tdma_data.tx_slot == index)
+        if (owner == tdma_data.addr)
         {
             slot_tx(index, time);
         }
@@ -249,6 +255,14 @@ static void handle_slot(handler_arg_t arg)
     }
 
     tdma_release();
+
+    /*
+     * Call callback
+     */
+    if (tdma_data.slot_cb)
+    {
+        tdma_data.slot_cb(index, time);
+    }
 }
 
 /*

@@ -35,16 +35,19 @@
 #include "debug.h"
 
 /*
- * coordinator configuration
+ * coordinator configuration:
+ * + network ID 0x6666
+ * + channel 21
+ * + 10 slots of 10ms each
  */
-static mac_tdma_pan_config_t cfg = {
+static mac_tdma_coord_config_t cfg = {
     /* network id */
     .panid = 0x6666,
     /* phy channel */
     .channel = 21,
     /* slot duration in tdma time unit (default 1unit = 100us) */
     .slot_duration = 100,
-    /* number of slots (the coordinator can have count-2 nodes) */
+    /* number of slots (the coordinator can handle up to count-2 nodes) */
     .slot_count = 10,
 };
 
@@ -59,7 +62,12 @@ int main()
 {
     platform_init();
 
-    /* init tdma (0 means automatically generated address) */
+    /*
+     * init tdma:
+     * + a 16-bit address for this node
+     *   0x0000: automatically generated address
+     *   [0x0001;0xfffe]: user defined address
+     */
     mac_tdma_init(0);
 
     /* start coordinator */

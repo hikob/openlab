@@ -18,9 +18,9 @@
  */
 
 /*
- * example_tdma_node.c
+ * example_tdma_node_cb.c
  *
- * \brief Example of TDMA node
+ * \brief Example of TDMA node with a user-callback on slot
  *
  * \date Jan 09, 2013
  * \author: Damien Hedde <damien.hedde.at.hikob.com>
@@ -38,13 +38,13 @@
  * node configuration:
  * + network ID 0x6666
  * + channel 21
- * + requested bandwidth (to the coordinator) 20 packets/second
+ * + requested bandwidth (to the coordinator) 0 packets/second
  */
 static mac_tdma_node_config_t cfg = {
     /* network id */
     .panid = 0x6666,
     /* bandwidth in pkt/s */
-    .bandwidth = 20,
+    .bandwidth = 0,
     /* phy channel */
     .channel = 21,
 };
@@ -56,19 +56,19 @@ static void pkt_tick(handler_arg_t arg);
 static void pkt_sent(void *arg, enum tdma_result res);
 static void pkt_received(packet_t *packet, uint16_t src);
 
+static void slot_callback(uint8_t id, uint32_t time);
+static void slot_callback_print(handler_arg_t arg);
+
 int main()
 {
     platform_init();
 
-    /*
-     * init tdma:
-     * + a 16-bit address for this node
-     *   0x0000: automatically generated address
-     *   [0x0001;0xfffe]: user defined address
-     */
-    mac_tdma_init(0);
+    /* init tdma with automatically generated address */
+    mac_tdma_init(0x0001);
 
-    /* start node */
+    mac_tdma_set_slot_callback(slot_callback);
+
+    /* start node to look for network on channel 21 with panid 0x6666 */
     mac_tdma_start_node(&cfg);
 
     /* register data packet handler */
@@ -162,3 +162,15 @@ static void pkt_received(packet_t *packet, uint16_t src)
     packet_free(packet);
 }
 
+static void slot_callback(uint8_t id, uint32_t time)
+{
+    (void) time;
+    event_post(EVENT_QUEUE_APPLI, slot_callback_print, (void *) (uintptr_t) id);
+}
+
+static void slot_callback_print(handler_arg_t arg)
+{
+    unsigned id = (uintptr_t) arg;
+    (void) id;
+    log_printf("Slot %u\n", id);
+}
