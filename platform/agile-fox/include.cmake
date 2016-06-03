@@ -58,3 +58,6 @@ set(PLATFORM_HAS_EXTSYNC 1)
 endif( ${EXTERNAL_SYNCHRO} )
 
 include(${PROJECT_SOURCE_DIR}/platform/include-cm3.cmake)
+
+set(BLACKMAGIC_VSUPPLY 3.3)
+set(BLACKMAGIC_VIO 3.3)
