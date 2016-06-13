@@ -110,6 +110,17 @@ endif ( ${GIT_HASH_RESULT} STREQUAL "0" )
 # Remove dynamic linking
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 
+## Handle flash/debug method
+if    (NOT DEFINED FLASH_TARGET)
+    set(FLASH_TARGET "openocd")
+endif (NOT DEFINED FLASH_TARGET)
+
+if     (${FLASH_TARGET} STREQUAL "openocd")
+    include(${PROJECT_SOURCE_DIR}/platform/include-openocd.cmake)
+elseif (${FLASH_TARGET} STREQUAL "blackmagic")
+    include(${PROJECT_SOURCE_DIR}/platform/include-blackmagic.cmake)
+endif  (${FLASH_TARGET} STREQUAL "openocd")
+
 # Set compiler and linker flags
 set(MY_C_FLAGS "${MY_C_FLAGS} -O${OPT}")
 set(MY_C_FLAGS "${MY_C_FLAGS} -Wall")
